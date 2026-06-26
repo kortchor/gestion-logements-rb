@@ -1,0 +1,333 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function ModifierCollaborateur({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [collab, setCollab] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
+    email: '',
+    telephone: '',
+    genre: 'F',
+    date_arrivee: '',
+    date_depart: '',
+    date_debut_contrat: '',
+    date_fin_contrat: '',
+    vehicule: false,
+    animal: false,
+    commentaire: '',
+    centre_principal: '',
+    centre_affectation: '',
+  });
+
+  const genres = ['F', 'M'];
+
+  useEffect(() => {
+    async function fetchCollaborateur() {
+      try {
+        const response = await fetch(`/api/collaborateurs?id=${params.id}`);
+        const data = await response.json();
+        if (data.success) {
+          const c = data.data;
+          setCollab(c);
+          setFormData({
+            nom: c.nom || '',
+            prenom: c.prenom || '',
+            email: c.email || '',
+            telephone: c.telephone || '',
+            genre: c.genre || 'F',
+            date_arrivee: c.date_arrivee ? c.date_arrivee.split('T')[0] : '',
+            date_depart: c.date_depart ? c.date_depart.split('T')[0] : '',
+            date_debut_contrat: c.date_debut_contrat ? c.date_debut_contrat.split('T')[0] : '',
+            date_fin_contrat: c.date_fin_contrat ? c.date_fin_contrat.split('T')[0] : '',
+            vehicule: c.vehicule || false,
+            animal: c.animal || false,
+            commentaire: c.commentaire || '',
+            centre_principal: c.centre_principal || '',
+            centre_affectation: c.centre_affectation || '',
+          });
+        } else {
+          setError('Collaborateur non trouvé');
+        }
+      } catch (err) {
+        setError('Erreur de chargement');
+      }
+    }
+    fetchCollaborateur();
+  }, [params.id]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/collaborateurs/${params.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('✅ Collaborateur modifié avec succès !');
+        router.push('/collaborateurs');
+        router.refresh();
+      } else {
+        setError(result.error || 'Erreur lors de la modification');
+      }
+    } catch (err) {
+      setError('Erreur de connexion');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!collab && !error) {
+    return (
+      <div className="container mx-auto p-8 text-center">
+        <p className="text-gray-500">Chargement...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          ❌ {error}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-8 max-w-2xl">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">✏️ Modifier le collaborateur</h1>
+        <a
+          href="/collaborateurs"
+          className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors no-underline"
+        >
+          ← Retour
+        </a>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Genre */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Genre *</label>
+            <select
+              name="genre"
+              required
+              value={formData.genre}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="F">👩 Femme</option>
+              <option value="M">👨 Homme</option>
+            </select>
+          </div>
+
+          {/* Nom */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+            <input
+              type="text"
+              name="nom"
+              required
+              value={formData.nom}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Prénom */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+            <input
+              type="text"
+              name="prenom"
+              required
+              value={formData.prenom}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              name="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Téléphone */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+            <input
+              type="tel"
+              name="telephone"
+              value={formData.telephone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Centre principal */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">🏢 Centre principal</label>
+            <input
+              type="text"
+              name="centre_principal"
+              value={formData.centre_principal}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Roches Blanches Cassis"
+            />
+          </div>
+
+          {/* Centre affectation */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📍 Centre affectation physique</label>
+            <input
+              type="text"
+              name="centre_affectation"
+              value={formData.centre_affectation}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Résidence Birnie"
+            />
+          </div>
+
+          {/* Date d'arrivée */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'arrivée (logement) *</label>
+            <input
+              type="date"
+              name="date_arrivee"
+              required
+              value={formData.date_arrivee}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Date de départ */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date de départ (logement)</label>
+            <input
+              type="date"
+              name="date_depart"
+              value={formData.date_depart}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Date début contrat */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date début contrat *</label>
+            <input
+              type="date"
+              name="date_debut_contrat"
+              required
+              value={formData.date_debut_contrat}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Date fin contrat */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date fin contrat</label>
+            <input
+              type="date"
+              name="date_fin_contrat"
+              value={formData.date_fin_contrat}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Options */}
+          <div className="col-span-2 flex gap-6">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="vehicule"
+                checked={formData.vehicule}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">🚗 A un véhicule</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="animal"
+                checked={formData.animal}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">🐾 A un animal de compagnie</span>
+            </label>
+          </div>
+
+          {/* Commentaire */}
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
+            <textarea
+              name="commentaire"
+              value={formData.commentaire}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Informations supplémentaires sur le collaborateur..."
+            />
+            <p className="text-xs text-gray-500 mt-1">Ex: ne veut pas cohabiter avec une personne qui a un animal</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors ${
+              loading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {loading ? 'Modification...' : '💾 Enregistrer les modifications'}
+          </button>
+          <a
+            href="/collaborateurs"
+            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors no-underline"
+          >
+            Annuler
+          </a>
+        </div>
+      </form>
+    </div>
+  );
+}

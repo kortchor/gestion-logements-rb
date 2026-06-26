@@ -38,6 +38,9 @@ export default function RootLayout({
                 <a href="/admin/lits" className="text-gray-700 hover:text-blue-600 transition-colors no-underline">
                   🛏️ Lits
                 </a>
+                <a href="/admin/modeles" className="text-gray-700 hover:text-blue-600 transition-colors no-underline">
+                  📄 Modèles
+                </a>
               </div>
             </div>
           </div>

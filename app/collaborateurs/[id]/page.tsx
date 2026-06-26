@@ -12,9 +12,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
   const [selectedLit, setSelectedLit] = useState('');
   const [participationMensuelle, setParticipationMensuelle] = useState('');
   const [chambrePrivee, setChambrePrivee] = useState(false);
-  const [conventionFile, setConventionFile] = useState<File | null>(null);
-  const [conventionBase64, setConventionBase64] = useState('');
-  const [conventionNom, setConventionNom] = useState('');
   const [villes, setVilles] = useState<string[]>([]);
   const [rechercheEffectuee, setRechercheEffectuee] = useState(false);
   const [filtres, setFiltres] = useState({
@@ -22,6 +19,10 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
     type_lit: '',
     type_occupation: '',
   });
+  
+  // MODÈLES DE CONVENTION
+  const [modeles, setModeles] = useState([]);
+  const [modeleSelectionne, setModeleSelectionne] = useState('');
 
   useEffect(() => {
     async function fetchData() {
@@ -64,6 +65,25 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
     fetchLits();
   }, []);
 
+  // Charger les modèles de convention
+  useEffect(() => {
+    async function fetchModeles() {
+      try {
+        const response = await fetch('/api/admin/modeles');
+        const data = await response.json();
+        if (data.success) {
+          setModeles(data.data);
+          if (data.data.length > 0) {
+            setModeleSelectionne(data.data[0].id.toString());
+          }
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
+      }
+    }
+    fetchModeles();
+  }, []);
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -83,33 +103,21 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
       resultats = resultats.filter((lit: any) => lit.type_lit === filtres.type_lit);
     }
     if (filtres.type_occupation) {
-      resultats = resultats.filter((lit: any) => lit.logement_type_occupation === filtres.type_occupation);
+      if (filtres.type_occupation === 'en_attente') {
+        resultats = resultats.filter((lit: any) => 
+          !lit.logement_type_occupation || 
+          lit.logement_type_occupation === 'mixte' || 
+          lit.logement_type_occupation === 'en_attente'
+        );
+      } else {
+        resultats = resultats.filter((lit: any) => 
+          lit.logement_type_occupation === filtres.type_occupation
+        );
+      }
     }
     
     setLitsFiltres(resultats);
     setRechercheEffectuee(true);
-  };
-
-  const handleConventionUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/pdf') {
-        alert('Le fichier doit être au format PDF');
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        alert('Le fichier ne doit pas dépasser 10 Mo');
-        return;
-      }
-      setConventionFile(file);
-      setConventionNom(file.name);
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setConventionBase64(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleAssigner = async (e: React.FormEvent) => {
@@ -120,14 +128,12 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
       return;
     }
 
-    if (!conventionBase64) {
-      alert('Veuillez uploader la convention locative');
+    if (!modeleSelectionne) {
+      alert('Veuillez sélectionner un modèle de convention');
       return;
     }
 
     const litId = parseInt(selectedLit);
-    // Si chambre privée, on va assigner tous les lits de la chambre
-    // L'API se chargera de trouver les autres lits
 
     if (!confirm(chambrePrivee ? 'Voulez-vous assigner cette chambre privée ?' : 'Voulez-vous assigner ce lit ?')) return;
 
@@ -140,8 +146,7 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
           lit_id: litId,
           participation_mensuelle: participationMensuelle ? parseFloat(participationMensuelle) : null,
           chambre_privée: chambrePrivee,
-          convention_pdf: conventionBase64,
-          convention_nom: conventionNom,
+          modele_convention_id: parseInt(modeleSelectionne),
         }),
       });
       const data = await response.json();
@@ -336,9 +341,10 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
                       <option value="">Tous</option>
-                      <option value="mixte">Mixte</option>
+                      <option value="mixte">🔄 Mixte (libre)</option>
                       <option value="fille">👩 Filles</option>
                       <option value="garçon">👨 Garçons</option>
+                      <option value="en_attente">⏳ En attente (vide)</option>
                     </select>
                   </div>
                 </div>
@@ -353,7 +359,7 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                 )}
               </div>
 
-              {/* Formulaire d'assignation simplifié */}
+              {/* Formulaire d'assignation */}
               <form onSubmit={handleAssigner} className="mt-3">
                 <div className="flex flex-col gap-3">
                   {/* Sélection du lit */}
@@ -380,24 +386,35 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                     </select>
                   </div>
 
-                  {/* Upload convention */}
+                  {/* Modèle de convention - UNIQUEMENT LE MODÈLE */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      📄 Convention locative (PDF) *
+                      📄 Modèle de convention
                     </label>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleConventionUpload}
+                    <select
+                      value={modeleSelectionne}
+                      onChange={(e) => setModeleSelectionne(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
-                    />
-                    {conventionNom && (
-                      <p className="text-sm text-green-600 mt-1">✅ {conventionNom}</p>
-                    )}
+                    >
+                      {modeles.length === 0 ? (
+                        <option value="">⚠️ Aucun modèle disponible - Créez-en un dans "Modèles"</option>
+                      ) : (
+                        modeles.map((modele: any) => (
+                          <option key={modele.id} value={modele.id}>
+                            {modele.nom}
+                          </option>
+                        ))
+                      )}
+                    </select>
                     <p className="text-xs text-gray-500 mt-1">
-                      Uploader la convention personnalisée du collaborateur (PDF)
+                      La convention sera générée automatiquement avec les informations du collaborateur
                     </p>
+                    {modeles.length === 0 && (
+                      <p className="text-xs text-red-500 mt-1">
+                        ⚠️ Aucun modèle disponible. Allez dans "Modèles" pour en créer un.
+                      </p>
+                    )}
                   </div>
 
                   {/* Participation mensuelle */}
@@ -435,7 +452,7 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
 
                   <button
                     type="submit"
-                    disabled={assignLoading || !selectedLit || !conventionBase64}
+                    disabled={assignLoading || !selectedLit || !modeleSelectionne}
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                   >
                     {assignLoading ? '⏳ Assignation...' : `✅ Assigner ${chambrePrivee ? 'la chambre privée' : 'ce lit'}`}

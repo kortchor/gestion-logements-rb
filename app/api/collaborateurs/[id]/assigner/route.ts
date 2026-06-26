@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { createSignatureRequestWithDocument } from '@/lib/yousign';
+import { generateConventionPDFFromTemplate } from '@/lib/generateConventionPDF';
 
 export async function POST(
   request: Request,
@@ -17,8 +18,9 @@ export async function POST(
     const chambre_privée = body.chambre_privée || false;
     const convention_pdf = body.convention_pdf;
     const convention_nom = body.convention_nom || 'convention.pdf';
+    const modele_convention_id = body.modele_convention_id;
 
-    console.log('📦 Données reçues:', { lit_id, lit_ids, chambre_privée, convention_nom });
+    console.log('📦 Données reçues:', { lit_id, lit_ids, chambre_privée, modele_convention_id });
 
     // Construire la liste des lits à assigner
     let litsAAssigner: number[] = [];
@@ -68,11 +70,16 @@ export async function POST(
       );
     }
 
-    if (!convention_pdf) {
-      return NextResponse.json(
-        { error: 'Veuillez uploader la convention locative' },
-        { status: 400 }
+    // Récupérer le modèle de convention
+    let modeleContenu = null;
+    if (modele_convention_id) {
+      const modeleResult = await query(
+        'SELECT contenu FROM modeles_convention WHERE id = $1 AND est_actif = true',
+        [modele_convention_id]
       );
+      if (modeleResult.rows.length > 0) {
+        modeleContenu = modeleResult.rows[0].contenu;
+      }
     }
 
     // 1. Récupérer les informations du collaborateur
@@ -103,7 +110,8 @@ export async function POST(
         log.mixte_autorise,
         log.type_occupation_effectif,
         log.adresse,
-        log.ville
+        log.ville,
+        log.description_detaillee
        FROM lits l
        LEFT JOIN chambres ch ON l.chambre_id = ch.id
        LEFT JOIN logements log ON ch.logement_id = log.id
@@ -211,17 +219,49 @@ export async function POST(
       );
     }
 
-    // 7. Envoyer via Yousign
+    // 7. Générer le PDF (à partir du modèle ou du PDF uploadé)
+    let pdfBase64 = convention_pdf;
+    let pdfNom = convention_nom;
+
+    // Si un modèle est sélectionné et qu'on a un contenu, générer le PDF
+    if (modeleContenu) {
+      try {
+        const numeroContrat = `CONV-${logementId}-${collaborateurId}-${Date.now().toString().slice(-6)}`;
+        
+        const pdfBuffer = await generateConventionPDFFromTemplate({
+          template: modeleContenu,
+          nom: collaborateur.nom,
+          prenom: collaborateur.prenom,
+          email: collaborateur.email,
+          adresseLogement: lit.adresse,
+          villeLogement: lit.ville,
+          dateDebut: dateDebut,
+          dateFin: dateFin,
+          numeroContrat: numeroContrat,
+          descriptionDetaillee: lit.description_detaillee || '',
+          centrePrincipal: collaborateur.centre_principal || '',
+          centreAffectation: collaborateur.centre_affectation || '',
+          participationMensuelle: participation_mensuelle ? parseFloat(participation_mensuelle) : null,
+        });
+        
+        pdfBase64 = pdfBuffer.toString('base64');
+        pdfNom = `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`;
+        console.log('✅ PDF généré à partir du modèle');
+      } catch (error) {
+        console.error('⚠️ Erreur génération PDF depuis modèle:', error);
+        // On garde le PDF uploadé si la génération échoue
+      }
+    }
+
+    // 8. Envoyer via Yousign
     let yousignResult = null;
     try {
-      const pdfBase64 = convention_pdf;
-      
       yousignResult = await createSignatureRequestWithDocument({
         signerEmail: collaborateur.email,
         signerNom: collaborateur.nom,
         signerPrenom: collaborateur.prenom,
         documentContent: pdfBase64,
-        documentName: convention_nom || `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
+        documentName: pdfNom || `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
         message: `Bonjour ${collaborateur.prenom}, veuillez signer votre convention locative.`,
       });
 
@@ -275,9 +315,7 @@ export async function POST(
       console.error('⚠️ Erreur Yousign/Email:', error);
     }
 
-    // ============================================================
-    // 8. 📧 ENVOYER UN EMAIL DE CONFIRMATION À LA RH
-    // ============================================================
+    // 9. Envoyer email de confirmation à la RH
     try {
       const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
       
@@ -322,8 +360,6 @@ export async function POST(
               <h3>📅 Période</h3>
               <p><strong>Date d'arrivée :</strong> ${new Date(dateDebut).toLocaleDateString('fr-FR')}</p>
               <p><strong>Date de départ :</strong> ${dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : 'Non définie'}</p>
-              <p><strong>Date début contrat :</strong> ${collaborateur.date_debut_contrat ? new Date(collaborateur.date_debut_contrat).toLocaleDateString('fr-FR') : 'Non définie'}</p>
-              <p><strong>Date fin contrat :</strong> ${collaborateur.date_fin_contrat ? new Date(collaborateur.date_fin_contrat).toLocaleDateString('fr-FR') : 'Non définie'}</p>
             </div>
             
             <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
@@ -349,9 +385,6 @@ export async function POST(
       console.error('⚠️ Erreur envoi email RH:', rhError);
     }
 
-    // ============================================================
-    // 9. RÉPONSE
-    // ============================================================
     return NextResponse.json(
       { 
         success: true, 

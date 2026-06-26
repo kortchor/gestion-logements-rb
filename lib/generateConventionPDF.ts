@@ -9,6 +9,121 @@ function remplacerVariables(template: string, variables: Record<string, string>)
   return result;
 }
 
+// NOUVELLE FONCTION : Générer un PDF depuis un modèle
+export async function generateConventionPDFFromTemplate({
+  template,
+  nom,
+  prenom,
+  email,
+  adresseLogement,
+  villeLogement,
+  dateDebut,
+  dateFin,
+  numeroContrat,
+  descriptionDetaillee = '',
+  centrePrincipal = '',
+  centreAffectation = '',
+  participationMensuelle = null,
+}: {
+  template: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  adresseLogement: string;
+  villeLogement: string;
+  dateDebut: string;
+  dateFin: string;
+  numeroContrat: string;
+  descriptionDetaillee?: string;
+  centrePrincipal?: string;
+  centreAffectation?: string;
+  participationMensuelle?: number | null;
+}): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595.28, 841.89]);
+  const { width, height } = page.getSize();
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Préparer les variables
+  const variables = {
+    NOM: nom.toUpperCase(),
+    PRENOM: prenom,
+    EMAIL: email || '',
+    ADRESSE: adresseLogement,
+    VILLE: villeLogement,
+    DATE_DEBUT: new Date(dateDebut).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+    DATE_FIN: dateFin ? new Date(dateFin).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }) : 'Non définie',
+    PARTICIPATION: participationMensuelle ? participationMensuelle.toFixed(2) : '0',
+    NUMERO_CONTRAT: numeroContrat,
+    CENTRE_PRINCIPAL: centrePrincipal || '',
+    CENTRE_AFFECTATION: centreAffectation || '',
+    DESCRIPTION: descriptionDetaillee || '',
+    DATE_SIGNATURE: new Date().toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+  };
+
+  // Remplacer les variables
+  let texte = remplacerVariables(template, variables);
+
+  // Diviser en lignes
+  const lines = texte.split('\n');
+  const fontSize = 11;
+  const lineHeight = 18;
+  let y = height - 50;
+
+  for (const line of lines) {
+    if (line.trim() === '') {
+      y -= lineHeight * 0.5;
+      continue;
+    }
+    
+    const isBold = line.trim() === line.trim().toUpperCase() && line.trim().length > 3;
+    const isSignatureLine = line.includes('_________________') || line.includes('signature') || line.includes('Signature');
+    
+    let drawFont = font;
+    let drawSize = fontSize;
+    
+    if (isBold) {
+      drawFont = fontBold;
+    }
+    if (isSignatureLine) {
+      drawFont = fontBold;
+      drawSize = fontSize + 1;
+    }
+    
+    page.drawText(line, {
+      x: 50,
+      y: y,
+      size: drawSize,
+      font: drawFont,
+      color: rgb(0, 0, 0),
+    });
+    y -= lineHeight;
+
+    if (y < 50) {
+      const newPage = pdfDoc.addPage([595.28, 841.89]);
+      y = height - 50;
+    }
+  }
+
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes);
+}
+
+// Fonction existante (convention par défaut)
 export async function generateConventionPDF({
   nom,
   prenom,
@@ -40,98 +155,25 @@ export async function generateConventionPDF({
 }): Promise<Buffer> {
   // Si un template est fourni, on l'utilise
   if (templateConvention && templateConvention.trim().length > 0) {
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]);
-    const { width, height } = page.getSize();
-    
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    // Préparer les variables
-    const variables = {
-      NOM: nom.toUpperCase(),
-      PRENOM: prenom,
-      EMAIL: email || '',
-      ADRESSE: adresseLogement,
-      VILLE: villeLogement,
-      DATE_DEBUT: new Date(dateDebut).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }),
-      DATE_FIN: dateFin ? new Date(dateFin).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }) : 'Non définie',
-      PARTICIPATION: participationMensuelle ? participationMensuelle.toFixed(2) : '0',
-      NUMERO_CONTRAT: numeroContrat,
-      CENTRE_PRINCIPAL: centrePrincipal || '',
-      CENTRE_AFFECTATION: centreAffectation || '',
-      DESCRIPTION: descriptionDetaillee || '',
-      DATE_SIGNATURE: new Date().toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }),
-    };
-
-    // Remplacer les variables dans le template
-    let texte = remplacerVariables(templateConvention, variables);
-
-    // Diviser le texte en lignes
-    const lines = texte.split('\n');
-    const fontSize = 11;
-    const lineHeight = 18;
-    let y = height - 50;
-
-    for (const line of lines) {
-      if (line.trim() === '') {
-        y -= lineHeight * 0.5;
-        continue;
-      }
-      
-      // Détecter les titres (lignes en majuscules)
-      const isBold = line.trim() === line.trim().toUpperCase() && line.trim().length > 3;
-      
-      // Détecter les lignes de signature
-      const isSignatureLine = line.includes('_________________') || line.includes('signature') || line.includes('Signature');
-      
-      let drawFont = font;
-      let drawSize = fontSize;
-      
-      if (isBold) {
-        drawFont = fontBold;
-      }
-      
-      if (isSignatureLine) {
-        drawFont = fontBold;
-        drawSize = fontSize + 1;
-      }
-      
-      page.drawText(line, {
-        x: 50,
-        y: y,
-        size: drawSize,
-        font: drawFont,
-        color: rgb(0, 0, 0),
-      });
-      y -= lineHeight;
-
-      // Nouvelle page si nécessaire
-      if (y < 50) {
-        const newPage = pdfDoc.addPage([595.28, 841.89]);
-        y = height - 50;
-      }
-    }
-
-    const pdfBytes = await pdfDoc.save();
-    return Buffer.from(pdfBytes);
+    return generateConventionPDFFromTemplate({
+      template: templateConvention,
+      nom,
+      prenom,
+      email,
+      adresseLogement,
+      villeLogement,
+      dateDebut,
+      dateFin,
+      numeroContrat,
+      descriptionDetaillee,
+      centrePrincipal,
+      centreAffectation,
+      participationMensuelle,
+    });
   }
 
-  // =====================================================
-  // TEMPLATE PAR DÉFAUT (si aucun template personnalisé)
-  // =====================================================
+  // Sinon, on utilise le template par défaut (à garder pour compatibilité)
+  // ... code existant du template par défaut ...
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595.28, 841.89]);
   const { width, height } = page.getSize();
@@ -610,3 +652,6 @@ export async function generateConventionPDF({
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);
 }
+
+// Exporter les deux fonctions
+export { generateConventionPDFFromTemplate };

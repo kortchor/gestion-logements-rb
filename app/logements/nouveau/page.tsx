@@ -17,6 +17,7 @@ export default function NouveauLogement() {
   ]);
 
   const [formData, setFormData] = useState({
+    nom_logement: '',
     adresse: '',
     ville: 'Cassis',
     type: 'Appartement',
@@ -25,14 +26,14 @@ export default function NouveauLogement() {
     contact_proprietaire: '',
     fournisseur_edf: '',
     fournisseur_eau: '',
-    fournisseur_gaz: '',        // NOUVEAU
-    nom_assureur: '',            // NOUVEAU
+    fournisseur_gaz: '',
+    nom_assureur: '',
     assurance: '',
     assurance_pdf: '',
     assurance_nom: '',
-    bail_pdf: '',                // NOUVEAU (remplace convention)
+    bail_pdf: '',
     bail_nom: '',
-    etat_lieux_pdf: '',          // NOUVEAU
+    etat_lieux_pdf: '',
     etat_lieux_nom: '',
     etat_lieux_photos: '',
     est_visible: true,
@@ -72,7 +73,7 @@ export default function NouveauLogement() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string, nameField: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== 'application/pdf' && !field.includes('photo')) {
+      if (file.type !== 'application/pdf') {
         setError('Le fichier doit être au format PDF');
         return;
       }
@@ -144,6 +145,25 @@ export default function NouveauLogement() {
           <div className="col-span-2">
             <h2 className="text-lg font-semibold text-blue-600 mb-3">📍 Identification du logement</h2>
             <hr className="mb-4" />
+          </div>
+
+          {/* Nom du logement - EN TÊTE */}
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              🏷️ Nom du logement *
+            </label>
+            <input
+              type="text"
+              name="nom_logement"
+              required
+              value={formData.nom_logement}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Appartement Birnie, Villa des Pins, Studio du Port..."
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Donnez un nom identifiable au logement (ex: nom de la résidence ou du bâtiment)
+            </p>
           </div>
 
           {/* Adresse */}
@@ -305,7 +325,7 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Fournisseur Gaz - NOUVEAU */}
+          {/* Fournisseur Gaz */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur Gaz</label>
             <input
@@ -326,7 +346,7 @@ export default function NouveauLogement() {
             <hr className="mb-4" />
           </div>
 
-          {/* Nom de l'assureur - NOUVEAU */}
+          {/* Nom de l'assureur */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'assureur</label>
             <input
@@ -368,18 +388,16 @@ export default function NouveauLogement() {
           </div>
 
           {/* ============================================================ */}
-          {/* SECTION 5 : DOCUMENTS DU LOGEMENT (BAIL + ÉTAT DES LIEUX) */}
+          {/* SECTION 5 : DOCUMENTS DU LOGEMENT */}
           {/* ============================================================ */}
           <div className="col-span-2 mt-4">
             <h2 className="text-lg font-semibold text-blue-600 mb-3">📋 Documents du logement</h2>
             <hr className="mb-4" />
           </div>
 
-          {/* Bail (remplace Convention locative) */}
+          {/* Bail */}
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              📄 Bail (PDF)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📄 Bail (PDF)</label>
             <input
               type="file"
               accept=".pdf"
@@ -389,16 +407,12 @@ export default function NouveauLogement() {
             {formData.bail_nom && (
               <p className="text-sm text-green-600 mt-1">✅ {formData.bail_nom}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Uploader le bail signé avec le propriétaire (PDF)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Uploader le bail signé avec le propriétaire (PDF)</p>
           </div>
 
           {/* État des lieux PDF */}
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              📄 État des lieux (PDF)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📄 État des lieux (PDF)</label>
             <input
               type="file"
               accept=".pdf"
@@ -408,16 +422,12 @@ export default function NouveauLogement() {
             {formData.etat_lieux_nom && (
               <p className="text-sm text-green-600 mt-1">✅ {formData.etat_lieux_nom}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Uploader l'état des lieux signé (PDF)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Uploader l'état des lieux signé (PDF)</p>
           </div>
 
           {/* État des lieux Photos */}
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              📸 Photos de l'état des lieux
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l'état des lieux</label>
             <input
               type="file"
               accept=".jpg,.jpeg,.png,.gif"
@@ -453,9 +463,7 @@ export default function NouveauLogement() {
                 ✅ {JSON.parse(formData.etat_lieux_photos).length} photo(s) téléchargée(s)
               </p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Uploader les photos de l'état des lieux (JPG, PNG, GIF)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Uploader les photos de l'état des lieux (JPG, PNG, GIF)</p>
           </div>
 
           {/* ============================================================ */}
@@ -467,9 +475,7 @@ export default function NouveauLogement() {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description détaillée
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description détaillée</label>
             <textarea
               name="description_detaillee"
               value={formData.description_detaillee}
@@ -483,9 +489,7 @@ export default function NouveauLogement() {
 - Terrasse
 - Meublé et équipé`}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Décrivez précisément les pièces, équipements et particularités du logement
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Décrivez précisément les pièces, équipements et particularités du logement</p>
           </div>
         </div>
 

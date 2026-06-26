@@ -7,6 +7,7 @@ export async function POST(request: Request) {
     console.log('📦 Données reçues:', body);
 
     const {
+      nom_logement,
       adresse,
       ville,
       type,
@@ -34,14 +35,15 @@ export async function POST(request: Request) {
     // Créer le logement
     const result = await query(
       `INSERT INTO logements 
-       (adresse, ville, type, prix_loyer, proprietaire, contact_proprietaire, 
+       (nom_logement, adresse, ville, type, prix_loyer, proprietaire, contact_proprietaire, 
         fournisseur_edf, fournisseur_eau, fournisseur_gaz,
         assurance, assurance_pdf, assurance_nom, nom_assureur,
         bail_pdf, bail_nom, etat_lieux_pdf, etat_lieux_nom, etat_lieux_photos,
         est_visible, mixte_autorise, type_occupation_effectif, description_detaillee)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'mixte', $21)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'mixte', $22)
        RETURNING id`,
       [
+        nom_logement || null,
         adresse,
         ville,
         type,

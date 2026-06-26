@@ -170,6 +170,12 @@ export default function CollaborateursPage() {
                     <td className="px-6 py-4">{collab.animal ? '🐾 Oui' : '-'}</td>
                     <td className="px-6 py-4">
                       <a
+                        href={`/collaborateurs/${collab.id}/modifier`}
+                        className="text-blue-600 hover:underline no-underline mr-3"
+                      >
+                        ✏️ Modifier
+                      </a>
+                      <a
                         href={`/collaborateurs/${collab.id}`}
                         className="text-blue-600 hover:underline no-underline mr-3"
                       >

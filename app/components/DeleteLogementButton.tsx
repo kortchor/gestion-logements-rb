@@ -22,6 +22,7 @@ export default function DeleteLogementButton({ logementId, logementAdresse }: De
       });
 
       if (response.ok) {
+        // ✅ FORCER LE REACTUALISATION COMPLÈTE
         window.location.reload();
       } else {
         const data = await response.json();
@@ -40,7 +41,7 @@ export default function DeleteLogementButton({ logementId, logementAdresse }: De
       disabled={loading}
       className="text-red-600 hover:underline bg-transparent border-none cursor-pointer no-underline disabled:opacity-50"
     >
-      {loading ? '...' : '🗑️'}
+      {loading ? '...' : '🗑️ Supprimer'}
     </button>
   );
 }

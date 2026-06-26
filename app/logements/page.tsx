@@ -1,6 +1,9 @@
 import { query } from '@/lib/db';
 import DeleteLogementButton from '@/app/components/DeleteLogementButton';
 
+// ✅ FORCER LE RAFFRAÎCHISSEMENT
+export const dynamic = 'force-dynamic';
+
 const COULEURS_VILLES: { [key: string]: string } = {
   'Cassis': 'bg-pink-100 text-pink-800',
   'La Ciotat': 'bg-green-100 text-green-800',
@@ -107,6 +110,7 @@ export default async function LogementsPage() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chambres</th>
@@ -120,6 +124,7 @@ export default async function LogementsPage() {
                     <tr key={logement.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">{logement.id}</td>
                       <td className="px-6 py-4 text-2xl">{getTypeIcon(logement.type)}</td>
+                      <td className="px-6 py-4 max-w-xs truncate">{logement.nom_logement || 'Sans nom'}</td>
                       <td className="px-6 py-4 max-w-xs truncate">{logement.adresse}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVilleColor(logement.ville)}`}>
@@ -130,6 +135,12 @@ export default async function LogementsPage() {
                       <td className="px-6 py-4 text-center">{logement.total_lits || 0}</td>
                       <td className="px-6 py-4">{getOccupationLabel(logement)}</td>
                       <td className="px-6 py-4">
+                        <a
+                          href={`/logements/${logement.id}/modifier`}
+                          className="text-blue-600 hover:underline no-underline mr-3"
+                        >
+                          ✏️ Modifier
+                        </a>
                         <a
                           href={`/logements/${logement.id}`}
                           className="text-blue-600 hover:underline no-underline mr-3"

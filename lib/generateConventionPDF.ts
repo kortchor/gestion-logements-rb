@@ -9,7 +9,7 @@ function remplacerVariables(template: string, variables: Record<string, string>)
   return result;
 }
 
-// NOUVELLE FONCTION : Générer un PDF depuis un modèle
+// ✅ NOUVELLE FONCTION : Générer un PDF depuis un modèle
 export async function generateConventionPDFFromTemplate({
   template,
   nom,
@@ -123,7 +123,7 @@ export async function generateConventionPDFFromTemplate({
   return Buffer.from(pdfBytes);
 }
 
-// Fonction existante (convention par défaut)
+// ✅ FONCTION EXISTANTE (convention par défaut)
 export async function generateConventionPDF({
   nom,
   prenom,
@@ -172,8 +172,7 @@ export async function generateConventionPDF({
     });
   }
 
-  // Sinon, on utilise le template par défaut (à garder pour compatibilité)
-  // ... code existant du template par défaut ...
+  // Sinon, on utilise le template par défaut
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595.28, 841.89]);
   const { width, height } = page.getSize();
@@ -652,6 +651,3 @@ export async function generateConventionPDF({
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);
 }
-
-// Exporter les deux fonctions
-export { generateConventionPDFFromTemplate };

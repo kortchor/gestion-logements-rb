@@ -55,17 +55,35 @@ export async function PUT(
       prix_loyer,
       proprietaire,
       contact_proprietaire,
+      fournisseur_edf,
+      fournisseur_eau,
+      fournisseur_gaz,
+      nom_assureur,
+      assurance,
+      assurance_pdf,
+      assurance_nom,
+      bail_pdf,
+      bail_nom,
+      etat_lieux_pdf,
+      etat_lieux_nom,
+      etat_lieux_photos,
       est_visible,
       mixte_autorise,
       description_detaillee,
+      chambres,
     } = body;
 
+    // 1. Mettre à jour le logement
     await query(
       `UPDATE logements 
        SET nom_logement = $1, adresse = $2, ville = $3, type = $4, 
            prix_loyer = $5, proprietaire = $6, contact_proprietaire = $7,
-           est_visible = $8, mixte_autorise = $9, description_detaillee = $10
-       WHERE id = $11`,
+           fournisseur_edf = $8, fournisseur_eau = $9, fournisseur_gaz = $10,
+           nom_assureur = $11, assurance = $12, assurance_pdf = $13, assurance_nom = $14,
+           bail_pdf = $15, bail_nom = $16, 
+           etat_lieux_pdf = $17, etat_lieux_nom = $18, etat_lieux_photos = $19,
+           est_visible = $20, mixte_autorise = $21, description_detaillee = $22
+       WHERE id = $23`,
       [
         nom_logement || null,
         adresse,
@@ -74,12 +92,50 @@ export async function PUT(
         prix_loyer ? parseFloat(prix_loyer) : null,
         proprietaire || null,
         contact_proprietaire || null,
+        fournisseur_edf || null,
+        fournisseur_eau || null,
+        fournisseur_gaz || null,
+        nom_assureur || null,
+        assurance || null,
+        assurance_pdf || null,
+        assurance_nom || null,
+        bail_pdf || null,
+        bail_nom || null,
+        etat_lieux_pdf || null,
+        etat_lieux_nom || null,
+        etat_lieux_photos || null,
         est_visible !== undefined ? est_visible : true,
         mixte_autorise || false,
         description_detaillee || null,
         id
       ]
     );
+
+    // 2. Mettre à jour les chambres (supprimer les anciennes et recréer)
+    if (chambres && chambres.length > 0) {
+      // Supprimer les anciennes chambres (et leurs lits)
+      await query('DELETE FROM chambres WHERE logement_id = $1', [id]);
+      
+      // Recréer les chambres et les lits
+      for (const chambre of chambres) {
+        const chambreResult = await query(
+          `INSERT INTO chambres (logement_id, nom, type_lit, nombre_lits)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [id, chambre.nom, chambre.type_lit || 'simple', chambre.nombre_lits || 1]
+        );
+        
+        const chambreId = chambreResult.rows[0].id;
+        const nombreLits = chambre.nombre_lits || 1;
+        
+        for (let i = 1; i <= nombreLits; i++) {
+          await query(
+            'INSERT INTO lits (chambre_id, numero, est_occupe) VALUES ($1, $2, false)',
+            [chambreId, i.toString()]
+          );
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -99,7 +155,6 @@ export async function DELETE(
   try {
     const id = parseInt(params.id);
     
-    // Vérifier si le logement existe
     const checkResult = await query(
       'SELECT id FROM logements WHERE id = $1',
       [id]
@@ -112,7 +167,6 @@ export async function DELETE(
       );
     }
     
-    // Supprimer le logement (les chambres et lits seront supprimés automatiquement grâce à ON DELETE CASCADE)
     await query('DELETE FROM logements WHERE id = $1', [id]);
     
     return NextResponse.json(

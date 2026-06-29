@@ -6,28 +6,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
   const [collab, setCollab] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [litsDisponibles, setLitsDisponibles] = useState([]);
-  const [litsFiltres, setLitsFiltres] = useState([]);
-  const [assignLoading, setAssignLoading] = useState(false);
-  const [selectedLit, setSelectedLit] = useState('');
-  const [participationMensuelle, setParticipationMensuelle] = useState('');
-  const [chambrePrivee, setChambrePrivee] = useState(false);
-  const [villes, setVilles] = useState<string[]>([]);
-  const [rechercheEffectuee, setRechercheEffectuee] = useState(false);
-  const [filtres, setFiltres] = useState({
-    ville: '',
-    type_lit: '',
-    type_occupation: '',
-  });
-  
-  // 📜 Historique
-  const [historique, setHistorique] = useState<any[]>([]);
-  const [logementActuel, setLogementActuel] = useState<any>(null);
-  const [historiqueLoading, setHistoriqueLoading] = useState(true);
-
-  // Modèles de convention
-  const [modeles, setModeles] = useState([]);
-  const [modeleSelectionne, setModeleSelectionne] = useState('');
 
   useEffect(() => {
     async function fetchData() {
@@ -36,9 +14,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
         const data = await response.json();
         if (data.success) {
           setCollab(data.data);
-          if (data.data.participation_mensuelle) {
-            setParticipationMensuelle(data.data.participation_mensuelle.toString());
-          }
         } else {
           setError(data.error || 'Erreur');
         }
@@ -52,62 +27,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
     fetchData();
   }, [params.id]);
 
-  useEffect(() => {
-    async function fetchLits() {
-      try {
-        const response = await fetch('/api/lits/disponibles');
-        const data = await response.json();
-        if (data.success) {
-          setLitsDisponibles(data.data);
-          setLitsFiltres(data.data);
-          const villesUniques = [...new Set(data.data.map((lit: any) => lit.ville))];
-          setVilles(villesUniques);
-        }
-      } catch (error) {
-        console.error('Erreur:', error);
-      }
-    }
-    fetchLits();
-  }, []);
-
-  // Charger les modèles de convention
-  useEffect(() => {
-    async function fetchModeles() {
-      try {
-        const response = await fetch('/api/admin/modeles');
-        const data = await response.json();
-        if (data.success) {
-          setModeles(data.data);
-          if (data.data.length > 0) {
-            setModeleSelectionne(data.data[0].id.toString());
-          }
-        }
-      } catch (error) {
-        console.error('Erreur:', error);
-      }
-    }
-    fetchModeles();
-  }, []);
-
-  // 📜 Charger l'historique des assignations
-  useEffect(() => {
-    async function fetchHistorique() {
-      try {
-        const response = await fetch(`/api/collaborateurs/${params.id}/historique`);
-        const data = await response.json();
-        if (data.success) {
-          setHistorique(data.data.historique || []);
-          setLogementActuel(data.data.actuel || null);
-        }
-      } catch (error) {
-        console.error('Erreur chargement historique:', error);
-      } finally {
-        setHistoriqueLoading(false);
-      }
-    }
-    fetchHistorique();
-  }, [params.id]);
-
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -115,100 +34,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
       month: 'long',
       year: 'numeric'
     });
-  };
-
-  const handleFiltrer = () => {
-    let resultats = [...litsDisponibles];
-    
-    if (filtres.ville) {
-      resultats = resultats.filter((lit: any) => lit.ville === filtres.ville);
-    }
-    if (filtres.type_lit) {
-      resultats = resultats.filter((lit: any) => lit.type_lit === filtres.type_lit);
-    }
-    if (filtres.type_occupation) {
-      if (filtres.type_occupation === 'en_attente') {
-        resultats = resultats.filter((lit: any) => 
-          !lit.logement_type_occupation || 
-          lit.logement_type_occupation === 'mixte' || 
-          lit.logement_type_occupation === 'en_attente'
-        );
-      } else {
-        resultats = resultats.filter((lit: any) => 
-          lit.logement_type_occupation === filtres.type_occupation
-        );
-      }
-    }
-    
-    setLitsFiltres(resultats);
-    setRechercheEffectuee(true);
-  };
-
-  const handleAssigner = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedLit) {
-      alert('Veuillez sélectionner un lit');
-      return;
-    }
-
-    if (!modeleSelectionne) {
-      alert('Veuillez sélectionner un modèle de convention');
-      return;
-    }
-
-    const litId = parseInt(selectedLit);
-
-    if (!confirm(chambrePrivee ? 'Voulez-vous assigner cette chambre privée ?' : 'Voulez-vous assigner ce lit ?')) return;
-
-    setAssignLoading(true);
-    try {
-      const response = await fetch(`/api/collaborateurs/${params.id}/assigner`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lit_id: litId,
-          participation_mensuelle: participationMensuelle ? parseFloat(participationMensuelle) : null,
-          chambre_privée: chambrePrivee,
-          modele_convention_id: parseInt(modeleSelectionne),
-        }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        const msg = chambrePrivee 
-          ? `✅ Chambre privée assignée avec succès !` 
-          : `✅ Lit assigné avec succès !`;
-        alert(msg);
-        window.location.reload();
-      } else {
-        alert(data.error || 'Erreur lors de l\'assignation');
-      }
-    } catch (err) {
-      alert('Erreur de connexion');
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
-  const handleDesassigner = async () => {
-    if (!confirm('Voulez-vous vraiment désassigner ce collaborateur de son logement ?')) return;
-
-    try {
-      const response = await fetch(`/api/collaborateurs/${params.id}/desassigner`, {
-        method: 'POST',
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        alert('✅ Désassignation effectuée !');
-        window.location.reload();
-      } else {
-        alert(data.error || 'Erreur lors de la désassignation');
-      }
-    } catch (error) {
-      alert('Erreur de connexion');
-    }
   };
 
   if (loading) {
@@ -250,9 +75,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        {/* ============================================================ */}
-        {/* INFORMATIONS DU COLLABORATEUR */}
-        {/* ============================================================ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-gray-500">Genre</p>
@@ -308,9 +130,7 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* LOGEMENT ASSIGNÉ */}
-        {/* ============================================================ */}
+        {/* Logement assigné */}
         <div className="mt-6 border-t pt-4">
           <h2 className="text-xl font-semibold mb-3">🏠 Logement assigné</h2>
           
@@ -323,213 +143,10 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
               {collab.participation_mensuelle && (
                 <p><span className="font-medium">💰 Participation mensuelle :</span> {parseFloat(collab.participation_mensuelle).toFixed(2)} €</p>
               )}
-              <button
-                onClick={handleDesassigner}
-                className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-              >
-                🚫 Désassigner
-              </button>
             </div>
           ) : (
             <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
               <p className="text-yellow-700">⚠️ Aucun logement assigné</p>
-              
-              {/* Filtres */}
-              <div className="mt-3 p-3 bg-white rounded border border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">🔍 Filtrer les lits disponibles</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Ville</label>
-                    <select
-                      value={filtres.ville}
-                      onChange={(e) => setFiltres({ ...filtres, ville: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    >
-                      <option value="">Toutes</option>
-                      {villes.map((v) => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Type de lit</label>
-                    <select
-                      value={filtres.type_lit}
-                      onChange={(e) => setFiltres({ ...filtres, type_lit: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    >
-                      <option value="">Tous</option>
-                      <option value="simple">Simple</option>
-                      <option value="double">Double</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Occupation</label>
-                    <select
-                      value={filtres.type_occupation}
-                      onChange={(e) => setFiltres({ ...filtres, type_occupation: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    >
-                      <option value="">Tous</option>
-                      <option value="mixte">🔄 Mixte (libre)</option>
-                      <option value="fille">👩 Filles</option>
-                      <option value="garçon">👨 Garçons</option>
-                      <option value="en_attente">⏳ En attente (vide)</option>
-                    </select>
-                  </div>
-                </div>
-                <button
-                  onClick={handleFiltrer}
-                  className="mt-2 px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                >
-                  🔍 Filtrer
-                </button>
-                {rechercheEffectuee && (
-                  <p className="text-xs text-gray-500 mt-2">{litsFiltres.length} lit(s) trouvé(s)</p>
-                )}
-              </div>
-
-              {/* Formulaire d'assignation */}
-              <form onSubmit={handleAssigner} className="mt-3">
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">🛏️ Sélectionner un lit</label>
-                    <select
-                      value={selectedLit}
-                      onChange={(e) => setSelectedLit(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">-- Choisir un lit disponible --</option>
-                      {litsFiltres.length === 0 && rechercheEffectuee ? (
-                        <option value="" disabled>Aucun lit trouvé</option>
-                      ) : (
-                        litsFiltres.map((lit: any) => (
-                          <option key={lit.id} value={lit.id}>
-                            {lit.ville} - {lit.logement_adresse} - {lit.chambre_nom} - Lit {lit.numero}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">📄 Modèle de convention</label>
-                    <select
-                      value={modeleSelectionne}
-                      onChange={(e) => setModeleSelectionne(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      {modeles.length === 0 ? (
-                        <option value="">⚠️ Aucun modèle disponible</option>
-                      ) : (
-                        modeles.map((modele: any) => (
-                          <option key={modele.id} value={modele.id}>
-                            {modele.nom}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">La convention sera générée automatiquement</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">💰 Participation mensuelle (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={participationMensuelle}
-                      onChange={(e) => setParticipationMensuelle(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="150.00"
-                    />
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={chambrePrivee}
-                        onChange={(e) => setChambrePrivee(e.target.checked)}
-                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="ml-3 text-sm text-gray-700 font-medium">🛏️ Chambre privée</span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits de la chambre seront assignés</p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={assignLoading || !selectedLit || !modeleSelectionne}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {assignLoading ? '⏳ Assignation...' : `✅ Assigner ${chambrePrivee ? 'la chambre privée' : 'ce lit'}`}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
-
-        {/* ============================================================ */}
-        {/* 📜 HISTORIQUE DES LOGEMENTS */}
-        {/* ============================================================ */}
-        <div className="mt-8 border-t pt-4">
-          <h2 className="text-xl font-semibold mb-3">📜 Historique des logements</h2>
-          
-          {historiqueLoading ? (
-            <p className="text-gray-500 text-sm">Chargement...</p>
-          ) : historique.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucun historique disponible</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Chambre</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Période</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Participation</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {historique.map((item: any) => {
-                    const isCurrent = logementActuel && logementActuel.id === item.logement_id;
-                    const dateDebut = item.date_debut ? new Date(item.date_debut).toLocaleDateString('fr-FR') : '-';
-                    const dateFin = item.date_fin ? new Date(item.date_fin).toLocaleDateString('fr-FR') : '-';
-                    
-                    return (
-                      <tr key={item.bail_id} className={`hover:bg-gray-50 ${isCurrent ? 'bg-green-50' : ''}`}>
-                        <td className="px-4 py-2 font-medium">{item.nom_logement || '-'}</td>
-                        <td className="px-4 py-2">{item.logement_adresse || '-'}</td>
-                        <td className="px-4 py-2">{item.logement_ville || '-'}</td>
-                        <td className="px-4 py-2">{item.chambre_nom || '-'}</td>
-                        <td className="px-4 py-2">{dateDebut} → {dateFin}</td>
-                        <td className="px-4 py-2">{item.participation_mensuelle ? `${parseFloat(item.participation_mensuelle).toFixed(2)} €` : '-'}</td>
-                        <td className="px-4 py-2">
-                          {isCurrent ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✅ Actuel
-                            </span>
-                          ) : item.signe ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              ✅ Signé
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              Terminé
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>

@@ -1,6 +1,8 @@
 import { query } from '@/lib/db';
 import Charts from '@/app/components/Charts';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   // Statistiques globales
   const statsResult = await query(`
@@ -79,7 +81,7 @@ export default async function DashboardPage() {
   `);
   const collaborateursParCentre = centresResult.rows;
 
-  // 5. Occupation par type
+  // 5. Occupation par type - CORRIGÉE
   const typeResult = await query(`
     SELECT 
       CASE 
@@ -90,7 +92,13 @@ export default async function DashboardPage() {
       END as type,
       COUNT(*) as count
     FROM logements
-    GROUP BY type
+    GROUP BY 
+      CASE 
+        WHEN mixte_autorise = true THEN 'Mixte autorisé'
+        WHEN type_occupation_effectif = 'F' THEN 'Filles'
+        WHEN type_occupation_effectif = 'M' THEN 'Garçons'
+        ELSE 'En attente'
+      END
     ORDER BY count DESC
   `);
   const occupationParType = typeResult.rows;

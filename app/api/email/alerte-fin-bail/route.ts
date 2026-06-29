@@ -3,17 +3,16 @@ import { sendEmail } from '@/lib/email';
 import { getFinBailEmailTemplate } from '@/lib/emailTemplates';
 import { NextResponse } from 'next/server';
 
-// Route pour vérifier les baux arrivant à échéance
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const moisAlerte = parseInt(searchParams.get('mois') || '4');
 
-    // Calculer la date dans X mois
     const dateLimite = new Date();
     dateLimite.setMonth(dateLimite.getMonth() + moisAlerte);
 
-    // Récupérer les baux qui arrivent à échéance
     const result = await query(
       `SELECT 
         c.id as collaborateur_id,
@@ -51,7 +50,6 @@ export async function GET(request: Request) {
 
       if (emailResult.success) {
         emailsEnvoyes++;
-        // Marquer l'alerte comme envoyée
         await query(
           'UPDATE baux SET alerte_envoyee = true WHERE collaborateur_id = $1 AND date_fin = $2',
           [bail.collaborateur_id, bail.date_fin]

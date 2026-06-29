@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
-// Cette route sera appelée par un cron job (tous les jours)
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3003';
+    
     const response = await fetch(
-      `${process.env.NEXTAUTH_URL}/api/email/alerte-fin-bail?mois=4`,
+      `${baseUrl}/api/email/alerte-fin-bail?mois=4`,
       { cache: 'no-store' }
     );
     const data = await response.json();

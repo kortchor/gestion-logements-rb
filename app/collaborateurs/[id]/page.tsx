@@ -20,7 +20,12 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
     type_occupation: '',
   });
   
-  // MODÈLES DE CONVENTION
+  // 📜 Historique
+  const [historique, setHistorique] = useState<any[]>([]);
+  const [logementActuel, setLogementActuel] = useState<any>(null);
+  const [historiqueLoading, setHistoriqueLoading] = useState(true);
+
+  // Modèles de convention
   const [modeles, setModeles] = useState([]);
   const [modeleSelectionne, setModeleSelectionne] = useState('');
 
@@ -83,6 +88,25 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
     }
     fetchModeles();
   }, []);
+
+  // 📜 Charger l'historique des assignations
+  useEffect(() => {
+    async function fetchHistorique() {
+      try {
+        const response = await fetch(`/api/collaborateurs/${params.id}/historique`);
+        const data = await response.json();
+        if (data.success) {
+          setHistorique(data.data.historique || []);
+          setLogementActuel(data.data.actuel || null);
+        }
+      } catch (error) {
+        console.error('Erreur chargement historique:', error);
+      } finally {
+        setHistoriqueLoading(false);
+      }
+    }
+    fetchHistorique();
+  }, [params.id]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
@@ -226,6 +250,9 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
+        {/* ============================================================ */}
+        {/* INFORMATIONS DU COLLABORATEUR */}
+        {/* ============================================================ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-gray-500">Genre</p>
@@ -281,6 +308,9 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
           </div>
         </div>
 
+        {/* ============================================================ */}
+        {/* LOGEMENT ASSIGNÉ */}
+        {/* ============================================================ */}
         <div className="mt-6 border-t pt-4">
           <h2 className="text-xl font-semibold mb-3">🏠 Logement assigné</h2>
           
@@ -362,11 +392,8 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
               {/* Formulaire d'assignation */}
               <form onSubmit={handleAssigner} className="mt-3">
                 <div className="flex flex-col gap-3">
-                  {/* Sélection du lit */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      🛏️ Sélectionner un lit
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🛏️ Sélectionner un lit</label>
                     <select
                       value={selectedLit}
                       onChange={(e) => setSelectedLit(e.target.value)}
@@ -386,11 +413,8 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                     </select>
                   </div>
 
-                  {/* Modèle de convention - UNIQUEMENT LE MODÈLE */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      📄 Modèle de convention
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📄 Modèle de convention</label>
                     <select
                       value={modeleSelectionne}
                       onChange={(e) => setModeleSelectionne(e.target.value)}
@@ -398,7 +422,7 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                       required
                     >
                       {modeles.length === 0 ? (
-                        <option value="">⚠️ Aucun modèle disponible - Créez-en un dans "Modèles"</option>
+                        <option value="">⚠️ Aucun modèle disponible</option>
                       ) : (
                         modeles.map((modele: any) => (
                           <option key={modele.id} value={modele.id}>
@@ -407,21 +431,11 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                         ))
                       )}
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      La convention sera générée automatiquement avec les informations du collaborateur
-                    </p>
-                    {modeles.length === 0 && (
-                      <p className="text-xs text-red-500 mt-1">
-                        ⚠️ Aucun modèle disponible. Allez dans "Modèles" pour en créer un.
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-500 mt-1">La convention sera générée automatiquement</p>
                   </div>
 
-                  {/* Participation mensuelle */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      💰 Participation mensuelle (€)
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">💰 Participation mensuelle (€)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -432,7 +446,6 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                     />
                   </div>
 
-                  {/* Chambre privée */}
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
                     <label className="flex items-center cursor-pointer">
                       <input
@@ -441,13 +454,9 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                         onChange={(e) => setChambrePrivee(e.target.checked)}
                         className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                      <span className="ml-3 text-sm text-gray-700 font-medium">
-                        🛏️ Chambre privée
-                      </span>
+                      <span className="ml-3 text-sm text-gray-700 font-medium">🛏️ Chambre privée</span>
                     </label>
-                    <p className="text-xs text-gray-500 mt-1 ml-8">
-                      Si coché, tous les lits de la chambre seront assignés au collaborateur
-                    </p>
+                    <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits de la chambre seront assignés</p>
                   </div>
 
                   <button
@@ -459,6 +468,68 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================ */}
+        {/* 📜 HISTORIQUE DES LOGEMENTS */}
+        {/* ============================================================ */}
+        <div className="mt-8 border-t pt-4">
+          <h2 className="text-xl font-semibold mb-3">📜 Historique des logements</h2>
+          
+          {historiqueLoading ? (
+            <p className="text-gray-500 text-sm">Chargement...</p>
+          ) : historique.length === 0 ? (
+            <p className="text-gray-500 text-sm">Aucun historique disponible</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Chambre</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Période</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Participation</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {historique.map((item: any) => {
+                    const isCurrent = logementActuel && logementActuel.id === item.logement_id;
+                    const dateDebut = item.date_debut ? new Date(item.date_debut).toLocaleDateString('fr-FR') : '-';
+                    const dateFin = item.date_fin ? new Date(item.date_fin).toLocaleDateString('fr-FR') : '-';
+                    
+                    return (
+                      <tr key={item.bail_id} className={`hover:bg-gray-50 ${isCurrent ? 'bg-green-50' : ''}`}>
+                        <td className="px-4 py-2 font-medium">{item.nom_logement || '-'}</td>
+                        <td className="px-4 py-2">{item.logement_adresse || '-'}</td>
+                        <td className="px-4 py-2">{item.logement_ville || '-'}</td>
+                        <td className="px-4 py-2">{item.chambre_nom || '-'}</td>
+                        <td className="px-4 py-2">{dateDebut} → {dateFin}</td>
+                        <td className="px-4 py-2">{item.participation_mensuelle ? `${parseFloat(item.participation_mensuelle).toFixed(2)} €` : '-'}</td>
+                        <td className="px-4 py-2">
+                          {isCurrent ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✅ Actuel
+                            </span>
+                          ) : item.signe ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              ✅ Signé
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              Terminé
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

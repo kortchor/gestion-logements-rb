@@ -70,6 +70,7 @@ export default function NouveauLogement() {
     }
   };
 
+  // 📁 Upload de fichier
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string, nameField: string) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -90,6 +91,41 @@ export default function NouveauLogement() {
         });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // 🗑️ Suppression de fichier
+  const handleFileRemove = (field: string, nameField: string) => {
+    setFormData({
+      ...formData,
+      [field]: '',
+      [nameField]: '',
+    });
+  };
+
+  // 📸 Upload de photos (état des lieux)
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const fileList = Array.from(files);
+      const promises = fileList.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              name: file.name,
+              data: reader.result,
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(promises).then((results) => {
+        setFormData({
+          ...formData,
+          etat_lieux_photos: JSON.stringify(results),
+        });
+      });
     }
   };
 
@@ -127,6 +163,46 @@ export default function NouveauLogement() {
     }
   };
 
+  // Fonction pour afficher un champ de fichier avec suppression
+  const renderFileField = (
+    label: string,
+    field: string,
+    nameField: string,
+    placeholder: string,
+    accept: string = '.pdf'
+  ) => {
+    const hasFile = formData[nameField as keyof typeof formData];
+    
+    return (
+      <div className="col-span-2">
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        {hasFile ? (
+          <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+            <span className="text-sm text-gray-700">📎 {formData[nameField as keyof typeof formData]}</span>
+            <button
+              type="button"
+              onClick={() => handleFileRemove(field, nameField)}
+              className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50"
+              title="Supprimer ce fichier"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <input
+            type="file"
+            accept={accept}
+            onChange={(e) => handleFileUpload(e, field, nameField)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        )}
+        <p className="text-xs text-gray-500 mt-1">{placeholder}</p>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto p-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-6">🏠 Ajouter un logement</h1>
@@ -140,18 +216,15 @@ export default function NouveauLogement() {
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* ============================================================ */}
-          {/* SECTION 1 : IDENTIFICATION DU LOGEMENT */}
+          {/* SECTION 1 : IDENTIFICATION */}
           {/* ============================================================ */}
           <div className="col-span-2">
             <h2 className="text-lg font-semibold text-blue-600 mb-3">📍 Identification du logement</h2>
             <hr className="mb-4" />
           </div>
 
-          {/* Nom du logement - EN TÊTE */}
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              🏷️ Nom du logement *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">🏷️ Nom du logement *</label>
             <input
               type="text"
               name="nom_logement"
@@ -159,14 +232,11 @@ export default function NouveauLogement() {
               value={formData.nom_logement}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: Appartement Birnie, Villa des Pins, Studio du Port..."
+              placeholder="Ex: Appartement Birnie, Villa des Pins..."
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Donnez un nom identifiable au logement (ex: nom de la résidence ou du bâtiment)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Donnez un nom identifiable au logement</p>
           </div>
 
-          {/* Adresse */}
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Adresse *</label>
             <input
@@ -180,7 +250,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Ville */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label>
             <select
@@ -196,7 +265,6 @@ export default function NouveauLogement() {
             </select>
           </div>
 
-          {/* Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type de logement *</label>
             <select
@@ -212,7 +280,6 @@ export default function NouveauLogement() {
             </select>
           </div>
 
-          {/* Prix loyer */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">💰 Prix loyer mensuel (€)</label>
             <input
@@ -226,7 +293,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Mixte autorisé */}
           <div className="col-span-2">
             <label className="flex items-center cursor-pointer">
               <input
@@ -236,36 +302,32 @@ export default function NouveauLogement() {
                 onChange={handleChange}
                 className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
-              <span className="ml-3 text-sm text-gray-700">
-                ✅ Autoriser la cohabitation mixte (filles et garçons)
-              </span>
+              <span className="ml-3 text-sm text-gray-700">✅ Autoriser la cohabitation mixte (filles et garçons)</span>
             </label>
-            <p className="text-xs text-gray-500 mt-1 ml-8">
-              Si non coché, le logement sera réservé au genre du premier occupant
-            </p>
+            <p className="text-xs text-gray-500 mt-1 ml-8">Si non coché, le logement sera réservé au genre du premier occupant</p>
           </div>
 
-          {/* Visibilité */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="est_visible"
-              checked={formData.est_visible}
-              onChange={handleChange}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label className="ml-2 text-sm text-gray-700">✅ Logement visible</label>
+          <div>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                name="est_visible"
+                checked={formData.est_visible}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">✅ Logement visible</span>
+            </label>
           </div>
 
           {/* ============================================================ */}
-          {/* SECTION 2 : PROPRIÉTAIRE ET CONTACTS */}
+          {/* SECTION 2 : PROPRIÉTAIRE */}
           {/* ============================================================ */}
           <div className="col-span-2 mt-4">
             <h2 className="text-lg font-semibold text-blue-600 mb-3">👤 Propriétaire et contacts</h2>
             <hr className="mb-4" />
           </div>
 
-          {/* Propriétaire */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Propriétaire</label>
             <input
@@ -278,7 +340,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Contact propriétaire */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contact propriétaire</label>
             <input
@@ -299,7 +360,6 @@ export default function NouveauLogement() {
             <hr className="mb-4" />
           </div>
 
-          {/* Fournisseur EDF */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur EDF</label>
             <input
@@ -312,7 +372,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Fournisseur Eau */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur Eau</label>
             <input
@@ -325,7 +384,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Fournisseur Gaz */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur Gaz</label>
             <input
@@ -346,7 +404,6 @@ export default function NouveauLogement() {
             <hr className="mb-4" />
           </div>
 
-          {/* Nom de l'assureur */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'assureur</label>
             <input
@@ -359,7 +416,6 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* Numéro d'assurance */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Numéro d'assurance</label>
             <input
@@ -372,96 +428,62 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {/* PDF Assurance */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">📄 Contrat d'assurance (PDF)</label>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => handleFileUpload(e, 'assurance_pdf', 'assurance_nom')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {formData.assurance_nom && (
-              <p className="text-sm text-green-600 mt-1">✅ {formData.assurance_nom}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Uploader le contrat d'assurance au format PDF (max 10 Mo)</p>
-          </div>
+          {renderFileField(
+            '📄 Contrat d\'assurance (PDF)',
+            'assurance_pdf',
+            'assurance_nom',
+            'Uploader le contrat d\'assurance au format PDF (max 10 Mo)'
+          )}
 
           {/* ============================================================ */}
-          {/* SECTION 5 : DOCUMENTS DU LOGEMENT */}
+          {/* SECTION 5 : DOCUMENTS */}
           {/* ============================================================ */}
           <div className="col-span-2 mt-4">
             <h2 className="text-lg font-semibold text-blue-600 mb-3">📋 Documents du logement</h2>
             <hr className="mb-4" />
           </div>
 
-          {/* Bail */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">📄 Bail (PDF)</label>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => handleFileUpload(e, 'bail_pdf', 'bail_nom')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {formData.bail_nom && (
-              <p className="text-sm text-green-600 mt-1">✅ {formData.bail_nom}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Uploader le bail signé avec le propriétaire (PDF)</p>
-          </div>
+          {renderFileField(
+            '📄 Bail (PDF)',
+            'bail_pdf',
+            'bail_nom',
+            'Uploader le bail signé avec le propriétaire (PDF)'
+          )}
 
-          {/* État des lieux PDF */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">📄 État des lieux (PDF)</label>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => handleFileUpload(e, 'etat_lieux_pdf', 'etat_lieux_nom')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {formData.etat_lieux_nom && (
-              <p className="text-sm text-green-600 mt-1">✅ {formData.etat_lieux_nom}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Uploader l'état des lieux signé (PDF)</p>
-          </div>
+          {renderFileField(
+            '📄 État des lieux (PDF)',
+            'etat_lieux_pdf',
+            'etat_lieux_nom',
+            'Uploader l\'état des lieux signé (PDF)'
+          )}
 
-          {/* État des lieux Photos */}
+          {/* Photos */}
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l'état des lieux</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.gif"
-              multiple
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files) {
-                  const fileList = Array.from(files);
-                  const promises = fileList.map((file) => {
-                    return new Promise((resolve) => {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        resolve({
-                          name: file.name,
-                          data: reader.result,
-                        });
-                      };
-                      reader.readAsDataURL(file);
-                    });
-                  });
-                  Promise.all(promises).then((results) => {
-                    setFormData({
-                      ...formData,
-                      etat_lieux_photos: JSON.stringify(results),
-                    });
-                  });
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {formData.etat_lieux_photos && (
-              <p className="text-sm text-green-600 mt-1">
-                ✅ {JSON.parse(formData.etat_lieux_photos).length} photo(s) téléchargée(s)
-              </p>
+            {formData.etat_lieux_photos ? (
+              <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                <span className="text-sm text-gray-700">
+                  ✅ {JSON.parse(formData.etat_lieux_photos).length} photo(s) téléchargée(s)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleFileRemove('etat_lieux_photos', 'etat_lieux_photos')}
+                  className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50"
+                  title="Supprimer toutes les photos"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif"
+                multiple
+                onChange={handlePhotoUpload}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             )}
             <p className="text-xs text-gray-500 mt-1">Uploader les photos de l'état des lieux (JPG, PNG, GIF)</p>
           </div>
@@ -470,7 +492,7 @@ export default function NouveauLogement() {
           {/* SECTION 6 : DESCRIPTION */}
           {/* ============================================================ */}
           <div className="col-span-2 mt-4">
-            <h2 className="text-lg font-semibold text-blue-600 mb-3">📝 Description du logement</h2>
+            <h2 className="text-lg font-semibold text-blue-600 mb-3">📝 Description</h2>
             <hr className="mb-4" />
           </div>
 
@@ -480,16 +502,10 @@ export default function NouveauLogement() {
               name="description_detaillee"
               value={formData.description_detaillee}
               onChange={handleChange}
-              rows={6}
+              rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={`Exemple :
-- 1 salle de séjour (Canapé + lit double)
-- 1 kitchenette
-- 1 salle d'eau/salle de bain et 1 WC
-- Terrasse
-- Meublé et équipé`}
+              placeholder="Décrivez précisément les pièces, équipements et particularités du logement"
             />
-            <p className="text-xs text-gray-500 mt-1">Décrivez précisément les pièces, équipements et particularités du logement</p>
           </div>
         </div>
 
@@ -579,7 +595,7 @@ export default function NouveauLogement() {
           </button>
           <a
             href="/logements"
-            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors no-underline"
           >
             Annuler
           </a>

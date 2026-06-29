@@ -1,7 +1,7 @@
 import { query } from '@/lib/db';
 import DeleteLogementButton from '@/app/components/DeleteLogementButton';
+import ExportButtons from '@/app/components/ExportButtons';
 
-// ✅ FORCER LE RAFFRAÎCHISSEMENT
 export const dynamic = 'force-dynamic';
 
 const COULEURS_VILLES: { [key: string]: string } = {
@@ -62,16 +62,37 @@ export default async function LogementsPage() {
       'Roquefort-la-Bédoule': logements.filter((l: any) => l.ville === 'Roquefort-la-Bédoule').length,
     };
 
+    const exportColumns = [
+      { key: 'id', label: 'ID' },
+      { key: 'nom_logement', label: 'Nom' },
+      { key: 'adresse', label: 'Adresse' },
+      { key: 'ville', label: 'Ville' },
+      { key: 'type', label: 'Type' },
+      { key: 'nombre_chambres', label: 'Chambres' },
+      { key: 'total_lits', label: 'Lits' },
+      { key: 'prix_loyer', label: 'Loyer (€)' },
+      { key: 'proprietaire', label: 'Propriétaire' },
+      { key: 'mixte_autorise', label: 'Mixte autorisé' },
+    ];
+
     return (
       <div className="container mx-auto p-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h1 className="text-3xl font-bold">🏠 Gestion des Logements</h1>
-          <a
-            href="/logements/nouveau"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
-          >
-            + Ajouter un logement
-          </a>
+          <div className="flex flex-wrap gap-4">
+            <ExportButtons
+              type="logements"
+              data={logements}
+              columns={exportColumns}
+              filename="liste_logements"
+            />
+            <a
+              href="/logements/nouveau"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
+            >
+              + Ajouter un logement
+            </a>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">

@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
+import ExportButtons from '@/app/components/ExportButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,16 +65,41 @@ export default async function CollaborateursPage() {
       }).length,
     };
 
+    const exportColumns = [
+      { key: 'id', label: 'ID' },
+      { key: 'genre', label: 'Genre' },
+      { key: 'nom', label: 'Nom' },
+      { key: 'prenom', label: 'Prénom' },
+      { key: 'email', label: 'Email' },
+      { key: 'telephone', label: 'Téléphone' },
+      { key: 'centre_principal', label: 'Centre principal' },
+      { key: 'centre_affectation', label: 'Centre affectation' },
+      { key: 'date_debut_contrat', label: 'Début contrat' },
+      { key: 'date_fin_contrat', label: 'Fin contrat' },
+      { key: 'logement_adresse', label: 'Logement' },
+      { key: 'logement_ville', label: 'Ville' },
+      { key: 'vehicule', label: 'Véhicule' },
+      { key: 'animal', label: 'Animal' },
+    ];
+
     return (
       <div className="container mx-auto p-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <h1 className="text-3xl font-bold">👥 Gestion des Collaborateurs</h1>
-          <a
-            href="/collaborateurs/nouveau"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
-          >
-            + Ajouter un collaborateur
-          </a>
+          <div className="flex flex-wrap gap-4">
+            <ExportButtons
+              type="collaborateurs"
+              data={collaborateurs}
+              columns={exportColumns}
+              filename="liste_collaborateurs"
+            />
+            <a
+              href="/collaborateurs/nouveau"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
+            >
+              + Ajouter un collaborateur
+            </a>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

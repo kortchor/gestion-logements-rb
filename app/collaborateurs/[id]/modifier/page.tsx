@@ -204,7 +204,7 @@ export default function ModifierCollaborateur({ params }: { params: { id: string
               value={formData.centre_principal}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: Roches Blanches Cassis"
+              placeholder="Ex: AGRH - Direction des Ressources Humaines"
             />
           </div>
 
@@ -217,7 +217,7 @@ export default function ModifierCollaborateur({ params }: { params: { id: string
               value={formData.centre_affectation}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: Résidence Birnie"
+              placeholder="Ex: AGFI - Direction Administrative et Financière"
             />
           </div>
 

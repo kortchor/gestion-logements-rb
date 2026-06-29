@@ -4,11 +4,15 @@ export function getFinBailEmailTemplate({
   collaborateurPrenom,
   logementAdresse,
   dateFin,
+  joursRestants = 0,
+  typeAlerte = 'premiere',
 }: {
   collaborateurNom: string;
   collaborateurPrenom: string;
   logementAdresse: string;
   dateFin: string;
+  joursRestants?: number;
+  typeAlerte?: string;
 }) {
   const dateFinFormatee = new Date(dateFin).toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -16,33 +20,62 @@ export function getFinBailEmailTemplate({
     year: 'numeric',
   });
 
+  const getSubject = () => {
+    switch (typeAlerte) {
+      case 'relance':
+        return `🔔 RELANCE - Fin de bail de ${collaborateurPrenom} ${collaborateurNom}`;
+      case 'derniere':
+        return `🚨 URGENT - Dernière relance pour ${collaborateurPrenom} ${collaborateurNom}`;
+      default:
+        return `📅 Fin de bail - ${collaborateurPrenom} ${collaborateurNom}`;
+    }
+  };
+
+  const getColor = () => {
+    switch (typeAlerte) {
+      case 'relance':
+        return '#f59e0b';
+      case 'derniere':
+        return '#ef4444';
+      default:
+        return '#3b82f6';
+    }
+  };
+
+  const getUrgence = () => {
+    if (joursRestants <= 7) return '🔴 URGENT';
+    if (joursRestants <= 14) return '🟡 ATTENTION';
+    return 'ℹ️ INFORMATION';
+  };
+
   return {
-    subject: `📅 Fin de bail - ${collaborateurPrenom} ${collaborateurNom}`,
+    subject: getSubject(),
     html: `
       <!DOCTYPE html>
       <html>
       <head>
         <style>
           body { font-family: Arial, sans-serif; color: #333; }
-          .header { background-color: #1a56db; color: white; padding: 20px; text-align: center; }
+          .header { background-color: ${getColor()}; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; }
           .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }
-          .info-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; }
+          .info-box { background-color: ${typeAlerte === 'derniere' ? '#fef2f2' : '#fef3c7'}; border-left: 4px solid ${getColor()}; padding: 15px; margin: 15px 0; }
           .btn { background-color: #1a56db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>🏨 Les Roches Blanches</h1>
-          <p>Alerte fin de bail</p>
+          <p>${typeAlerte === 'derniere' ? '⚠️ DERNIÈRE RELANCE' : typeAlerte === 'relance' ? '🔔 RELANCE' : 'Alerte fin de bail'}</p>
         </div>
         <div class="content">
           <h2>Bonjour,</h2>
-          <p>Le bail du collaborateur <strong>${collaborateurPrenom} ${collaborateurNom}</strong> arrive à échéance.</p>
-          
           <div class="info-box">
+            <p><strong>${getUrgence()} - ${typeAlerte === 'derniere' ? 'Action requise !' : 'Information importante'}</strong></p>
             <p><strong>📅 Date de fin :</strong> ${dateFinFormatee}</p>
+            <p><strong>⏳ Jours restants :</strong> ${joursRestants} jours</p>
             <p><strong>📍 Logement :</strong> ${logementAdresse}</p>
+            <p><strong>👤 Collaborateur :</strong> ${collaborateurPrenom} ${collaborateurNom}</p>
           </div>
           
           <p>Veuillez prendre les mesures nécessaires :</p>
@@ -64,12 +97,16 @@ export function getFinBailEmailTemplate({
       </html>
     `,
     text: `
-      Alerte fin de bail - ${collaborateurPrenom} ${collaborateurNom}
+      ${typeAlerte === 'derniere' ? '⚠️ DERNIÈRE RELANCE' : typeAlerte === 'relance' ? '🔔 RELANCE' : 'Alerte fin de bail'}
+      
+      ${getUrgence()}
       
       Date de fin : ${dateFinFormatee}
+      Jours restants : ${joursRestants} jours
       Logement : ${logementAdresse}
+      Collaborateur : ${collaborateurPrenom} ${collaborateurNom}
       
-      Veuillez contacter le collaborateur pour connaître ses intentions.
+      Veuillez contacter le collaborateur et préparer la relève.
       
       ---
       Les Roches Blanches - Gestion des logements saisonniers

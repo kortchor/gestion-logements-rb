@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   `);
   const totalCollaborateurs = collabResult.rows[0]?.total_collaborateurs || 0;
 
-  // 1. Logements par ville (pour le graphique)
+  // 1. Logements par ville
   const villesResult = await query(`
     SELECT 
       ville,
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   `);
   const logementsParVille = villesResult.rows;
 
-  // 2. Lits par ville (occupation)
+  // 2. Lits par ville
   const litsVilleResult = await query(`
     SELECT 
       log.ville,
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
   `);
   const collaborateursParCentre = centresResult.rows;
 
-  // 5. Occupation par type - CORRIGÉE
+  // 5. Occupation par type
   const typeResult = await query(`
     SELECT 
       CASE 
@@ -120,6 +120,29 @@ export default async function DashboardPage() {
     WHERE est_occupe = true
   `);
   const nbLoges = logesResult.rows[0]?.nb_loges || 0;
+
+  // 📋 Baux expirant dans les 30 jours
+  const bauxExpirantResult = await query(`
+    SELECT 
+      b.id as bail_id,
+      c.id as collaborateur_id,
+      c.nom,
+      c.prenom,
+      c.email,
+      log.adresse as logement_adresse,
+      log.ville as logement_ville,
+      b.date_fin,
+      b.alerte_envoyee,
+      b.date_alerte_envoyee
+    FROM baux b
+    LEFT JOIN collaborateurs c ON b.collaborateur_id = c.id
+    LEFT JOIN logements log ON b.logement_id = log.id
+    WHERE b.date_fin > CURRENT_DATE
+      AND b.date_fin <= CURRENT_DATE + INTERVAL '30 days'
+    ORDER BY b.date_fin ASC
+    LIMIT 10
+  `);
+  const bauxExpirant = bauxExpirantResult.rows;
 
   const chartsData = {
     logementsParVille,
@@ -165,6 +188,72 @@ export default async function DashboardPage() {
 
       {/* Graphiques */}
       <Charts data={chartsData} />
+
+      {/* ⏰ Baux arrivant à échéance */}
+      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+        <h2 className="text-xl font-semibold text-gray-700 mb-4">⏰ Baux arrivant à échéance</h2>
+        {bauxExpirant.length === 0 ? (
+          <p className="text-gray-500 text-sm">Aucun bail n'arrive à échéance dans les 30 prochains jours</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Collaborateur</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date de fin</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jours restants</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {bauxExpirant.map((bail: any) => {
+                  const joursRestants = Math.ceil((new Date(bail.date_fin).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <tr key={bail.bail_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2">
+                        <a href={`/collaborateurs/${bail.collaborateur_id}`} className="text-blue-600 hover:underline">
+                          {bail.prenom} {bail.nom}
+                        </a>
+                      </td>
+                      <td className="px-4 py-2">{bail.logement_adresse}</td>
+                      <td className="px-4 py-2">{new Date(bail.date_fin).toLocaleDateString('fr-FR')}</td>
+                      <td className="px-4 py-2 font-medium">
+                        <span className={
+                          joursRestants <= 7 ? 'text-red-600 font-bold' :
+                          joursRestants <= 14 ? 'text-orange-600' :
+                          'text-gray-600'
+                        }>
+                          {joursRestants} jours
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        {bail.alerte_envoyee ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✅ Alerté
+                          </span>
+                        ) : joursRestants <= 7 ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            🔴 Urgent
+                          </span>
+                        ) : joursRestants <= 14 ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⚠️ Attention
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            En attente
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Budget total */}
       <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-200">

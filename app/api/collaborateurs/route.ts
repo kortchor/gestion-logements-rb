@@ -17,8 +17,7 @@ export async function GET(request: Request) {
           log.id as logement_id,
           log.adresse as logement_adresse,
           log.ville as logement_ville,
-          log.type_occupation as logement_type_occupation,
-          log.description_detaillee,
+          log.type_occupation_effectif as logement_type_occupation,
           b.participation_mensuelle
         FROM collaborateurs c
         LEFT JOIN lits l ON c.id = l.collaborateur_id
@@ -62,7 +61,7 @@ export async function GET(request: Request) {
         ch.nom as chambre_nom,
         log.adresse as logement_adresse,
         log.ville as logement_ville,
-        log.type_occupation as logement_type_occupation,
+        log.type_occupation_effectif as logement_type_occupation,
         b.participation_mensuelle
       FROM collaborateurs c
       LEFT JOIN lits l ON c.id = l.collaborateur_id

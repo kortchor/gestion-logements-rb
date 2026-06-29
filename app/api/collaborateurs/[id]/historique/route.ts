@@ -1,7 +1,6 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-// GET - Récupérer l'historique des assignations d'un collaborateur
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -23,6 +22,7 @@ export async function GET(
         l.adresse as logement_adresse,
         l.ville as logement_ville,
         l.type as logement_type,
+        l.type_occupation_effectif,
         ch.nom as chambre_nom,
         ch.type_lit,
         ch.nombre_lits as lits_dans_chambre,
@@ -38,7 +38,6 @@ export async function GET(
       [collaborateurId]
     );
 
-    // Récupérer aussi le logement actuel (si assigné)
     const currentResult = await query(
       `SELECT 
         l.id,

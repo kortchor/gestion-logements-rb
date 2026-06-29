@@ -1,7 +1,6 @@
 import { query } from '@/lib/db';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 
-// ✅ FORCER LE RAFRAÎCHISSEMENT DES DONNÉES À CHAQUE REQUÊTE
 export const dynamic = 'force-dynamic';
 
 function getOccupationColor(type: string) {
@@ -42,7 +41,7 @@ export default async function CollaborateursPage() {
         ch.nom as chambre_nom,
         log.adresse as logement_adresse,
         log.ville as logement_ville,
-        log.type_occupation as logement_type_occupation,
+        log.type_occupation_effectif as logement_type_occupation,
         b.participation_mensuelle
       FROM collaborateurs c
       LEFT JOIN lits l ON c.id = l.collaborateur_id

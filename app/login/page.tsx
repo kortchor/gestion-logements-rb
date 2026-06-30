@@ -1,20 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    email: '',
-    mot_de_passe: '',
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [email, setEmail] = useState('');
+  const [motDePasse, setMotDePasse] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,25 +17,21 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ email, mot_de_passe: motDePasse }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Stocker les informations
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Rediriger vers la page d'accueil ou vers la page demandée
-        const from = new URLSearchParams(window.location.search).get('from') || '/';
-        router.push(from);
-        router.refresh();
+        // ✅ REDIRECTION VERS L'ACCUEIL
+        window.location.href = '/';
       } else {
         setError(data.error || 'Email ou mot de passe incorrect');
       }
     } catch (err) {
-      console.error('Erreur:', err);
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
@@ -66,32 +54,26 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
-              name="email"
               required
-              value={formData.email}
-              onChange={handleChange}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="exemple@roches-blanches.com"
+              placeholder="admin@roches-blanches.com"
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mot de passe
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
             <input
               type="password"
-              name="mot_de_passe"
               required
-              value={formData.mot_de_passe}
-              onChange={handleChange}
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Votre mot de passe"
+              placeholder="admin123"
             />
           </div>
 
@@ -102,12 +84,12 @@ export default function LoginPage() {
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {loading ? 'Connexion en cours...' : '🔐 Se connecter'}
+            {loading ? 'Connexion...' : '🔐 Se connecter'}
           </button>
         </form>
 
         <div className="mt-4 text-center text-sm text-gray-500">
-          <p>Compte par défaut : admin@roches-blanches.com / admin123</p>
+          <p>admin@roches-blanches.com / admin123</p>
         </div>
       </div>
     </div>

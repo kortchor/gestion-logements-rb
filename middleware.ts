@@ -1,57 +1,80 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Routes qui ne nécessitent pas d'authentification
-const PUBLIC_ROUTES = ['/login', '/api/auth/login'];
+// Routes publiques (sans authentification)
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/api/auth/login'];
 
-// Routes réservées aux admins
-const ADMIN_ROUTES = ['/admin', '/api/admin'];
+// Routes réservées aux admins (Admin et Super Admin)
+const ADMIN_ROUTES = ['/logements', '/collaborateurs', '/dashboard', '/recherche', '/admin/lits', '/admin/modeles'];
 
-// Routes réservées aux super admins
-const SUPER_ADMIN_ROUTES = ['/admin/users'];
+// Routes réservées aux Super Admin
+const SUPER_ADMIN_ROUTES = ['/admin/users', '/admin/technicien'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Vérifier si c'est une route publique
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+
+  // Ignorer les fichiers statiques
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith('/public') ||
+    pathname.includes('.')
+  ) {
     return NextResponse.next();
   }
 
-  // Récupérer le token depuis le cookie ou le header
-  const token = request.cookies.get('token')?.value || 
+  console.log('🛡️ [Middleware] Path:', pathname);
+
+  // Routes publiques - accès libre
+  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    console.log('✅ [Middleware] Route publique');
+    return NextResponse.next();
+  }
+
+  // Routes API - accès libre (pour les appels AJAX)
+  if (pathname.startsWith('/api/')) {
+    console.log('✅ [Middleware] Route API - accès libre');
+    return NextResponse.next();
+  }
+
+  // Récupérer le token
+  const token = request.cookies.get('token')?.value ||
                 request.headers.get('authorization')?.replace('Bearer ', '');
 
-  // Si pas de token, rediriger vers login
+  console.log('🔑 [Middleware] Token:', token ? '✅ Présent' : '❌ Absent');
+
   if (!token) {
+    console.log('🔀 [Middleware] Redirection vers /login');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Vérifier le token (décodage simple)
+  // Vérifier le token
   try {
     const base64Payload = token.split('.')[1];
     const payload = JSON.parse(atob(base64Payload));
-    const { role } = payload;
+    console.log('👤 [Middleware] Utilisateur:', payload.email, 'Rôle:', payload.role);
 
-    // Vérifier les permissions pour les routes admin
-    if (ADMIN_ROUTES.some(route => pathname.startsWith(route)) && role !== 'admin' && role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    // ✅ Vérifier les permissions pour les routes admin
+    if (ADMIN_ROUTES.some(route => pathname.startsWith(route)) && payload.role !== 'admin' && payload.role !== 'super_admin') {
+      console.log('⛔ [Middleware] Accès refusé: rôle insuffisant pour route admin');
+      return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Vérifier les permissions pour les routes super admin
-    if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route)) && role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    // ✅ Vérifier les permissions pour les routes Super Admin
+    if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route)) && payload.role !== 'super_admin') {
+      console.log('⛔ [Middleware] Accès refusé: rôle insuffisant pour route super admin');
+      return NextResponse.redirect(new URL('/', request.url));
     }
 
     return NextResponse.next();
   } catch (error) {
-    // Token invalide
+    console.error('❌ [Middleware] Token invalide');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|.*\\..*).*)',
   ],
 };

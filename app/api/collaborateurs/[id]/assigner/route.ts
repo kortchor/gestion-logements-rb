@@ -1,8 +1,8 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { createSignatureRequestWithDocument } from '@/lib/yousign';
-import { generateConventionPDFFromTemplate } from '@/lib/generateConventionPDF';
+import { sendSignatureRequest } from '@/lib/signature';
+import { generateConventionPDF } from '@/lib/generateConventionPDF';
 
 export async function POST(
   request: Request,
@@ -228,8 +228,8 @@ export async function POST(
       try {
         const numeroContrat = `CONV-${logementId}-${collaborateurId}-${Date.now().toString().slice(-6)}`;
         
-        const pdfBuffer = await generateConventionPDFFromTemplate({
-          template: modeleContenu,
+        const pdfBuffer = await generateConventionPDF({
+          templateConvention: modeleContenu,
           nom: collaborateur.nom,
           prenom: collaborateur.prenom,
           email: collaborateur.email,
@@ -249,23 +249,21 @@ export async function POST(
         console.log('✅ PDF généré à partir du modèle');
       } catch (error) {
         console.error('⚠️ Erreur génération PDF depuis modèle:', error);
-        // On garde le PDF uploadé si la génération échoue
       }
     }
 
-    // 8. Envoyer via Yousign
-    let yousignResult = null;
+    // 8. Envoyer la demande de signature (SIMULATION)
+    let signatureResult = null;
     try {
-      yousignResult = await createSignatureRequestWithDocument({
+      signatureResult = await sendSignatureRequest({
         signerEmail: collaborateur.email,
         signerNom: collaborateur.nom,
         signerPrenom: collaborateur.prenom,
         documentContent: pdfBase64,
         documentName: pdfNom || `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
-        message: `Bonjour ${collaborateur.prenom}, veuillez signer votre convention locative.`,
       });
 
-      if (yousignResult.success) {
+      if (signatureResult.success) {
         const emailHtml = `
           <!DOCTYPE html>
           <html>
@@ -276,6 +274,7 @@ export async function POST(
               .content { padding: 20px; }
               .btn { background-color: #1a56db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
               .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }
+              .simulation { background-color: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 5px; margin: 10px 0; }
             </style>
           </head>
           <body>
@@ -286,15 +285,26 @@ export async function POST(
             <div class="content">
               <h2>Bonjour ${collaborateur.prenom} ${collaborateur.nom},</h2>
               <p>Votre logement vous a été assigné. Veuillez signer votre convention locative.</p>
+              
+              <div class="simulation">
+                <p>⚠️ <strong>Mode simulation</strong></p>
+                <p>La signature électronique est en cours d'intégration.</p>
+                <p>Cliquez sur le lien ci-dessous pour simuler la signature.</p>
+              </div>
+              
               <p><strong>📍 Logement :</strong> ${lit.adresse}, ${lit.ville}</p>
               <p><strong>📅 Période :</strong> ${new Date(dateDebut).toLocaleDateString('fr-FR')} - ${dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : 'Non définie'}</p>
               <p><strong>🛏️ Lits assignés :</strong> ${litsAAssigner.length}</p>
               ${chambre_privée ? '<p><strong>🛏️ Chambre privée</strong></p>' : ''}
               ${participation_mensuelle ? `<p><strong>💰 Participation mensuelle :</strong> ${parseFloat(participation_mensuelle).toFixed(2)} €</p>` : ''}
-              <p><a href="${yousignResult.signerUrl}" class="btn">✍️ Signer avec Yousign</a></p>
+              
+              <p style="margin-top: 20px;">
+                <a href="${signatureResult.signatureLink}" class="btn">✍️ Signer la convention (simulation)</a>
+              </p>
             </div>
             <div class="footer">
-              <p>Les Roches Blanches - Signature électronique via Yousign</p>
+              <p>Les Roches Blanches - Gestion des logements saisonniers</p>
+              <p>Signature électronique en cours d'intégration</p>
             </div>
           </body>
           </html>
@@ -305,14 +315,9 @@ export async function POST(
           subject: `📄 Signature de convention - ${collaborateur.prenom} ${collaborateur.nom}`,
           html: emailHtml,
         });
-
-        await query(
-          'UPDATE baux SET yousign_request_id = $1, yousign_status = $2 WHERE collaborateur_id = $3 AND logement_id = $4',
-          [yousignResult.signatureRequestId, 'pending', collaborateurId, logementId]
-        );
       }
     } catch (error) {
-      console.error('⚠️ Erreur Yousign/Email:', error);
+      console.error('⚠️ Erreur signature simulation:', error);
     }
 
     // 9. Envoyer email de confirmation à la RH
@@ -363,7 +368,10 @@ export async function POST(
             </div>
             
             <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
-              📎 La convention a été envoyée au collaborateur pour signature via Yousign.
+              📎 La convention a été envoyée au collaborateur pour signature.
+            </p>
+            <p style="font-size: 14px; color: #f59e0b; margin-top: 5px;">
+              ⚠️ Signature en mode simulation (intégration Yousign en cours)
             </p>
           </div>
           <div class="footer">
@@ -391,9 +399,9 @@ export async function POST(
         message: `${litsAAssigner.length} lit(s) assigné(s) avec succès`,
         lits_assignes: litsAAssigner.length,
         chambre_privée: chambre_privée,
-        yousign: yousignResult ? { 
-          success: yousignResult.success, 
-          url: yousignResult.signerUrl || null 
+        signature: signatureResult ? { 
+          success: signatureResult.success, 
+          url: signatureResult.signatureLink || null 
         } : null
       },
       { status: 200 }

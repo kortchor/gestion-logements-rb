@@ -3,13 +3,15 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// GET - Récupérer les notifications (non lues ou toutes)
+// GET - Récupérer les notifications
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const uniquementNonLues = searchParams.get('non_lues') === 'true';
     const limit = parseInt(searchParams.get('limit') || '10');
 
+    // ⚠️ CORRECTION : La colonne s'appelle "texte" ou "message" ? 
+    // On va utiliser "message" si elle existe
     let sql = `
       SELECT 
         n.id,
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    console.error('❌ Erreur notifications:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des notifications' },
       { status: 500 }
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Marquer une notification comme lue
+// PUT - Marquer une notification comme lue
 export async function PUT(request: Request) {
   try {
     const body = await request.json();

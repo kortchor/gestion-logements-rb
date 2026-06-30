@@ -1,30 +1,42 @@
 'use client';
 
-import { useAuth } from '@/app/context/AuthContext';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import ReportIssueButton from './ReportIssueButton';
 
 export default function UserMenu() {
-  const { user, logout } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
+
+  if (!mounted) {
+    return null;
+  }
 
   if (!user) {
     return (
-      <a
-        href="/login"
-        className="text-gray-700 hover:text-blue-600 transition-colors no-underline"
-      >
+      <a href="/login" className="text-gray-700 hover:text-blue-600 transition-colors no-underline">
         🔐 Connexion
       </a>
     );
   }
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
-
+  const isSuperAdmin = user.role === 'super_admin';
   const getRoleLabel = () => {
     switch (user.role) {
       case 'super_admin': return '👑 Super Admin';
@@ -48,7 +60,7 @@ export default function UserMenu() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           <div className="px-4 py-3 border-b border-gray-200">
             <p className="text-sm font-medium text-gray-900">
               {user.prenom} {user.nom}
@@ -57,6 +69,37 @@ export default function UserMenu() {
             <p className="text-xs text-blue-600 mt-1">{getRoleLabel()}</p>
           </div>
           <div className="py-1">
+            {/* ✅ TOUS LES UTILISATEURS PEUVENT CHANGER LEUR MOT DE PASSE */}
+            <a
+              href="/change-password"
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={() => setIsOpen(false)}
+            >
+              🔑 Changer le mot de passe
+            </a>
+
+            {/* ✅ TOUS LES UTILISATEURS PEUVENT SIGNALER UN PROBLÈME */}
+            <ReportIssueButton />
+
+            {/* ✅ ADMINISTRATION (uniquement pour Super Admin) */}
+            {isSuperAdmin && (
+              <>
+                <a
+                  href="/admin/users"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsOpen(false)}
+                >
+                  👥 Gestion des utilisateurs
+                </a>
+                <a
+                  href="/admin/technicien"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsOpen(false)}
+                >
+                  🔧 Gestion du technicien
+                </a>
+              </>
+            )}
             <button
               onClick={handleLogout}
               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors"

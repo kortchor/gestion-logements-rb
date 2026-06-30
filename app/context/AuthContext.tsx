@@ -29,12 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Charger les données du localStorage
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-
-    console.log('🔍 Token dans localStorage:', storedToken ? 'Présent' : 'Absent');
-    console.log('🔍 User dans localStorage:', storedUser ? 'Présent' : 'Absent');
 
     if (storedToken && storedUser) {
       try {
@@ -50,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (newToken: string, newUser: User) => {
-    console.log('🔐 Login:', newUser.email);
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem('token', newToken);
@@ -58,22 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    console.log('🚪 Logout');
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const isAuthenticated = !!user && !!token;
-
+  // ✅ FONCTION hasPermission
   const hasPermission = (requiredRole: string) => {
     if (!user) return false;
     if (user.role === 'super_admin') return true;
     return user.role === requiredRole;
   };
+
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAuthenticated = !!user && !!token;
 
   if (loading) {
     return (
@@ -92,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       login,
       logout,
-      hasPermission,
+      hasPermission,  // ✅ AJOUTÉ
     }}>
       {children}
     </AuthContext.Provider>

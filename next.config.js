@@ -4,19 +4,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        fs: false,
-        stream: false,
-        crypto: false,
-      };
-    }
-    return config;
-  },
+  // ✅ Configuration Turbopack (Next.js 16+)
+  turbopack: {},
 };
 
 module.exports = nextConfig;

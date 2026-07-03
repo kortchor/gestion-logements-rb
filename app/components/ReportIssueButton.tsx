@@ -7,7 +7,7 @@ export default function ReportIssueButton() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>([]); // ✅ Type correct
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     sujet: '',
@@ -41,7 +41,6 @@ export default function ReportIssueButton() {
     setSuccess(false);
 
     try {
-      // ✅ Récupérer le token
       const token = localStorage.getItem('token');
       
       const formDataToSend = new FormData();
@@ -54,7 +53,6 @@ export default function ReportIssueButton() {
       const response = await fetch('/api/signalements', {
         method: 'POST',
         headers: {
-          // ✅ AJOUT DU TOKEN DANS LE HEADER
           'Authorization': `Bearer ${token}`,
         },
         body: formDataToSend,

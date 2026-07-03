@@ -18,9 +18,22 @@ export default function UserMenu() {
     }
   }, []);
 
-  const handleLogout = () => {
+  // ✅ DÉCONNEXION - Supprime le cookie et le localStorage
+  const handleLogout = async () => {
+    try {
+      // Appeler l'API de déconnexion pour supprimer le cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    }
+    
+    // Supprimer les données locales
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Rediriger vers la page de connexion
     window.location.href = '/login';
   };
 

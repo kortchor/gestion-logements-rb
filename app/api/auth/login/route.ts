@@ -17,11 +17,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Récupérer l'utilisateur
     const result = await query(
-      `SELECT id, nom, prenom, email, mot_de_passe, role, est_actif
-       FROM collaborateurs
-       WHERE email = $1`,
+      'SELECT id, nom, prenom, email, mot_de_passe, role, est_actif FROM collaborateurs WHERE email = $1',
       [email]
     );
 
@@ -34,7 +31,6 @@ export async function POST(request: Request) {
 
     const user = result.rows[0];
 
-    // Vérifier si le compte est actif
     if (!user.est_actif) {
       return NextResponse.json(
         { error: 'Votre compte a été désactivé' },
@@ -42,7 +38,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -51,7 +46,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Créer le token JWT
     const token = jwt.sign(
       {
         id: user.id,
@@ -64,8 +58,8 @@ export async function POST(request: Request) {
       { expiresIn: '7d' }
     );
 
-    // Retourner les informations
-    return NextResponse.json({
+    // ✅ CRÉER LA RÉPONSE AVEC COOKIE
+    const response = NextResponse.json({
       success: true,
       token,
       user: {
@@ -76,6 +70,19 @@ export async function POST(request: Request) {
         role: user.role,
       },
     });
+
+    // ✅ DÉFINIR LE COOKIE HTTP-ONLY
+    response.cookies.set({
+      name: 'token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('❌ Erreur login:', error);
     return NextResponse.json(

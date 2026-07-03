@@ -24,8 +24,11 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ Stocker dans localStorage pour le frontend
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // ✅ Rediriger
         window.location.href = '/';
       } else {
         setError(data.error || 'Email ou mot de passe incorrect');
@@ -87,12 +90,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* ✅ LIEN MOT DE PASSE OUBLIÉ */}
         <div className="mt-4 text-center">
-          <Link 
-            href="/forgot-password" 
-            className="text-sm text-blue-600 hover:underline"
-          >
+          <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
             Mot de passe oublié ?
           </Link>
         </div>

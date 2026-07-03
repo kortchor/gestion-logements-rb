@@ -11,22 +11,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/reset-password',
 ];
 
-// ✅ Routes API qui restent accessibles
-const API_ROUTES = [
-  '/api/notifications',
-  '/api/lits',
-  '/api/collaborateurs',
-  '/api/logements',
-  '/api/email',
-  '/api/cron',
-  '/api/admin/modeles',
-  '/api/admin/lits',
-  '/api/admin/users',
-  '/api/admin/technicien',
-  '/api/signalements',
-];
-
-// ✅ Routes réservées aux admins (Admin et Super Admin)
+// ✅ Routes réservées aux admins
 const ADMIN_ROUTES = [
   '/logements',
   '/collaborateurs',
@@ -55,22 +40,22 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  console.log('🛡️ [Middleware] Path:', pathname);
+
   // ✅ Routes publiques - accès libre
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    console.log('✅ [Middleware] Route publique');
     return NextResponse.next();
   }
 
-  // ✅ Routes API - accès libre
-  if (API_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
+  // ✅ Récupérer le token depuis le COOKIE
+  const token = request.cookies.get('token')?.value;
 
-  // ✅ Récupérer le token depuis le header Authorization
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  console.log('🔑 [Middleware] Token:', token ? '✅ Présent' : '❌ Absent');
 
   // Si pas de token, rediriger vers login
   if (!token) {
+    console.log('🔀 [Middleware] Redirection vers /login');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
@@ -80,14 +65,17 @@ export function middleware(request: NextRequest) {
   try {
     const base64Payload = token.split('.')[1];
     const payload = JSON.parse(atob(base64Payload));
-    
+    console.log('👤 [Middleware] Utilisateur:', payload.email, 'Rôle:', payload.role);
+
     // ✅ Vérifier les permissions pour les routes admin
     if (ADMIN_ROUTES.some(route => pathname.startsWith(route)) && payload.role !== 'admin' && payload.role !== 'super_admin') {
+      console.log('⛔ [Middleware] Accès refusé: rôle insuffisant pour route admin');
       return NextResponse.redirect(new URL('/', request.url));
     }
 
     // ✅ Vérifier les permissions pour les routes Super Admin
     if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route)) && payload.role !== 'super_admin') {
+      console.log('⛔ [Middleware] Accès refusé: rôle insuffisant pour route super admin');
       return NextResponse.redirect(new URL('/', request.url));
     }
 

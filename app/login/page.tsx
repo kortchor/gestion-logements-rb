@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -25,8 +26,6 @@ export default function LoginPage() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // ✅ REDIRECTION VERS L'ACCUEIL
         window.location.href = '/';
       } else {
         setError(data.error || 'Email ou mot de passe incorrect');
@@ -88,7 +87,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-gray-500">
+        {/* ✅ LIEN MOT DE PASSE OUBLIÉ */}
+        <div className="mt-4 text-center">
+          <Link 
+            href="/forgot-password" 
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
+
+        <div className="mt-4 text-center text-xs text-gray-400">
           <p>admin@roches-blanches.com / admin123</p>
         </div>
       </div>

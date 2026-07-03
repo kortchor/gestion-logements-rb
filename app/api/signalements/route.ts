@@ -1,7 +1,9 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
+import { sendEmailWithAttachment } from '@/lib/email';
 import jwt from 'jsonwebtoken';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
 
@@ -27,8 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { sujet, message } = body;
+    // Traiter le FormData
+    const formData = await request.formData();
+    const sujet = formData.get('sujet') as string;
+    const message = formData.get('message') as string;
+    const fichiers = formData.getAll('fichiers') as File[];
 
     if (!sujet || !message) {
       return NextResponse.json(
@@ -56,13 +61,42 @@ export async function POST(request: Request) {
     const collaborateur = collaborateurResult.rows[0];
 
     // Enregistrer le signalement
-    await query(
+    const signalementResult = await query(
       `INSERT INTO signalements (collaborateur_id, sujet, message, statut)
-       VALUES ($1, $2, $3, 'en_attente')`,
+       VALUES ($1, $2, $3, 'en_attente')
+       RETURNING id`,
       [decoded.id, sujet, message]
     );
 
-    // Envoyer l'email au technicien (avec RH en copie)
+    const signalementId = signalementResult.rows[0].id;
+
+    // Sauvegarder les fichiers
+    const fichiersPaths: string[] = [];
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'signalements', String(signalementId));
+
+    if (fichiers.length > 0) {
+      await mkdir(uploadDir, { recursive: true });
+
+      for (const file of fichiers) {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const filename = `${Date.now()}-${file.name}`;
+        const filepath = path.join(uploadDir, filename);
+        await writeFile(filepath, buffer);
+        fichiersPaths.push(`/uploads/signalements/${signalementId}/${filename}`);
+      }
+    }
+
+    // Préparer les pièces jointes pour l'email
+    const attachments = fichiersPaths.map((filepath, index) => ({
+      filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
+      path: path.join(process.cwd(), 'public', filepath),
+    }));
+
+    // Envoyer l'email avec pièces jointes
+    const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
+    const techEmail = technicien['technicien_email'] || 'technique@roches-blanches-cassis.com';
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -73,6 +107,7 @@ export async function POST(request: Request) {
           .content { padding: 20px; }
           .info-box { background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 15px 0; }
           .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; }
+          .files-list { background-color: #f9fafb; padding: 10px; border-radius: 5px; }
         </style>
       </head>
       <body>
@@ -94,6 +129,15 @@ export async function POST(request: Request) {
             <p><strong>Message :</strong></p>
             <p style="background: #f9fafb; padding: 10px; border-radius: 5px;">${message}</p>
           </div>
+
+          ${fichiersPaths.length > 0 ? `
+            <div class="files-list">
+              <p><strong>📎 Fichiers joints :</strong></p>
+              <ul>
+                ${fichiersPaths.map((f, i) => `<li>${fichiers[i]?.name || 'Fichier'}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
           
           <p style="margin-top: 20px; color: #6b7280;">
             ${technicien['technicien_telephone'] ? `📞 ${technicien['technicien_telephone']}` : ''}
@@ -107,25 +151,24 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    // Envoyer au technicien et à la RH
-    const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
-    const techEmail = technicien['technicien_email'] || 'technique@roches-blanches-cassis.com';
-
-    await sendEmail({
+    await sendEmailWithAttachment({
       to: techEmail,
       subject: `🔧 Signalement technique : ${sujet}`,
       html: emailHtml,
+      attachments,
     });
 
-    await sendEmail({
+    await sendEmailWithAttachment({
       to: rhEmail,
       subject: `🔧 Copie signalement technique : ${sujet}`,
       html: emailHtml,
+      attachments,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Signalement envoyé avec succès',
+      fichiers: fichiersPaths.length,
     });
   } catch (error) {
     console.error('❌ Erreur:', error);

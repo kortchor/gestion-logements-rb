@@ -69,7 +69,6 @@ export default function UserMenu() {
             <p className="text-xs text-blue-600 mt-1">{getRoleLabel()}</p>
           </div>
           <div className="py-1">
-            {/* ✅ TOUS LES UTILISATEURS PEUVENT CHANGER LEUR MOT DE PASSE */}
             <a
               href="/change-password"
               className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -77,11 +76,7 @@ export default function UserMenu() {
             >
               🔑 Changer le mot de passe
             </a>
-
-            {/* ✅ TOUS LES UTILISATEURS PEUVENT SIGNALER UN PROBLÈME */}
             <ReportIssueButton />
-
-            {/* ✅ ADMINISTRATION (uniquement pour Super Admin) */}
             {isSuperAdmin && (
               <>
                 <a

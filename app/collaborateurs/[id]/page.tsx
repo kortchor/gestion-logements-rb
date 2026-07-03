@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import SendCredentialsButton from '@/app/components/SendCredentialsButton';
 
 export default function CollaborateurDetail({ params }: { params: { id: string } }) {
   const [collab, setCollab] = useState<any>(null);
@@ -279,10 +280,18 @@ export default function CollaborateurDetail({ params }: { params: { id: string }
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* LOGEMENT ASSIGNÉ */}
-        {/* ============================================================ */}
-        <div className="mt-6 border-t pt-4">
+        {/* ✅ BOUTON ENVOYER LES IDENTIFIANTS */}
+        <div className="mt-4 flex justify-end">
+          <SendCredentialsButton 
+            collaborateurId={collab.id}
+            collaborateurNom={collab.nom}
+            collaborateurPrenom={collab.prenom}
+            collaborateurEmail={collab.email}
+          />
+        </div>
+
+        {/* Logement assigné */}
+        <div className="mt-4 border-t pt-4">
           <h2 className="text-xl font-semibold mb-3">🏠 Logement assigné</h2>
           
           {collab.logement_adresse ? (

@@ -55,6 +55,7 @@ export default function HomePage() {
 
   const isSuperAdmin = user.role === 'super_admin';
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  const isSimpleUser = user.role === 'user';
 
   return (
     <div className="container mx-auto p-8">
@@ -69,26 +70,30 @@ export default function HomePage() {
         Bienvenue <strong>{user.prenom} {user.nom}</strong> 👋
       </p>
 
-      {/* Informations du logement pour TOUS les utilisateurs */}
-      {logement && logement.logement_adresse ? (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h2 className="text-xl font-semibold mb-4">🏠 Mon logement</h2>
-          <p><strong>Adresse :</strong> {logement.logement_adresse}</p>
-          <p><strong>Ville :</strong> {logement.logement_ville}</p>
-          <p><strong>Chambre :</strong> {logement.chambre_nom || '-'}</p>
-          <p><strong>Lit :</strong> {logement.lit_numero || '-'}</p>
-          {logement.participation_mensuelle && (
-            <p><strong>💰 Participation :</strong> {parseFloat(logement.participation_mensuelle).toFixed(2)} €</p>
+      {/* ✅ AFFICHAGE DU LOGEMENT - UNIQUEMENT POUR LES UTILISATEURS SIMPLES */}
+      {isSimpleUser && (
+        <>
+          {logement && logement.logement_adresse ? (
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <h2 className="text-xl font-semibold mb-4">🏠 Mon logement</h2>
+              <p><strong>Adresse :</strong> {logement.logement_adresse}</p>
+              <p><strong>Ville :</strong> {logement.logement_ville}</p>
+              <p><strong>Chambre :</strong> {logement.chambre_nom || '-'}</p>
+              <p><strong>Lit :</strong> {logement.lit_numero || '-'}</p>
+              {logement.participation_mensuelle && (
+                <p><strong>💰 Participation :</strong> {parseFloat(logement.participation_mensuelle).toFixed(2)} €</p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+              <p className="text-yellow-700">⚠️ Aucun logement assigné</p>
+              <p className="text-sm text-yellow-600">Contactez la direction des ressources humaines.</p>
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-          <p className="text-yellow-700">⚠️ Aucun logement assigné</p>
-          <p className="text-sm text-yellow-600">Contactez la direction des ressources humaines.</p>
-        </div>
+        </>
       )}
 
-      {/* ✅ ACCÈS RESTREINT - Seuls les Admins et Super Admins voient ces liens */}
+      {/* ✅ ACCÈS ADMIN - Seuls les Admins et Super Admins voient ces liens */}
       {(isAdmin || isSuperAdmin) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <a href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">

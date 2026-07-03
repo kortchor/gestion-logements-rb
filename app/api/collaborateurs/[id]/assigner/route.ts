@@ -219,11 +219,10 @@ export async function POST(
       );
     }
 
-    // 7. Générer le PDF (à partir du modèle ou du PDF uploadé)
+    // 7. Générer le PDF
     let pdfBase64 = convention_pdf;
     let pdfNom = convention_nom;
 
-    // Si un modèle est sélectionné et qu'on a un contenu, générer le PDF
     if (modeleContenu) {
       try {
         const numeroContrat = `CONV-${logementId}-${collaborateurId}-${Date.now().toString().slice(-6)}`;
@@ -248,11 +247,11 @@ export async function POST(
         pdfNom = `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`;
         console.log('✅ PDF généré à partir du modèle');
       } catch (error) {
-        console.error('⚠️ Erreur génération PDF depuis modèle:', error);
+        console.error('⚠️ Erreur génération PDF:', error);
       }
     }
 
-    // 8. Envoyer la demande de signature (SIMULATION)
+    // 8. Envoyer la signature (simulation)
     let signatureResult = null;
     try {
       signatureResult = await sendSignatureRequest({
@@ -317,10 +316,12 @@ export async function POST(
         });
       }
     } catch (error) {
-      console.error('⚠️ Erreur signature simulation:', error);
+      console.error('⚠️ Erreur signature:', error);
     }
 
-    // 9. Envoyer email de confirmation à la RH
+    // =============================================================
+    // 9. ENVOYER L'EMAIL DE CONFIRMATION À LA RH (SANS IDENTIFIANTS)
+    // =============================================================
     try {
       const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
       
@@ -393,6 +394,9 @@ export async function POST(
       console.error('⚠️ Erreur envoi email RH:', rhError);
     }
 
+    // =============================================================
+    // 10. RÉPONSE FINALE
+    // =============================================================
     return NextResponse.json(
       { 
         success: true, 

@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+// ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -56,6 +57,8 @@ export async function GET(request: Request) {
         c.centre_principal,
         c.centre_affectation,
         c.clefs,
+        c.mot_de_passe,
+        c.est_actif,
         l.id as lit_id,
         l.numero as lit_numero,
         ch.nom as chambre_nom,
@@ -81,6 +84,7 @@ export async function GET(request: Request) {
   }
 }
 
+// ✅ POST - Créer un collaborateur (SANS mot de passe)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -103,6 +107,7 @@ export async function POST(request: Request) {
       lit_id,
     } = body;
 
+    // Vérifier si l'email existe déjà
     const checkResult = await query(
       'SELECT id FROM collaborateurs WHERE email = $1',
       [email]
@@ -115,12 +120,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Créer le collaborateur (SANS mot de passe)
     const result = await query(
       `INSERT INTO collaborateurs 
        (nom, prenom, email, telephone, genre, date_arrivee, date_depart, 
         date_debut_contrat, date_fin_contrat, vehicule, animal, commentaire,
-        centre_principal, centre_affectation)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        centre_principal, centre_affectation, est_actif, role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, 'user')
        RETURNING id`,
       [
         nom,
@@ -142,6 +148,7 @@ export async function POST(request: Request) {
 
     const collaborateurId = result.rows[0].id;
 
+    // Assigner à un lit si spécifié
     if (lit_id) {
       const litResult = await query(
         'SELECT id FROM lits WHERE id = $1 AND est_occupe = false',
@@ -166,6 +173,7 @@ export async function POST(request: Request) {
   }
 }
 
+// ✅ DELETE - Supprimer un collaborateur
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

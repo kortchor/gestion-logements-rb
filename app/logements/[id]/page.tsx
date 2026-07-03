@@ -1,8 +1,14 @@
 import { query } from '@/lib/db';
 import { notFound } from 'next/navigation';
 
-export default async function LogementDetail({ params }: { params: { id: string } }) {
-  const id = parseInt(params.id);
+export default async function LogementDetail({ params }: { params: Promise<{ id: string }> }) {
+  // ✅ DÉBALLER LA PROMESSE AVEC await
+  const { id } = await params;
+  const logementId = parseInt(id);
+
+  if (isNaN(logementId)) {
+    notFound();
+  }
 
   const result = await query(
     `SELECT l.*, 
@@ -12,7 +18,7 @@ export default async function LogementDetail({ params }: { params: { id: string 
      LEFT JOIN chambres c ON l.id = c.logement_id
      WHERE l.id = $1
      GROUP BY l.id`,
-    [id]
+    [logementId]
   );
 
   if (result.rows.length === 0) {
@@ -23,7 +29,7 @@ export default async function LogementDetail({ params }: { params: { id: string 
 
   const chambresResult = await query(
     'SELECT * FROM chambres WHERE logement_id = $1 ORDER BY id',
-    [id]
+    [logementId]
   );
   const chambres = chambresResult.rows;
 
@@ -33,7 +39,7 @@ export default async function LogementDetail({ params }: { params: { id: string 
         <h1 className="text-3xl font-bold">🏠 Détail du logement</h1>
         <a
           href="/logements"
-          className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
+          className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors no-underline"
         >
           ← Retour
         </a>
@@ -80,8 +86,8 @@ export default async function LogementDetail({ params }: { params: { id: string 
           <div>
             <p className="text-sm text-gray-500">Type d'occupation</p>
             <p className="font-medium">
-              {logement.type_occupation === 'mixte' ? 'Mixte' :
-               logement.type_occupation === 'fille' ? '👩 Filles' : '👨 Garçons'}
+              {logement.type_occupation_effectif === 'mixte' ? 'Mixte' :
+               logement.type_occupation_effectif === 'F' ? '👩 Filles' : '👨 Garçons'}
             </p>
           </div>
           <div>

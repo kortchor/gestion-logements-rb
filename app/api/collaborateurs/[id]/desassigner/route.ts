@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const collaborateurId = parseInt(params.id);
+    const { id } = await params;
+    const collaborateurId = parseInt(id);
     console.log(`🔄 Désassignation du collaborateur ID: ${collaborateurId}`);
 
     // 1. Récupérer le logement du collaborateur

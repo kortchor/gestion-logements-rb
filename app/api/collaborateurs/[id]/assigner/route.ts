@@ -6,10 +6,11 @@ import { generateConventionPDF } from '@/lib/generateConventionPDF';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const collaborateurId = parseInt(params.id);
+    const { id } = await params;
+    const collaborateurId = parseInt(id);
     const body = await request.json();
     
     const lit_id = body.lit_id;
@@ -319,9 +320,7 @@ export async function POST(
       console.error('⚠️ Erreur signature:', error);
     }
 
-    // =============================================================
     // 9. ENVOYER L'EMAIL DE CONFIRMATION À LA RH (SANS IDENTIFIANTS)
-    // =============================================================
     try {
       const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
       
@@ -394,9 +393,6 @@ export async function POST(
       console.error('⚠️ Erreur envoi email RH:', rhError);
     }
 
-    // =============================================================
-    // 10. RÉPONSE FINALE
-    // =============================================================
     return NextResponse.json(
       { 
         success: true, 

@@ -1,12 +1,12 @@
 import nodemailer from 'nodemailer';
 
+// ✅ Configuration Mailtrap directe
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT || '587'),
-  secure: false,
+  host: "sandbox.smtp.mailtrap.io",
+  port: 2525,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: "485b581256d52a",
+    pass: "f5f1df829f5037",  // Remplace par ton vrai mot de passe Mailtrap
   },
 });
 
@@ -29,7 +29,7 @@ export async function sendEmailWithAttachment({
 }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"Les Roches Blanches" <noreply@roches-blanches.com>',
+      from: '"Les Roches Blanches" <noreply@roches-blanches.com>',
       to,
       subject,
       text,
@@ -44,7 +44,6 @@ export async function sendEmailWithAttachment({
   }
 }
 
-// Garder la fonction simple pour la compatibilité
 export async function sendEmail({ to, subject, html, text }: {
   to: string;
   subject: string;

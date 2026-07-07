@@ -8,19 +8,19 @@ export async function GET() {
         l.id,
         l.numero,
         l.est_occupe,
-        ch.nom as chambre_nom,
-        ch.type_lit,
-        ch.nombre_lits,
-        log.id as logement_id,
+        l.chambre_id,
+        c.nom as chambre_nom,
+        c.type_lit,
+        c.logement_id,
+        log.nom_logement,
         log.adresse as logement_adresse,
         log.ville,
-        log.type_occupation as logement_type_occupation
+        log.type_occupation_effectif
       FROM lits l
-      LEFT JOIN chambres ch ON l.chambre_id = ch.id
-      LEFT JOIN logements log ON ch.logement_id = log.id
+      LEFT JOIN chambres c ON l.chambre_id = c.id
+      LEFT JOIN logements log ON c.logement_id = log.id
       WHERE l.est_occupe = false
-        AND log.est_visible = true
-      ORDER BY log.ville, log.adresse, ch.nom, l.numero
+      ORDER BY log.nom_logement, c.nom, l.numero
     `);
     
     return NextResponse.json({ success: true, data: result.rows });

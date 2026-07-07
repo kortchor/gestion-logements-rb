@@ -9,8 +9,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ DÉBALLER LA PROMESSE AVEC await
     const { id } = await params;
     const collaborateurId = parseInt(id);
+
+    if (isNaN(collaborateurId)) {
+      return NextResponse.json(
+        { error: 'ID de collaborateur invalide' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     
     const lit_id = body.lit_id;

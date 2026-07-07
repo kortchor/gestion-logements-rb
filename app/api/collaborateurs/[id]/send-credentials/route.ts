@@ -8,9 +8,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ DÉBALLER LA PROMESSE AVEC await
+    const { id } = await params;
+    const collaborateurId = parseInt(id);
+
+    if (isNaN(collaborateurId)) {
+      return NextResponse.json(
+        { error: 'ID de collaborateur invalide' },
+        { status: 400 }
+      );
+    }
+
     // Vérifier le token
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -38,8 +49,6 @@ export async function POST(
       );
     }
 
-    const collaborateurId = parseInt(params.id);
-
     // Récupérer les infos du collaborateur
     const result = await query(
       'SELECT nom, prenom, email, mot_de_passe FROM collaborateurs WHERE id = $1',
@@ -57,9 +66,7 @@ export async function POST(
     let motDePasseGenere = null;
     let motDePasseExistant = true;
 
-    // Vérifier si le collaborateur a déjà un mot de passe
     if (!collaborateur.mot_de_passe) {
-      // Générer un nouveau mot de passe
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
       motDePasseGenere = '';
       for (let i = 0; i < 12; i++) {
@@ -67,16 +74,13 @@ export async function POST(
       }
 
       const hashedPassword = await bcrypt.hash(motDePasseGenere, 10);
-
       await query(
         'UPDATE collaborateurs SET mot_de_passe = $1 WHERE id = $2',
         [hashedPassword, collaborateurId]
       );
-      
       motDePasseExistant = false;
     }
 
-    // Envoyer l'email
     const loginLink = process.env.NEXTAUTH_URL || 'http://localhost:3000/login';
 
     const emailHtml = `
@@ -102,17 +106,17 @@ export async function POST(
           <p>Voici vos identifiants pour accéder à l'application.</p>
           
           <div class="password-box">
-            <p><strong>🔑 Vos identifiants de connexion :</strong></p>
+            <p><strong>🔑 Vos identifiants :</strong></p>
             <p><strong>Email :</strong> ${collaborateur.email}</p>
             ${!motDePasseExistant 
               ? `<p><strong>Mot de passe :</strong> <code>${motDePasseGenere}</code></p>
-                 <p style="font-size: 12px; color: #6b7280;">Nous vous recommandons de changer ce mot de passe lors de votre première connexion.</p>`
-              : `<p style="color: #6b7280;">Vous avez déjà un mot de passe, utilisez-le pour vous connecter.</p>`
+                 <p style="font-size: 12px; color: #6b7280;">Changez ce mot de passe lors de votre première connexion.</p>`
+              : `<p style="color: #6b7280;">Vous avez déjà un mot de passe.</p>`
             }
           </div>
           
           <p style="margin-top: 20px;">
-            <a href="${loginLink}" class="btn">🔐 Se connecter à l'application</a>
+            <a href="${loginLink}" class="btn">🔐 Se connecter</a>
           </p>
         </div>
         <div class="footer">
@@ -124,13 +128,13 @@ export async function POST(
 
     await sendEmail({
       to: collaborateur.email,
-      subject: `🔑 Vos identifiants de connexion - ${collaborateur.prenom} ${collaborateur.nom}`,
+      subject: `🔑 Vos identifiants - ${collaborateur.prenom} ${collaborateur.nom}`,
       html: emailHtml,
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Identifiants envoyés avec succès',
+      message: 'Identifiants envoyés',
       mot_de_passe_genere: !motDePasseExistant,
     });
   } catch (error) {

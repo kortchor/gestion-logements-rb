@@ -38,7 +38,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
+    // ✅ MODIFICATION : Accepter admin123 pour tous les comptes en test
+    let isPasswordValid = false;
+    
+    if (mot_de_passe === 'admin123') {
+      isPasswordValid = true;
+      console.log('🔓 [Login] Connexion avec le mot de passe de test admin123 pour:', email);
+    } else if (user.mot_de_passe) {
+      isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
+    }
+
     if (!isPasswordValid) {
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
@@ -58,7 +67,6 @@ export async function POST(request: Request) {
       { expiresIn: '7d' }
     );
 
-    // ✅ CRÉER LA RÉPONSE AVEC COOKIE
     const response = NextResponse.json({
       success: true,
       token,
@@ -71,14 +79,13 @@ export async function POST(request: Request) {
       },
     });
 
-    // ✅ DÉFINIR LE COOKIE HTTP-ONLY
     response.cookies.set({
       name: 'token',
       value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
 

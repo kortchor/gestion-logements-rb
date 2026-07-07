@@ -233,7 +233,7 @@ export default function CollaborateurPage({ params }: Props) {
           if (!logementsMap.has(lit.logement_id)) {
             logementsMap.set(lit.logement_id, {
               id: lit.logement_id,
-              nom_logement: lit.nom_logement || lit.logement_adresse || 'Logement sans nom',
+              nom_logement: lit.nom_logement || lit.logement_adresse || `Logement #${lit.logement_id}`,
               adresse: lit.logement_adresse,
               ville: lit.ville || '',
               type_occupation_effectif: lit.type_occupation_effectif || 'mixte',
@@ -859,11 +859,17 @@ export default function CollaborateurPage({ params }: Props) {
                       }}
                     >
                       <option value="">Sélectionner un logement</option>
-                      {logementsFiltres.map((logement) => (
-                        <option key={logement.id} value={logement.id}>
-                          {logement.nom_logement || logement.adresse || 'Logement sans nom'} - {logement.adresse} ({logement.ville})
-                        </option>
-                      ))}
+                      {logementsFiltres.map((logement) => {
+                        const displayName = logement.nom_logement && logement.nom_logement !== 'Logement sans nom'
+                          ? logement.nom_logement
+                          : logement.adresse || `Logement #${logement.id}`;
+                        
+                        return (
+                          <option key={logement.id} value={logement.id}>
+                            {displayName} - {logement.adresse} ({logement.ville})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 

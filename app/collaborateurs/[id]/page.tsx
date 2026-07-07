@@ -64,24 +64,6 @@ interface Lit {
   logement_adresse: string;
 }
 
-interface LogementDisponible {
-  id: number;
-  nom_logement: string;
-  adresse: string;
-  ville: string;
-  type_occupation_effectif: string;
-  chambres: {
-    id: number;
-    nom: string;
-    type_lit: string;
-    lits: {
-      id: number;
-      numero: string;
-      est_occupe: boolean;
-    }[];
-  }[];
-}
-
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -99,7 +81,7 @@ export default function CollaborateurPage({ params }: Props) {
 
   // États pour la modale d'assignation
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [logementsDisponibles, setLogementsDisponibles] = useState<LogementDisponible[]>([]);
+  const [logementsDisponibles, setLogementsDisponibles] = useState<any[]>([]);
   const [selectedLogement, setSelectedLogement] = useState<number | null>(null);
   const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
   const [selectedLit, setSelectedLit] = useState<number | null>(null);
@@ -551,10 +533,17 @@ export default function CollaborateurPage({ params }: Props) {
               </div>
             </div>
 
+            {/* Actions rapides */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-3">⚡ Actions rapides</h3>
               <div className="space-y-2">
-                <SendCredentialsButton collaborateurId={collaborateur.id} />
+                {/* ✅ CORRECTION : props avec valeurs par défaut */}
+                <SendCredentialsButton 
+                  collaborateurId={collaborateur.id}
+                  collaborateurNom={collaborateur.nom || ''}
+                  collaborateurPrenom={collaborateur.prenom || ''}
+                  collaborateurEmail={collaborateur.email || ''}
+                />
                 <ReportIssueButton />
                 <DeleteCollaborateurButton 
                   collaborateurId={collaborateur.id} 
@@ -731,6 +720,7 @@ export default function CollaborateurPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Modal d'assignation */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -843,7 +833,6 @@ export default function CollaborateurPage({ params }: Props) {
                     )}
                   </div>
 
-                  {/* ✅ SECTION MODIFIÉE POUR AFFICHER LE NOM */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Logement

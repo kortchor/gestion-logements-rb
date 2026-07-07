@@ -11,7 +11,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/reset-password',
 ];
 
-// ✅ Routes réservées aux admins
+// ✅ Routes réservées aux admins (Admin et Super Admin)
 const ADMIN_ROUTES = [
   '/logements',
   '/collaborateurs',
@@ -19,6 +19,7 @@ const ADMIN_ROUTES = [
   '/recherche',
   '/admin/lits',
   '/admin/modeles',
+  '/mon-logement',  // ✅ Ajouté pour les collaborateurs
 ];
 
 // ✅ Routes réservées aux Super Admin
@@ -48,7 +49,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ✅ Récupérer le token depuis le COOKIE
+  // ✅ Récupérer le token depuis le cookie
   const token = request.cookies.get('token')?.value;
 
   console.log('🔑 [Middleware] Token:', token ? '✅ Présent' : '❌ Absent');
@@ -90,4 +91,4 @@ export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|public|.*\\..*).*)',
   ],
-};
+}

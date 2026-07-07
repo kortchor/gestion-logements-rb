@@ -18,10 +18,8 @@ export default function UserMenu() {
     }
   }, []);
 
-  // ✅ DÉCONNEXION - Supprime le cookie et le localStorage
   const handleLogout = async () => {
     try {
-      // Appeler l'API de déconnexion pour supprimer le cookie
       await fetch('/api/auth/logout', {
         method: 'POST',
       });
@@ -29,11 +27,8 @@ export default function UserMenu() {
       console.error('Erreur lors de la déconnexion:', error);
     }
     
-    // Supprimer les données locales
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
-    // Rediriger vers la page de connexion
     window.location.href = '/login';
   };
 
@@ -88,6 +83,13 @@ export default function UserMenu() {
               onClick={() => setIsOpen(false)}
             >
               🔑 Changer le mot de passe
+            </a>
+            <a
+              href="/mon-logement"
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={() => setIsOpen(false)}
+            >
+              🏠 Mon logement
             </a>
             <ReportIssueButton />
             {isSuperAdmin && (

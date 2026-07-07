@@ -1,12 +1,12 @@
 import nodemailer from 'nodemailer';
 
-// ✅ Configuration Mailtrap directe
+// ✅ Configuration Mailtrap DIRECTE (en dur pour test)
 const transporter = nodemailer.createTransport({
   host: "sandbox.smtp.mailtrap.io",
   port: 2525,
   auth: {
     user: "485b581256d52a",
-    pass: "f5f1df829f5037",  // Remplace par ton vrai mot de passe Mailtrap
+    pass: "f5f1df829f5037",  // ← Mot de passe en dur
   },
 });
 

@@ -119,19 +119,15 @@ export default function CollaborateurPage({ params }: Props) {
 
   // Logements filtrés
   const logementsFiltres = logementsDisponibles.filter(logement => {
-    // Filtre par ville
     if (filtres.ville && logement.ville !== filtres.ville) return false;
     
-    // Filtre par type d'occupation
     if (filtres.type_occupation) {
       if (filtres.type_occupation === 'en_attente') {
-        // Vérifier que tous les lits sont libres
         const hasOccupied = logement.chambres.some(c => 
           c.lits.some((l: any) => l.est_occupe)
         );
         if (hasOccupied) return false;
       } else {
-        // Vérifier le type d'occupation effectif du logement
         if (logement.type_occupation_effectif && 
             logement.type_occupation_effectif !== filtres.type_occupation &&
             logement.type_occupation_effectif !== 'mixte') {
@@ -232,13 +228,12 @@ export default function CollaborateurPage({ params }: Props) {
       const response = await fetch('/api/lits/disponibles');
       const data = await response.json();
       if (data.success) {
-        // Transformer les données pour la modale
         const logementsMap = new Map();
         data.data.forEach((lit: any) => {
           if (!logementsMap.has(lit.logement_id)) {
             logementsMap.set(lit.logement_id, {
               id: lit.logement_id,
-              nom_logement: lit.nom_logement || 'Logement sans nom',
+              nom_logement: lit.nom_logement || lit.logement_adresse || 'Logement sans nom',
               adresse: lit.logement_adresse,
               ville: lit.ville || '',
               type_occupation_effectif: lit.type_occupation_effectif || 'mixte',
@@ -265,7 +260,6 @@ export default function CollaborateurPage({ params }: Props) {
         const logements = Array.from(logementsMap.values());
         setLogementsDisponibles(logements);
         
-        // Extraire les villes disponibles
         const villes = [...new Set(logements.map(l => l.ville).filter(v => v))];
         setVillesDisponibles(villes);
       }
@@ -288,7 +282,6 @@ export default function CollaborateurPage({ params }: Props) {
     }
   };
 
-  // ✅ Fonction Désassigner
   const handleDesassigner = async () => {
     if (!litActuel) return;
     if (!confirm('Voulez-vous vraiment désassigner ce collaborateur de son logement ?')) return;
@@ -302,10 +295,7 @@ export default function CollaborateurPage({ params }: Props) {
 
       if (!response.ok) throw new Error('Erreur lors de la désassignation');
 
-      // ✅ Forcer le rafraîchissement
       router.refresh();
-      
-      // ✅ Recharger les données
       if (collaborateurId) {
         await fetchAllData(collaborateurId);
       }
@@ -315,7 +305,6 @@ export default function CollaborateurPage({ params }: Props) {
     }
   };
 
-  // ✅ Fonction Assigner
   const handleAssigner = async () => {
     if (!selectedLit || !selectedChambre || !selectedLogement) {
       setError('Veuillez sélectionner un logement, une chambre et un lit');
@@ -371,11 +360,9 @@ export default function CollaborateurPage({ params }: Props) {
     }
   };
 
-  // Ouvre la modale
   const openAssignModal = () => {
     fetchLogementsDisponibles();
     setShowAssignModal(true);
-    // Réinitialiser les sélections
     setSelectedLogement(null);
     setSelectedChambre(null);
     setSelectedLit(null);
@@ -447,7 +434,6 @@ export default function CollaborateurPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header avec navigation et actions */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -473,9 +459,7 @@ export default function CollaborateurPage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne de gauche - Informations personnelles */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Carte informations */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">👤 Informations</h2>
               <div className="space-y-3 text-sm">
@@ -567,7 +551,6 @@ export default function CollaborateurPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Actions rapides */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-3">⚡ Actions rapides</h3>
               <div className="space-y-2">
@@ -581,9 +564,7 @@ export default function CollaborateurPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Colonne de droite - Baux et logement */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Section Lit actuel */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <div className="flex justify-between items-start">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">🛏️ Logement actuel</h2>
@@ -634,7 +615,6 @@ export default function CollaborateurPage({ params }: Props) {
               )}
             </div>
 
-            {/* Section Baux */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-gray-800">📄 Baux</h2>
@@ -646,7 +626,6 @@ export default function CollaborateurPage({ params }: Props) {
                 </Link>
               </div>
 
-              {/* Tabs */}
               <div className="px-6 pt-4">
                 <div className="flex gap-2 border-b border-gray-200">
                   <button
@@ -672,7 +651,6 @@ export default function CollaborateurPage({ params }: Props) {
                 </div>
               </div>
 
-              {/* Liste des baux */}
               <div className="p-6">
                 {activeTab === 'actif' && bauxActifs.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
@@ -739,7 +717,6 @@ export default function CollaborateurPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Section Caution - Affiche le module de gestion de caution */}
             {bauxActifs.length > 0 && (
               <CautionManager 
                 bailId={bauxActifs[0].id} 
@@ -754,7 +731,6 @@ export default function CollaborateurPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Modal d'assignation avec filtres */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -789,7 +765,6 @@ export default function CollaborateurPage({ params }: Props) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* 🔍 Filtres */}
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <p className="text-sm font-medium text-gray-700 mb-2">🔍 Filtrer les lits disponibles</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -868,7 +843,7 @@ export default function CollaborateurPage({ params }: Props) {
                     )}
                   </div>
 
-                  {/* Sélection du logement */}
+                  {/* ✅ SECTION MODIFIÉE POUR AFFICHER LE NOM */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Logement
@@ -886,13 +861,12 @@ export default function CollaborateurPage({ params }: Props) {
                       <option value="">Sélectionner un logement</option>
                       {logementsFiltres.map((logement) => (
                         <option key={logement.id} value={logement.id}>
-                          {logement.nom_logement} - {logement.adresse} ({logement.ville})
+                          {logement.nom_logement || logement.adresse || 'Logement sans nom'} - {logement.adresse} ({logement.ville})
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Sélection de la chambre */}
                   {selectedLogement && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -921,7 +895,6 @@ export default function CollaborateurPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Sélection du lit */}
                   {selectedChambre && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -951,7 +924,6 @@ export default function CollaborateurPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Participation mensuelle */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       💰 Participation mensuelle (€)
@@ -966,7 +938,6 @@ export default function CollaborateurPage({ params }: Props) {
                     />
                   </div>
 
-                  {/* Chambre privée */}
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
                     <label className="flex items-center cursor-pointer">
                       <input
@@ -980,7 +951,6 @@ export default function CollaborateurPage({ params }: Props) {
                     <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits de la chambre seront assignés</p>
                   </div>
 
-                  {/* Modèle de convention */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       📄 Modèle de convention

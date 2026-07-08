@@ -98,8 +98,9 @@ export default function CollaborateurPage() {
     
     if (filtres.type_occupation) {
       if (filtres.type_occupation === 'en_attente') {
-        const hasOccupied = logement.chambres.some(c => 
-          c.lits.some((l: any) => l.est_occupe)
+        // ✅ S'assurer que logement.chambres est un tableau avant d'utiliser .some()
+        const hasOccupied = Array.isArray(logement.chambres) && logement.chambres.some(c => 
+          Array.isArray(c.lits) && c.lits.some((l: any) => l.est_occupe)
         );
         if (hasOccupied) return false;
       } else {

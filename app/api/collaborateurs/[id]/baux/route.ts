@@ -3,10 +3,10 @@ import { query } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } } // This is the standard signature
+  { params }: { params: { id: string } }
 ) {
   try {
-    const collaborateurId = parseInt(params.id, 10); // Directly use params
+    const collaborateurId = parseInt(params.id, 10);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json({ error: 'ID de collaborateur invalide' }, { status: 400 });

@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
 
@@ -28,7 +30,8 @@ export default function LoginPage() {
         // On ne stocke plus rien dans le localStorage pour l'authentification.
         
         // ✅ Rediriger
-        window.location.href = '/';
+        router.push('/');
+        router.refresh(); // Force le rafraîchissement des données du serveur
       } else {
         setError(data.error || 'Email ou mot de passe incorrect');
       }

@@ -207,42 +207,20 @@ export default function CollaborateurPage() {
   const fetchLogementsDisponibles = async () => {
     try {
       const response = await fetch('/api/logements/disponibles');
-      const data = await response.json();
-      if (data.success) {
-        const logementsMap = new Map();
-        data.data.forEach((lit: any) => {
-          if (!logementsMap.has(lit.logement_id)) {
-            logementsMap.set(lit.logement_id, {
-              id: lit.logement_id,
-              nom_logement: lit.nom_logement || lit.logement_adresse || `Logement #${lit.logement_id}`,
-              adresse: lit.logement_adresse,
-              ville: lit.ville || '',
-              type_occupation_effectif: lit.type_occupation_effectif || 'mixte',
-              chambres: []
-            });
-          }
-          const logement = logementsMap.get(lit.logement_id);
-          let chambre = logement.chambres.find((c: any) => c.id === lit.chambre_id);
-          if (!chambre) {
-            chambre = { 
-              id: lit.chambre_id, 
-              nom: lit.chambre_nom || `Chambre ${lit.chambre_id}`, 
-              type_lit: lit.type_lit || 'simple',
-              lits: [] 
-            };
-            logement.chambres.push(chambre);
-          }
-          chambre.lits.push({
-            id: lit.id,
-            numero: lit.numero || String(lit.id),
-            est_occupe: lit.est_occupe
-          });
-        });
-        const logements = Array.from(logementsMap.values());
-        setLogementsDisponibles(logements);
+      if (!response.ok) {
+        throw new Error('La réponse du serveur n\'est pas OK');
+      }
+      const logementsData = await response.json();
+
+      // ✅ Traiter directement le tableau de logements
+      if (Array.isArray(logementsData)) {
+        setLogementsDisponibles(logementsData);
         
-        const villes = [...new Set(logements.map(l => l.ville).filter(v => v))];
+        // Extraire les villes uniques pour le filtre
+        const villes = [...new Set(logementsData.map(l => l.ville).filter(v => v))];
         setVillesDisponibles(villes);
+      } else {
+        throw new Error('Le format des données des logements est incorrect.');
       }
     } catch (err) {
       console.error('Erreur chargement logements:', err);

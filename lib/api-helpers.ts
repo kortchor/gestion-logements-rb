@@ -9,12 +9,13 @@ type AuthenticatedRequestHandler = (
 
 export function withAuth(handler: AuthenticatedRequestHandler, allowedRoles?: string[]) {
   return async (request: NextRequest, context: { params?: { [key: string]: string } }) => {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // On lit le token depuis le cookie httpOnly, comme le fait le middleware
+    const token = request.cookies.get('token')?.value;
+
+    if (!token) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    const token = authHeader.split(' ')[1];
     const payload = await verifyToken(token);
 
     if (!payload) {
@@ -31,13 +32,8 @@ export function withAuth(handler: AuthenticatedRequestHandler, allowedRoles?: st
 
 export function withSuperAdminAuth(handler: AuthenticatedRequestHandler) {
   return async (request: NextRequest, context: { params?: { [key: string]: string } }) => {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const payload = await verifyToken(token);
+    const token = request.cookies.get('token')?.value;
+    const payload = token ? await verifyToken(token) : null;
 
     if (!payload) {
       return NextResponse.json({ error: 'Token invalide' }, { status: 401 });

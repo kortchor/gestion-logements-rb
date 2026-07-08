@@ -206,7 +206,7 @@ export default function CollaborateurPage() {
 
   const fetchLogementsDisponibles = async () => {
     try {
-      const response = await fetch('/api/lits/disponibles');
+      const response = await fetch('/api/logements/disponibles');
       const data = await response.json();
       if (data.success) {
         const logementsMap = new Map();

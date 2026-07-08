@@ -12,7 +12,7 @@ const PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 export const POST = withAuth(async (
   request: NextRequest, // ✅ Utiliser NextRequest au lieu de Request
   payload: TokenPayload,
-  { params }: { params: { id: string } }
+  { params }: { params?: { id: string } } // ✅ Simplifier la signature
 ) => {
   try {
     // ✅ Vérification robuste de l'ID

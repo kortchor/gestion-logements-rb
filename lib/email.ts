@@ -1,11 +1,11 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: "sandbox.smtp.mailtrap.io",
-  port: 2525,
+  host: process.env.EMAIL_HOST || "sandbox.smtp.mailtrap.io",
+  port: parseInt(process.env.EMAIL_PORT || '2525'),
   auth: {
-    user: "485b581256d52a",
-    pass: "f5f1df829f5037",
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
   },
 });
 
@@ -17,10 +17,10 @@ export async function sendEmailWithAttachment({
   attachments,
 }) {
   try {
-    // ✅ FORCER L'ENVOI VERS MAILTRAP en production
+    // Forcer l'envoi vers une boîte de test si la variable est activée
     const isProd = process.env.NODE_ENV === 'production';
     const isForced = process.env.FORCE_MAILTRAP === 'true';
-    const finalTo = (isProd && isForced) ? 'test@mailtrap.io' : to;
+    const finalTo = (isProd && isForced) ? (process.env.MAILTRAP_TEST_EMAIL || 'test@mailtrap.io') : to;
 
     console.log(`📧 Envoi à: ${finalTo} (original: ${to})`);
 

@@ -1,19 +1,21 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { NextRequest, NextResponse } from 'next/server'; // ✅ Importer NextRequest
+import { sendEmail } from '@/lib/email'; // sendEmail est utilisé, on le garde
+import bcrypt from 'bcryptjs'; // Correction: bcryptjs est utilisé, donc on le garde
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
+import { CollaborateurDb } from '@/types/db'; // ✅ Importer le type centralisé
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+// ✅ Déplacer la constante en dehors de la fonction pour une meilleure performance
+const PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = withAuth(async (
+  request: NextRequest, // ✅ Utiliser NextRequest au lieu de Request
+  payload: TokenPayload,
+  { params }: { params: { id: string } }
+) => {
   try {
-    // ✅ DÉBALLER LA PROMESSE AVEC await
-    const { id } = await params;
-    const collaborateurId = parseInt(id);
+    const collaborateurId = parseInt(params.id);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(
@@ -21,40 +23,12 @@ export async function POST(
         { status: 400 }
       );
     }
-
-    // Vérifier le token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'super_admin' && decoded.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé' },
-        { status: 403 }
-      );
-    }
-
+    
     // Récupérer les infos du collaborateur
-    const result = await query(
+    const result = await query<CollaborateurDb>( // ✅ Utiliser le type importé
       'SELECT nom, prenom, email, mot_de_passe FROM collaborateurs WHERE id = $1',
       [collaborateurId]
     );
-
     if (result.rows.length === 0) {
       return NextResponse.json(
         { error: 'Collaborateur non trouvé' },
@@ -63,22 +37,21 @@ export async function POST(
     }
 
     const collaborateur = result.rows[0];
-    let motDePasseGenere = null;
-    let motDePasseExistant = true;
+    let motDePasseGenere: string | null = null; // ✅ Typer explicitement la variable
 
     if (!collaborateur.mot_de_passe) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-      motDePasseGenere = '';
-      for (let i = 0; i < 12; i++) {
-        motDePasseGenere += chars.charAt(Math.floor(Math.random() * chars.length));
+      // ✅ Générer le mot de passe dans une variable locale au bloc `if`
+      let newPassword = '';
+      for (let i = 0; i < 12; i++) { // La génération du mot de passe est correcte
+        newPassword += PASSWORD_CHARS.charAt(Math.floor(Math.random() * PASSWORD_CHARS.length));
       }
+      motDePasseGenere = newPassword; // Assigner à la variable extérieure
 
-      const hashedPassword = await bcrypt.hash(motDePasseGenere, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
       await query(
         'UPDATE collaborateurs SET mot_de_passe = $1 WHERE id = $2',
         [hashedPassword, collaborateurId]
       );
-      motDePasseExistant = false;
     }
 
     const loginLink = process.env.NEXTAUTH_URL || 'http://localhost:3000/login';
@@ -108,7 +81,7 @@ export async function POST(
           <div class="password-box">
             <p><strong>🔑 Vos identifiants :</strong></p>
             <p><strong>Email :</strong> ${collaborateur.email}</p>
-            ${!motDePasseExistant 
+            ${motDePasseGenere 
               ? `<p><strong>Mot de passe :</strong> <code>${motDePasseGenere}</code></p>
                  <p style="font-size: 12px; color: #6b7280;">Changez ce mot de passe lors de votre première connexion.</p>`
               : `<p style="color: #6b7280;">Vous avez déjà un mot de passe.</p>`
@@ -135,7 +108,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Identifiants envoyés',
-      mot_de_passe_genere: !motDePasseExistant,
+      mot_de_passe_genere: !!motDePasseGenere,
     });
   } catch (error) {
     console.error('❌ Erreur:', error);
@@ -144,4 +117,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+}, ['admin', 'super_admin']); // <-- Rôles autorisés

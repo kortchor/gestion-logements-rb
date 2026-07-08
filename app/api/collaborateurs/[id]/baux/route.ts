@@ -32,7 +32,10 @@ export async function GET(
     );
 
     console.log('📋 Baux trouvés:', result.rows.length);
-    return NextResponse.json(result.rows, { status: 200 });
+    // ✅ Standardiser la réponse pour qu'elle corresponde aux attentes du front-end
+    return NextResponse.json(
+      { success: true, data: result.rows }, { status: 200 }
+    );
   } catch (error) {
     console.error('❌ Erreur GET baux:', error);
     // En cas d'erreur, on retourne un tableau vide plutôt qu'une erreur 500

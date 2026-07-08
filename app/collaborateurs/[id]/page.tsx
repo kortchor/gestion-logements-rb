@@ -187,14 +187,15 @@ export default function CollaborateurPage() {
         setBauxHistorique([]);
         return;
       }
-      const data = await response.json();
-      
-      const aujourdhui = new Date();
-      const actifs = data.filter((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
-      const historique = data.filter((bail: Bail) => new Date(bail.date_fin) < aujourdhui);
-      
-      setBauxActifs(actifs);
-      setBauxHistorique(historique);
+      const result = await response.json();
+
+      if (result.success) {
+        const aujourdhui = new Date();
+        const actifs = result.data.filter((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
+        const historique = result.data.filter((bail: Bail) => new Date(bail.date_fin) < aujourdhui);
+        setBauxActifs(actifs);
+        setBauxHistorique(historique);
+      }
     } catch (err) {
       console.error('Erreur chargement baux:', err);
       setBauxActifs([]);

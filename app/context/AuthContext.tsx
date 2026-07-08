@@ -1,57 +1,59 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface User {
-  id: number;
-  nom: string;
-  prenom: string;
-  email: string;
-  role: string;
-}
+import { useRouter } from 'next/navigation';
+import { verifyToken, TokenPayload } from '@/lib/auth';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
-  user: User | null;
+  user: TokenPayload | null;
   loading: boolean;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  logout: () => {},
+});
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<TokenPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    async function loadUserFromSession() {
-      try {
-        // On appelle notre nouvelle route pour obtenir les infos de l'utilisateur
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        } else {
-          setUser(null);
+    async function loadUserFromCookies() {
+      const token = Cookies.get('token');
+      if (token) {
+        try {
+          const payload = await verifyToken(token);
+          if (payload) {
+            setUser(payload);
+          }
+        } catch (e) {
+          console.error("Failed to verify token", e);
         }
-      } catch (error) {
-        console.error("Failed to fetch user session:", error);
-        setUser(null);
       }
       setLoading(false);
     }
-    loadUserFromSession();
+    loadUserFromCookies();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  const logout = async () => {
+    await fetch('/api/auth/logout'); // Appelle l'API pour supprimer le cookie
+    setUser(null);
+    Cookies.remove('token');
+    router.push('/login');
+  };
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const value = { user, loading, logout };
+
+  return (
+    <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>
+  );
 }

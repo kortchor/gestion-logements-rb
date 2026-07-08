@@ -2,12 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+// ✅ Définir une interface pour la structure des lits disponibles
+interface LitDisponible {
+  id: number;
+  ville: string;
+  logement_adresse: string;
+  chambre_nom: string;
+  numero: string | number;
+}
 
 export default function NouveauCollaborateur() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [litsDisponibles, setLitsDisponibles] = useState([]);
+  const [litsDisponibles, setLitsDisponibles] = useState<LitDisponible[]>([]); // ✅ Typer l'état
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -31,7 +41,7 @@ export default function NouveauCollaborateur() {
       try {
         const response = await fetch('/api/lits/disponibles');
         const data = await response.json();
-        if (data.success) {
+        if (response.ok && data.success) { // ✅ Vérifier aussi le statut de la réponse
           setLitsDisponibles(data.data);
         }
       } catch (error) {
@@ -247,7 +257,7 @@ export default function NouveauCollaborateur() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Non assigné</option>
-              {litsDisponibles.map((lit: any) => (
+              {litsDisponibles.map((lit) => ( // ✅ Plus besoin de 'any'
                 <option key={lit.id} value={lit.id}>
                   {lit.ville} - {lit.logement_adresse} - {lit.chambre_nom} - Lit {lit.numero}
                 </option>
@@ -307,14 +317,14 @@ export default function NouveauCollaborateur() {
           >
             {loading ? 'Création...' : '➕ Créer le collaborateur'}
           </button>
-          <a
+          <Link
             href="/collaborateurs"
             className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
           >
             Annuler
-          </a>
+          </Link>
         </div>
       </form>
     </div>
   );
-}'use client';
+}

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         l.id as logement_id,
         l.nom_logement,
+        l.type_occupation_effectif,
         l.adresse,
         c.id as chambre_id,
         c.nom as chambre_nom,
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
           id: row.logement_id,
           nom_logement: row.nom_logement || 'Logement sans nom',
           adresse: row.adresse || 'Adresse non renseignée',
+          type_occupation_effectif: row.type_occupation_effectif,
           chambres: new Map(),
         });
       }

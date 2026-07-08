@@ -67,6 +67,7 @@ interface LogementDisponible {
   nom_logement: string;
   adresse: string;
   ville: string;
+  type_occupation_effectif: string | null;
   chambres: ChambreDisponible[];
 }
 

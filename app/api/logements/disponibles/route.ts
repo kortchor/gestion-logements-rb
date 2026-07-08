@@ -5,66 +5,59 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🟢 API /api/logements/disponibles appelée');
 
-    // Récupérer les logements avec leurs chambres et lits
-    const logementsResult = await query(`
+    // Récupérer toutes les données (logements, chambres, lits) en une seule requête
+    const result = await query(`
       SELECT 
-        l.id,
+        l.id as logement_id,
         l.nom_logement,
         l.adresse,
-        l.ville
+        c.id as chambre_id,
+        c.nom as chambre_nom,
+        li.id as lit_id,
+        li.numero as lit_numero,
+        li.est_occupe
       FROM logements l
+      LEFT JOIN chambres c ON l.id = c.logement_id
+      LEFT JOIN lits li ON c.id = li.chambre_id
       WHERE l.est_visible = true
-      ORDER BY l.nom_logement
+      ORDER BY l.nom_logement, c.id, li.id
     `);
 
-    const result = [];
+    const logementsMap = new Map();
 
-    for (const logement of logementsResult.rows) {
-      // Récupérer les chambres de ce logement
-      const chambresResult = await query(`
-        SELECT 
-          c.id,
-          c.nom
-        FROM chambres c
-        WHERE c.logement_id = $1
-        ORDER BY c.id
-      `, [logement.id]);
-
-      const chambres = [];
-
-      for (const chambre of chambresResult.rows) {
-        // Récupérer les lits de cette chambre
-        const litsResult = await query(`
-          SELECT 
-            li.id,
-            li.numero,
-            li.est_occupe
-          FROM lits li
-          WHERE li.chambre_id = $1
-          ORDER BY li.id
-        `, [chambre.id]);
-
-        chambres.push({
-          id: chambre.id,
-          nom: chambre.nom || `Chambre ${chambre.id}`,
-          lits: litsResult.rows.map(lit => ({
-            id: lit.id,
-            numero: lit.numero || String(lit.id),
-            est_occupe: lit.est_occupe
-          }))
+    for (const row of result.rows) {
+      if (!logementsMap.has(row.logement_id)) {
+        logementsMap.set(row.logement_id, {
+          id: row.logement_id,
+          nom_logement: row.nom_logement || 'Logement sans nom',
+          adresse: row.adresse || 'Adresse non renseignée',
+          chambres: new Map(),
         });
       }
 
-      result.push({
-        id: logement.id,
-        nom_logement: logement.nom_logement || 'Logement sans nom',
-        adresse: logement.adresse || 'Adresse non renseignée',
-        chambres: chambres
-      });
+      const logement = logementsMap.get(row.logement_id);
+
+      if (row.chambre_id && !logement.chambres.has(row.chambre_id)) {
+        logement.chambres.set(row.chambre_id, {
+          id: row.chambre_id,
+          nom: row.chambre_nom || `Chambre ${row.chambre_id}`,
+          lits: [],
+        });
+      }
+
+      if (row.lit_id) {
+        logement.chambres.get(row.chambre_id).lits.push({
+          id: row.lit_id,
+          numero: row.lit_numero || String(row.lit_id),
+          est_occupe: row.est_occupe,
+        });
+      }
     }
 
-    console.log('🟢 Résultat:', result.length, 'logements trouvés');
-    return NextResponse.json(result);
+    const logements = Array.from(logementsMap.values()).map(l => ({ ...l, chambres: Array.from(l.chambres.values()) }));
+
+    console.log('🟢 Résultat:', logements.length, 'logements trouvés');
+    return NextResponse.json(logements);
   } catch (error) {
     console.error('❌ Erreur API logements disponibles:', error);
     return NextResponse.json(

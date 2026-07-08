@@ -1,7 +1,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { generateToken } from '@/lib/auth';
+import { encrypt } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = generateToken({
+    const token = await encrypt({
       id: user.id,
       email: user.email,
       nom: user.nom,

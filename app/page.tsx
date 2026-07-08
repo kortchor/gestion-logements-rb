@@ -63,18 +63,6 @@ export default function HomePage() {
           </Link>
         </div>
       )}
-
-      {/* ✅ SECTION ADMIN - Uniquement pour Super Admin */}
-      {isSuperAdmin && (
-        <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h2 className="text-lg font-semibold text-yellow-800">👑 Administration</h2>
-          <p className="text-sm text-yellow-700">Vous êtes Super Admin, vous avez accès à toutes les fonctionnalités.</p>
-          <div className="mt-2 flex gap-4">
-            <Link href="/admin/users" className="text-sm text-blue-600 hover:underline">👥 Gestion des utilisateurs</Link>
-            <Link href="/admin/technicien" className="text-sm text-blue-600 hover:underline">🔧 Gestion du technicien</Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

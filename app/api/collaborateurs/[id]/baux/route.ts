@@ -36,6 +36,9 @@ export async function GET(
   } catch (error) {
     console.error('❌ Erreur GET baux:', error);
     // En cas d'erreur, on retourne un tableau vide plutôt qu'une erreur 500
-    return NextResponse.json([]);
+    return NextResponse.json(
+      { error: 'Erreur serveur lors de la récupération des baux' },
+      { status: 500 }
+    );
   }
 }

@@ -20,25 +20,13 @@ export async function encrypt(payload: any) {
     .sign(key);
 }
 
-export async function decrypt(input: string): Promise<any> {
+// ✅ Cette fonction remplace l'ancienne `verifyToken` et `decrypt`. Elle est compatible partout.
+export async function verifyToken(input: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(input, key, { algorithms: ['HS256'] });
-    return payload;
-  } catch (e) { return null; }
-}
-
-export async function verifyToken(token: string): Promise<TokenPayload | null> {
-  try {
-    console.log('🔐 Vérification du token...');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
-    console.log('✅ Token valide:', decoded);
-    return decoded;
+    return payload as TokenPayload;
   } catch (error) {
     console.error('❌ Erreur de vérification du token:', error);
     return null;
   }
-}
-
-export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '7d' });
 }

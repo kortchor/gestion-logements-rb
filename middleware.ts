@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { decrypt } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth';
 
 // ✅ Routes publiques (sans authentification)
 const PUBLIC_ROUTES = [
@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
 
   // ✅ VÉRIFIER LA SIGNATURE DU TOKEN (Correctif de sécurité majeur)
   try {
-    const payload = await decrypt(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       console.error('❌ [Middleware] Token invalide ou expiré');
       const loginUrl = new URL('/login', request.url);

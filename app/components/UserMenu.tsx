@@ -73,23 +73,9 @@ export default function UserMenu() {
             >
               🔑 Changer le mot de passe
             </a>
-            <a
-              href="/mon-logement"
-              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setIsOpen(false)}
-            >
-              🏠 Mon logement
-            </a>
             <ReportIssueButton />
             {isSuperAdmin && (
               <>
-                <a
-                  href="/admin/users"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => setIsOpen(false)}
-                >
-                  👥 Gestion des utilisateurs
-                </a>
                 <a
                   href="/admin/technicien"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

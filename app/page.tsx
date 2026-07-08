@@ -1,50 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
+import Link from 'next/link';
 
 export default function HomePage() {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [logement, setLogement] = useState<any>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (!token || !storedUser) {
-      window.location.href = '/login';
-      return;
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      fetchLogement(parsedUser.id, token);
-    } catch (error) {
-      console.error('Erreur:', error);
-      window.location.href = '/login';
-    }
-    setLoading(false);
-  }, []);
-
-  const fetchLogement = async (userId: number, token: string) => {
-    try {
-      const response = await fetch(`/api/collaborateurs?id=${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (data.success && data.data) {
-        setLogement(data.data);
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Chargement...</div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -70,44 +35,32 @@ export default function HomePage() {
         Bienvenue <strong>{user.prenom} {user.nom}</strong> 👋
       </p>
 
-      {/* ✅ AFFICHAGE DU LOGEMENT - UNIQUEMENT POUR LES UTILISATEURS SIMPLES */}
-      {isSimpleUser && (
-        <>
-          {logement && logement.logement_adresse ? (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-              <h2 className="text-xl font-semibold mb-4">🏠 Mon logement</h2>
-              <p><strong>Adresse :</strong> {logement.logement_adresse}</p>
-              <p><strong>Ville :</strong> {logement.logement_ville}</p>
-              <p><strong>Chambre :</strong> {logement.chambre_nom || '-'}</p>
-              <p><strong>Lit :</strong> {logement.lit_numero || '-'}</p>
-              {logement.participation_mensuelle && (
-                <p><strong>💰 Participation :</strong> {parseFloat(logement.participation_mensuelle).toFixed(2)} €</p>
-              )}
-            </div>
-          ) : (
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-              <p className="text-yellow-700">⚠️ Aucun logement assigné</p>
-              <p className="text-sm text-yellow-600">Contactez la direction des ressources humaines.</p>
-            </div>
-          )}
-        </>
-      )}
-
       {/* ✅ ACCÈS ADMIN - Seuls les Admins et Super Admins voient ces liens */}
       {(isAdmin || isSuperAdmin) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <a href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+          <Link href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">🏠 Logements</h2>
             <p className="text-gray-600 text-sm">Gérer les logements</p>
-          </a>
-          <a href="/collaborateurs" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+          </Link>
+          <Link href="/collaborateurs" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">👥 Collaborateurs</h2>
             <p className="text-gray-600 text-sm">Gérer les collaborateurs</p>
-          </a>
-          <a href="/dashboard" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+          </Link>
+          <Link href="/dashboard" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">📊 Dashboard</h2>
             <p className="text-gray-600 text-sm">Voir les statistiques</p>
-          </a>
+          </Link>
+        </div>
+      )}
+
+      {/* ✅ ACCÈS UTILISATEUR SIMPLE */}
+      {isSimpleUser && (
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6 text-center">
+          <h2 className="text-xl font-semibold mb-4">🏠 Mon logement</h2>
+          <p className="text-gray-600 mb-4">Consultez les informations sur votre logement assigné.</p>
+          <Link href="/mon-logement" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors no-underline">
+            Voir mon logement
+          </Link>
         </div>
       )}
 
@@ -117,8 +70,8 @@ export default function HomePage() {
           <h2 className="text-lg font-semibold text-yellow-800">👑 Administration</h2>
           <p className="text-sm text-yellow-700">Vous êtes Super Admin, vous avez accès à toutes les fonctionnalités.</p>
           <div className="mt-2 flex gap-4">
-            <a href="/admin/users" className="text-sm text-blue-600 hover:underline">👥 Gestion des utilisateurs</a>
-            <a href="/admin/technicien" className="text-sm text-blue-600 hover:underline">🔧 Gestion du technicien</a>
+            <Link href="/admin/users" className="text-sm text-blue-600 hover:underline">👥 Gestion des utilisateurs</Link>
+            <Link href="/admin/technicien" className="text-sm text-blue-600 hover:underline">🔧 Gestion du technicien</Link>
           </div>
         </div>
       )}

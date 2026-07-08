@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation'; // ✅ Importer useParams
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -60,11 +60,7 @@ interface Lit {
   logement_adresse: string;
 }
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
-export default function CollaborateurPage({ params }: Props) {
+export default function CollaborateurPage() {
   const router = useRouter();
   const [collaborateur, setCollaborateur] = useState<Collaborateur | null>(null);
   const [bauxActifs, setBauxActifs] = useState<Bail[]>([]);
@@ -73,6 +69,7 @@ export default function CollaborateurPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'actif' | 'historique'>('actif');
+  const params = useParams(); // ✅ Utiliser le hook
   const [collaborateurId, setCollaborateurId] = useState<number | null>(null);
 
   // États pour la modale d'assignation
@@ -120,8 +117,8 @@ export default function CollaborateurPage({ params }: Props) {
   useEffect(() => {
     async function fetchParamsAndData() {
       try {
-        const { id } = await params;
-        const idNumber = parseInt(id);
+        const id = params.id as string; // ✅ Récupérer l'ID depuis le hook
+        const idNumber = parseInt(id, 10);
         
         if (isNaN(idNumber)) {
           setError('ID de collaborateur invalide');
@@ -140,7 +137,7 @@ export default function CollaborateurPage({ params }: Props) {
     }
     
     fetchParamsAndData();
-  }, [params]);
+  }, [params.id]); // ✅ Dépendre de params.id
 
   const fetchAllData = async (id: number) => {
     await fetchCollaborateur(id);

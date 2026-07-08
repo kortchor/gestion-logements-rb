@@ -2,6 +2,9 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { generateConventionPDF } from '@/lib/generateConventionPDF';
+import { sendSignatureRequest } from '@/lib/signature';
+import { sendEmail } from '@/lib/email';
 
 const assignerHandler = async (
   request: NextRequest,
@@ -47,7 +50,9 @@ const assignerHandler = async (
         log.mixte_autorise,
         log.type_occupation_effectif,
         log.adresse,
-        log.ville
+        log.ville,
+        log.nom_logement,
+        ch.nom as chambre_nom
        FROM lits l
        LEFT JOIN chambres ch ON l.chambre_id = ch.id
        LEFT JOIN logements log ON ch.logement_id = log.id
@@ -108,14 +113,66 @@ const assignerHandler = async (
       [collaborateurId, lit_id]
     );
 
+    // 5. Créer le bail dans la base de données
+    const dateDebut = body.date_debut || new Date().toISOString();
+    const dateFin = body.date_fin || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
+
+    const bailResult = await client.query(
+      `INSERT INTO baux (collaborateur_id, logement_id, chambre_id, lit_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [collaborateurId, lit.logement_id, lit.chambre_id, lit_id, dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id]
+    );
+    const nouveauBailId = bailResult.rows[0].id;
+
+    // 6. Générer le PDF de la convention
+    const modeleResult = await client.query('SELECT contenu FROM modeles_convention WHERE id = $1', [modele_convention_id]);
+    const modeleContenu = modeleResult.rows.length > 0 ? modeleResult.rows[0].contenu : null;
+
+    const pdfBuffer = await generateConventionPDF({
+      template: modeleContenu,
+      nom: collaborateur.nom,
+      prenom: collaborateur.prenom,
+      email: collaborateur.email,
+      adresseLogement: lit.adresse,
+      villeLogement: lit.ville,
+      dateDebut: dateDebut,
+      dateFin: dateFin,
+      numeroContrat: `BAIL-${nouveauBailId}`,
+      descriptionDetaillee: `Logement: ${lit.nom_logement}\nChambre: ${lit.chambre_nom}`,
+      participationMensuelle: participation_mensuelle,
+    });
+
+    // 7. Envoyer la demande de signature via Yousign
+    const signatureData = await sendSignatureRequest({
+      documentContent: pdfBuffer,
+      documentName: `Convention-${collaborateur.prenom}-${collaborateur.nom}.pdf`,
+      signerEmail: collaborateur.email,
+      signerNom: collaborateur.nom,
+      signerPrenom: collaborateur.prenom,
+    });
+
+    // 8. Mettre à jour le bail avec l'ID de la demande de signature
+    await client.query('UPDATE baux SET signature_request_id = $1 WHERE id = $2', [signatureData.requestId, nouveauBailId]);
+
+    // 9. Envoyer l'email au collaborateur avec le lien de signature
+    // (Vous pouvez créer un template d'email plus élaboré pour cela)
+    await sendEmail({
+      to: collaborateur.email,
+      subject: '📄 Votre convention de logement est prête à être signée',
+      html: `
+        <p>Bonjour ${collaborateur.prenom},</p>
+        <p>Votre convention de logement est prête. Veuillez la signer en cliquant sur le lien ci-dessous :</p>
+        <a href="${signatureData.signatureLink}">Signer ma convention</a>
+      `,
+    });
+
     await client.query('COMMIT');
 
     return NextResponse.json(
       { 
         success: true, 
         message: 'Lit assigné avec succès',
-        logement_adresse: lit.adresse,
-        logement_ville: lit.ville
       },
       { status: 200 }
     );

@@ -107,38 +107,38 @@ export default function NouveauLogement() {
     }
   };
 
-  // 📁 Upload de fichier
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string, nameField: string) => {
-    const file = e.target.files?.[0];
+  // ✅ NOUVEAU : Gestionnaire de changement de fichier unique et plus propre
+  const handleFileChange = useCallback((name: string, file: File | null) => {
+    setError('');
     if (file) {
-      if (file.type !== 'application/pdf') {
-        setError('Le fichier doit être au format PDF');
+      // Validation centralisée
+      if (!file.type.startsWith('application/pdf') && name.endsWith('_pdf')) {
+        setError(`Le fichier pour ${name} doit être un PDF.`);
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Le fichier ne doit pas dépasser 10 Mo');
+      if (file.size > 10 * 1024 * 1024) { // 10MB
+        setError(`Le fichier ${file.name} est trop volumineux (max 10 Mo).`);
         return;
       }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          [field]: reader.result as string,
-          [nameField]: file.name,
-        });
+        setFormData(prev => ({
+          ...prev,
+          [name]: reader.result as string,
+          [`${name.replace('_pdf', '')}_nom`]: file.name,
+        }));
       };
       reader.readAsDataURL(file);
+    } else {
+      // Suppression
+      setFormData(prev => ({
+        ...prev,
+        [name]: '',
+        [`${name.replace('_pdf', '')}_nom`]: '',
+      }));
     }
-  };
-
-  // 🗑️ Suppression de fichier
-  const handleFileRemove = (field: string, nameField: string) => {
-    setFormData({
-      ...formData,
-      [field]: '',
-      [nameField]: '',
-    });
-  };
+  }, []);
 
   // 📸 Upload de photos (état des lieux)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,34 +1,16 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { sendEmailWithAttachment } from '@/lib/email';
-import jwt from 'jsonwebtoken';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-export async function POST(request: Request) {
+const postHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    // Vérifier le token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
     // Traiter le FormData
     const formData = await request.formData();
     const sujet = formData.get('sujet') as string;
@@ -43,19 +25,22 @@ export async function POST(request: Request) {
     }
 
     // Récupérer les informations du technicien
-    const technicienResult = await query(
-      "SELECT cle, valeur FROM parametres WHERE cle IN ('technicien_nom', 'technicien_email', 'technicien_telephone')"
+    const paramsResult = await query(
+      "SELECT cle, valeur FROM parametres WHERE cle IN ('technicien_email', 'technicien_telephone', 'rh_email')"
     );
 
-    const technicien: Record<string, string> = {};
-    technicienResult.rows.forEach((row: any) => {
-      technicien[row.cle] = row.valeur;
+    const appParams: Record<string, string> = {};
+    paramsResult.rows.forEach((row: any) => {
+      appParams[row.cle] = row.valeur;
     });
+
+    const techEmail = appParams['technicien_email'] || process.env.TECH_EMAIL || 'technique@roches-blanches-cassis.com';
+    const rhEmail = appParams['rh_email'] || process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
 
     // Récupérer les informations du collaborateur
     const collaborateurResult = await query(
       'SELECT nom, prenom, email FROM collaborateurs WHERE id = $1',
-      [decoded.id]
+      [payload.id]
     );
 
     const collaborateur = collaborateurResult.rows[0];
@@ -65,7 +50,7 @@ export async function POST(request: Request) {
       `INSERT INTO signalements (collaborateur_id, sujet, message, statut)
        VALUES ($1, $2, $3, 'en_attente')
        RETURNING id`,
-      [decoded.id, sujet, message]
+      [payload.id, sujet, message]
     );
 
     const signalementId = signalementResult.rows[0].id;
@@ -78,6 +63,14 @@ export async function POST(request: Request) {
       await mkdir(uploadDir, { recursive: true });
 
       for (const file of fichiers) {
+        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+          console.warn(`⚠️ Type de fichier non autorisé uploadé : ${file.type}`);
+          continue; // On ignore le fichier mais on continue le traitement
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          console.warn(`⚠️ Fichier trop volumineux uploadé : ${file.size}`);
+          continue;
+        }
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const filename = `${Date.now()}-${file.name}`;
@@ -92,10 +85,6 @@ export async function POST(request: Request) {
       filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
       path: path.join(process.cwd(), 'public', filepath),
     }));
-
-    // Envoyer l'email avec pièces jointes
-    const rhEmail = process.env.RH_EMAIL || 'secretaire@roches-blanches-cassis.com';
-    const techEmail = technicien['technicien_email'] || 'technique@roches-blanches-cassis.com';
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -140,7 +129,7 @@ export async function POST(request: Request) {
           ` : ''}
           
           <p style="margin-top: 20px; color: #6b7280;">
-            ${technicien['technicien_telephone'] ? `📞 ${technicien['technicien_telephone']}` : ''}
+            ${appParams['technicien_telephone'] ? `📞 ${appParams['technicien_telephone']}` : ''}
           </p>
         </div>
         <div class="footer">
@@ -177,4 +166,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withAuth(postHandler);

@@ -1,9 +1,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+import { generateToken } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
@@ -38,12 +36,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ MODIFICATION : Accepter admin123 pour tous les comptes en test
+    // ✅ SÉCURITÉ : N'accepter le mot de passe "master" qu'en développement
     let isPasswordValid = false;
     
-    if (mot_de_passe === 'admin123') {
+    if (process.env.NODE_ENV !== 'production' && mot_de_passe === 'admin123') {
       isPasswordValid = true;
-      console.log('🔓 [Login] Connexion avec le mot de passe de test admin123 pour:', email);
+      console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', email);
     } else if (user.mot_de_passe) {
       isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     }
@@ -55,17 +53,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role,
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      nom: user.nom,
+      prenom: user.prenom,
+      role: user.role,
+    });
 
     const response = NextResponse.json({
       success: true,

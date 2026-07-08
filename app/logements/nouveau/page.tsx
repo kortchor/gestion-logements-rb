@@ -1,17 +1,54 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+
+// ✅ NOUVEAU : Composant réutilisable pour l'upload de fichier
+interface FileInputProps {
+  label: string;
+  name: string;
+  fileName: string | undefined;
+  onFileChange: (name: string, file: File | null) => void;
+  accept?: string;
+  placeholder?: string;
+}
+
+function FileInput({ label, name, fileName, onFileChange, accept = '.pdf', placeholder }: FileInputProps) {
+  const handleRemove = () => {
+    onFileChange(name, null);
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFileChange(name, e.target.files?.[0] || null);
+  };
+
+  return (
+    <div className="col-span-2">
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      {fileName ? (
+        <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+          <span className="text-sm text-gray-700">📎 {fileName}</span>
+          <button type="button" onClick={handleRemove} className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50" title="Supprimer ce fichier">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+          </button>
+        </div>
+      ) : (
+        <input type="file" accept={accept} onChange={handleFileSelected} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      )}
+      {placeholder && <p className="text-xs text-gray-500 mt-1">{placeholder}</p>}
+    </div>
+  );
+}
+
+const villes = ['Cassis', 'La Ciotat', 'Marseille', 'Roquefort-la-Bédoule'];
+const types = ['Studio', 'Appartement', 'Villa'];
+const typesLit = ['simple', 'double'];
 
 export default function NouveauLogement() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const villes = ['Cassis', 'La Ciotat', 'Marseille', 'Roquefort-la-Bédoule'];
-  const types = ['Studio', 'Appartement', 'Villa'];
-  const typesLit = ['simple', 'double'];
-
   const [chambres, setChambres] = useState([
     { nom: 'Chambre 1', type_lit: 'simple', nombre_lits: 1 }
   ]);
@@ -161,46 +198,6 @@ export default function NouveauLogement() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Fonction pour afficher un champ de fichier avec suppression
-  const renderFileField = (
-    label: string,
-    field: string,
-    nameField: string,
-    placeholder: string,
-    accept: string = '.pdf'
-  ) => {
-    const hasFile = formData[nameField as keyof typeof formData];
-    
-    return (
-      <div className="col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-        {hasFile ? (
-          <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
-            <span className="text-sm text-gray-700">📎 {formData[nameField as keyof typeof formData]}</span>
-            <button
-              type="button"
-              onClick={() => handleFileRemove(field, nameField)}
-              className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50"
-              title="Supprimer ce fichier"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <input
-            type="file"
-            accept={accept}
-            onChange={(e) => handleFileUpload(e, field, nameField)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        )}
-        <p className="text-xs text-gray-500 mt-1">{placeholder}</p>
-      </div>
-    );
   };
 
   return (
@@ -428,12 +425,13 @@ export default function NouveauLogement() {
             />
           </div>
 
-          {renderFileField(
-            '📄 Contrat d\'assurance (PDF)',
-            'assurance_pdf',
-            'assurance_nom',
-            'Uploader le contrat d\'assurance au format PDF (max 10 Mo)'
-          )}
+          <FileInput
+            label="📄 Contrat d'assurance (PDF)"
+            name="assurance_pdf"
+            fileName={formData.assurance_nom}
+            onFileChange={handleFileChange}
+            placeholder="Uploader le contrat d'assurance au format PDF (max 10 Mo)"
+          />
 
           {/* ============================================================ */}
           {/* SECTION 5 : DOCUMENTS */}
@@ -443,19 +441,21 @@ export default function NouveauLogement() {
             <hr className="mb-4" />
           </div>
 
-          {renderFileField(
-            '📄 Bail (PDF)',
-            'bail_pdf',
-            'bail_nom',
-            'Uploader le bail signé avec le propriétaire (PDF)'
-          )}
+          <FileInput
+            label="📄 Bail (PDF)"
+            name="bail_pdf"
+            fileName={formData.bail_nom}
+            onFileChange={handleFileChange}
+            placeholder="Uploader le bail signé avec le propriétaire (PDF)"
+          />
 
-          {renderFileField(
-            '📄 État des lieux (PDF)',
-            'etat_lieux_pdf',
-            'etat_lieux_nom',
-            'Uploader l\'état des lieux signé (PDF)'
-          )}
+          <FileInput
+            label="📄 État des lieux (PDF)"
+            name="etat_lieux_pdf"
+            fileName={formData.etat_lieux_nom}
+            onFileChange={handleFileChange}
+            placeholder="Uploader l'état des lieux signé (PDF)"
+          />
 
           {/* Photos */}
           <div className="col-span-2">

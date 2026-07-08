@@ -8,20 +8,16 @@ export interface TokenPayload {
   prenom: string;
 }
 
-export function verifyToken(token: string): Promise<TokenPayload | null> {
-  return new Promise((resolve) => {
-    try {
-      console.log('🔐 Vérification du token...');
-      console.log('Token:', token.substring(0, 30) + '...');
-      
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
-      console.log('✅ Token valide:', decoded);
-      resolve(decoded);
-    } catch (error) {
-      console.error('❌ Erreur de vérification du token:', error);
-      resolve(null);
-    }
-  });
+export async function verifyToken(token: string): Promise<TokenPayload | null> {
+  try {
+    console.log('🔐 Vérification du token...');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+    console.log('✅ Token valide:', decoded);
+    return decoded;
+  } catch (error) {
+    console.error('❌ Erreur de vérification du token:', error);
+    return null;
+  }
 }
 
 export function generateToken(payload: TokenPayload): string {

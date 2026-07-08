@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verifyToken } from '@/lib/auth';
 
 // ✅ Routes publiques (sans authentification)
 const PUBLIC_ROUTES = [
@@ -13,13 +14,12 @@ const PUBLIC_ROUTES = [
 
 // ✅ Routes réservées aux admins (Admin et Super Admin)
 const ADMIN_ROUTES = [
+  '/dashboard',
   '/logements',
   '/collaborateurs',
-  '/dashboard',
   '/recherche',
   '/admin/lits',
   '/admin/modeles',
-  '/mon-logement',  // ✅ Ajouté pour les collaborateurs
 ];
 
 // ✅ Routes réservées aux Super Admin
@@ -27,8 +27,13 @@ const SUPER_ADMIN_ROUTES = [
   '/admin/users',
   '/admin/technicien',
 ];
-
-export function middleware(request: NextRequest) {
+ 
+// ✅ Routes pour tous les utilisateurs connectés (y compris 'user')
+const USER_ROUTES = [
+  '/mon-logement',
+];
+ 
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ✅ Ignorer les fichiers statiques

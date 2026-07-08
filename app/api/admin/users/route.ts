@@ -1,41 +1,12 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+import { withSuperAdminAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
 // ✅ GET - Récupérer tous les utilisateurs (Super Admin uniquement)
-export async function GET(request: Request) {
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    // Vérifier le token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    // Vérifier que l'utilisateur est Super Admin
-    if (decoded.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé. Super Admin uniquement.' },
-        { status: 403 }
-      );
-    }
-
     const result = await query(`
       SELECT 
         id,
@@ -57,38 +28,11 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ POST - Créer un utilisateur
-export async function POST(request: Request) {
+const postHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    // Vérifier le token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé. Super Admin uniquement.' },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
     const { nom, prenom, email, mot_de_passe, role, est_actif } = body;
 
@@ -132,37 +76,11 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ PUT - Modifier un utilisateur
-export async function PUT(request: Request) {
+const putHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé. Super Admin uniquement.' },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -208,37 +126,11 @@ export async function PUT(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ DELETE - Supprimer un utilisateur
-export async function DELETE(request: Request) {
+const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé. Super Admin uniquement.' },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -250,7 +142,7 @@ export async function DELETE(request: Request) {
     }
 
     // Empêcher la suppression de son propre compte
-    if (parseInt(id) === decoded.id) {
+    if (parseInt(id) === payload.id) {
       return NextResponse.json(
         { error: 'Vous ne pouvez pas supprimer votre propre compte' },
         { status: 400 }
@@ -267,4 +159,9 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withSuperAdminAuth(getHandler);
+export const POST = withSuperAdminAuth(postHandler);
+export const PUT = withSuperAdminAuth(putHandler);
+export const DELETE = withSuperAdminAuth(deleteHandler);

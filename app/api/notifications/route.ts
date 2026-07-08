@@ -1,10 +1,12 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Récupérer les notifications
-export async function GET(request: Request) {
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const { searchParams } = new URL(request.url);
     const uniquementNonLues = searchParams.get('non_lues') === 'true';
@@ -43,10 +45,10 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // PUT - Marquer une notification comme lue
-export async function PUT(request: Request) {
+const putHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const body = await request.json();
     const { id } = body;
@@ -71,10 +73,10 @@ export async function PUT(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // DELETE - Supprimer une notification
-export async function DELETE(request: Request) {
+const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -96,4 +98,8 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withAuth(getHandler, ['admin', 'super_admin']);
+export const PUT = withAuth(putHandler, ['admin', 'super_admin']);
+export const DELETE = withAuth(deleteHandler, ['admin', 'super_admin']);

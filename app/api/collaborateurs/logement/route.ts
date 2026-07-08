@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
-    const token = request.cookies.get('token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Token invalide' }, { status: 401 });
-    }
-
     const collaborateurId = payload.id;
 
     const result = await query(`
       SELECT 
-        l.id,
+        l.id as logement_id,
         l.nom_logement,
         l.adresse,
         l.ville,
@@ -27,8 +18,8 @@ export async function GET(request: NextRequest) {
         c.nom as chambre_nom,
         li.numero as lit_numero
       FROM lits li
-      LEFT JOIN chambres c ON li.chambre_id = c.id
-      LEFT JOIN logements l ON c.logement_id = l.id
+      INNER JOIN chambres c ON li.chambre_id = c.id
+      INNER JOIN logements l ON c.logement_id = l.id
       WHERE li.collaborateur_id = $1 AND li.est_occupe = true
     `, [collaborateurId]);
 
@@ -41,10 +32,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur lors de la récupération du logement du collaborateur:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération' },
+      { error: 'Erreur interne du serveur' },
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withAuth(getHandler);

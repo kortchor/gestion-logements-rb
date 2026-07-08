@@ -15,7 +15,14 @@ export const POST = withAuth(async (
   { params }: { params: { id: string } }
 ) => {
   try {
-    const collaborateurId = parseInt(params.id);
+    // ✅ Vérification robuste de l'ID
+    if (!params?.id) {
+      return NextResponse.json(
+        { error: 'ID de collaborateur manquant dans l\'URL' },
+        { status: 400 }
+      );
+    }
+    const collaborateurId = parseInt(params.id, 10);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(

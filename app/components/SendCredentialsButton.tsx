@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface SendCredentialsButtonProps {
   collaborateurId: number;
@@ -18,24 +19,20 @@ export default function SendCredentialsButton({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleSend = async () => {
-    if (!confirm(`Envoyer les identifiants à ${collaborateurPrenom} ${collaborateurNom} ?`)) return;
+    const nomComplet = `${collaborateurPrenom || ''} ${collaborateurNom || ''}`.trim() || 'ce collaborateur';
+    
+    if (!confirm(`Envoyer les identifiants à ${nomComplet} (${collaborateurEmail}) ?`)) return;
 
     setLoading(true);
     setError('');
     setSuccess(false);
 
     try {
-      // ✅ Récupérer le token
-      const token = localStorage.getItem('token');
-      
       const response = await fetch(`/api/collaborateurs/${collaborateurId}/send-credentials`, {
         method: 'POST',
-        headers: {
-          // ✅ AJOUT DU TOKEN DANS LE HEADER
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
       const data = await response.json();

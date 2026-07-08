@@ -1,22 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/context/AuthContext';
 import ReportIssueButton from './ReportIssueButton';
 
 export default function UserMenu() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
+  const { user, loading } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -26,14 +18,11 @@ export default function UserMenu() {
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     }
-    
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     window.location.href = '/login';
   };
 
-  if (!mounted) {
-    return null;
+  if (loading) {
+    return <div className="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>;
   }
 
   if (!user) {

@@ -29,15 +29,7 @@ export default function NotificationBell() {
 
   const fetchNotifications = async () => {
     try {
-      // ✅ Récupérer le token
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('/api/notifications?non_lues=true&limit=20', {
-        headers: {
-          // ✅ AJOUT DU TOKEN DANS LE HEADER
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch('/api/notifications?non_lues=true&limit=20');
       
       const data = await response.json();
       if (data.success) {
@@ -53,15 +45,9 @@ export default function NotificationBell() {
 
   const marquerCommeLue = async (id: number) => {
     try {
-      const token = localStorage.getItem('token');
-      
       await fetch('/api/notifications', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          // ✅ AJOUT DU TOKEN DANS LE HEADER
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
       
@@ -76,15 +62,7 @@ export default function NotificationBell() {
 
   const supprimerNotification = async (id: number) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      await fetch(`/api/notifications?id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          // ✅ AJOUT DU TOKEN DANS LE HEADER
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' });
       
       setNotifications(notifications.filter((n) => n.id !== id));
     } catch (error) {

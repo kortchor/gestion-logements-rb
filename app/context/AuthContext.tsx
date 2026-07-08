@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import Cookies from 'js-cookie';
+import { jwtDecode } from 'jwt-decode'; // Note: Use a library that can handle potential errors
 
 interface User {
   id: number;
@@ -12,83 +14,31 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isSuperAdmin: boolean;
-  isAdmin: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
-  hasPermission: (requiredRole: string) => boolean;
+  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
+    const token = Cookies.get('token');
+    if (token) {
       try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        const decodedToken: User = jwtDecode(token);
+        setUser(decodedToken);
       } catch (error) {
-        console.error('Erreur chargement session:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        console.error("Failed to decode token:", error);
+        setUser(null);
       }
     }
     setLoading(false);
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  };
-
-  // ✅ FONCTION hasPermission
-  const hasPermission = (requiredRole: string) => {
-    if (!user) return false;
-    if (user.role === 'super_admin') return true;
-    return user.role === requiredRole;
-  };
-
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const isAuthenticated = !!user && !!token;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Chargement...</div>
-      </div>
-    );
-  }
-
   return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      isAuthenticated,
-      isSuperAdmin,
-      isAdmin,
-      login,
-      logout,
-      hasPermission,  // ✅ AJOUTÉ
-    }}>
+    <AuthContext.Provider value={{ user, loading }}>
       {children}
     </AuthContext.Provider>
   );

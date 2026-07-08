@@ -39,11 +39,15 @@ export default function NouveauCollaborateur() {
   useEffect(() => {
     async function fetchLits() {
       try {
-        const response = await fetch('/api/lits/disponibles');
-        const data = await response.json();
-        if (response.ok && data.success) { // ✅ Vérifier aussi le statut de la réponse
-          setLitsDisponibles(data.data);
+        // ✅ Utiliser la bonne route API
+        const response = await fetch('/api/logements/disponibles');
+        if (!response.ok) {
+          throw new Error('Erreur serveur lors de la récupération des lits');
         }
+        const logementsData = await response.json();
+        // Aplatir la structure pour obtenir une liste simple de lits
+        const lits = logementsData.flatMap((logement: any) => logement.chambres.flatMap((chambre: any) => chambre.lits.map((lit: any) => ({ ...lit, logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom }))));
+        setLitsDisponibles(lits.filter((lit: any) => !lit.est_occupe));
       } catch (error) {
         console.error('Erreur:', error);
       }

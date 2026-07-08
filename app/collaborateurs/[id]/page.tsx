@@ -6,10 +6,6 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
-import SendCredentialsButton from '@/app/components/SendCredentialsButton';
-import ReportIssueButton from '@/app/components/ReportIssueButton';
-import NotificationBell from '@/app/components/NotificationBell';
-import UserMenu from '@/app/components/UserMenu';
 import CautionManager from '@/app/components/CautionManager';
 
 interface Collaborateur {
@@ -430,10 +426,6 @@ export default function CollaborateurPage({ params }: Props) {
                 {collaborateur.prenom} {collaborateur.nom}
               </h1>
               {getStatusBadge(collaborateur.est_actif)}
-            </div>
-            <div className="flex items-center gap-3">
-              <NotificationBell />
-              <UserMenu />
             </div>
           </div>
         </div>

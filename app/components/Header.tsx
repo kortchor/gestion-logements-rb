@@ -3,6 +3,8 @@
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import NotificationBell from './NotificationBell';
+import UserMenu from './UserMenu';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -37,29 +39,9 @@ export default function Header() {
 
         <div>
           {user ? (
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                Bonjour, {user.prenom}
-              </span>
-
-              {/* Menu Admin */}
-              {isAdmin && (
-                <div className="relative group">
-                  <Link 
-                    href="/admin/modeles" 
-                    className="px-4 py-2 bg-gray-200 text-gray-800 text-sm rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    ⚙️ Gestion
-                  </Link>
-                </div>
-              )}
-
-              <button
-                onClick={logout}
-                className="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors"
-              >
-                Déconnexion
-              </button>
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <UserMenu />
             </div>
           ) : (
             !pathname.startsWith('/login') && (

@@ -41,8 +41,6 @@ export default function ReportIssueButton() {
     setSuccess(false);
 
     try {
-      const token = localStorage.getItem('token');
-      
       const formDataToSend = new FormData();
       formDataToSend.append('sujet', formData.sujet);
       formDataToSend.append('message', formData.message);
@@ -52,9 +50,6 @@ export default function ReportIssueButton() {
 
       const response = await fetch('/api/signalements', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: formDataToSend,
       });
 

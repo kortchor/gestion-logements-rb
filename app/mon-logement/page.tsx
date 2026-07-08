@@ -23,12 +23,7 @@ export default function MonLogementPage() {
   useEffect(() => {
     async function fetchLogement() {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/collaborateur/logement', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const response = await fetch('/api/collaborateur/logement');
         
         const data = await response.json();
         if (response.ok && data.success) {

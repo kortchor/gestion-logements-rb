@@ -3,11 +3,10 @@ import { query } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const params = await context.params;
-    const collaborateurId = parseInt(params.id);
+    const collaborateurId = parseInt(params.id, 10);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json({ error: 'ID de collaborateur invalide' }, { status: 400 });

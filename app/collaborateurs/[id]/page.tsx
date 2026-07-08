@@ -49,15 +49,25 @@ interface Bail {
   justificatif_caution_url: string | null;
 }
 
-interface Lit {
+// ✅ Définir des types précis pour les logements disponibles
+interface LitDisponible {
   id: number;
-  numero: string;
+  numero: string | number;
   est_occupe: boolean;
-  chambre_id: number;
-  chambre_nom: string;
-  logement_id: number;
-  logement_nom: string;
-  logement_adresse: string;
+}
+
+interface ChambreDisponible {
+  id: number;
+  nom: string;
+  lits: LitDisponible[];
+}
+
+interface LogementDisponible {
+  id: number;
+  nom_logement: string;
+  adresse: string;
+  ville: string;
+  chambres: ChambreDisponible[];
 }
 
 export default function CollaborateurPage() {
@@ -65,7 +75,6 @@ export default function CollaborateurPage() {
   const [collaborateur, setCollaborateur] = useState<Collaborateur | null>(null);
   const [bauxActifs, setBauxActifs] = useState<Bail[]>([]);
   const [bauxHistorique, setBauxHistorique] = useState<Bail[]>([]);
-  const [litActuel, setLitActuel] = useState<Lit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'actif' | 'historique'>('actif');
@@ -74,7 +83,7 @@ export default function CollaborateurPage() {
 
   // États pour la modale d'assignation
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [logementsDisponibles, setLogementsDisponibles] = useState<any[]>([]);
+  const [logementsDisponibles, setLogementsDisponibles] = useState<LogementDisponible[]>([]); // ✅ Utiliser le bon type
   const [selectedLogement, setSelectedLogement] = useState<number | null>(null);
   const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
   const [selectedLit, setSelectedLit] = useState<number | null>(null);
@@ -99,8 +108,8 @@ export default function CollaborateurPage() {
     if (filtres.type_occupation) {
       if (filtres.type_occupation === 'en_attente') {
         // ✅ S'assurer que logement.chambres est un tableau avant d'utiliser .some()
-        const hasOccupied = Array.isArray(logement.chambres) && logement.chambres.some(c => 
-          Array.isArray(c.lits) && c.lits.some((l: any) => l.est_occupe)
+        const hasOccupied = Array.isArray(logement.chambres) && logement.chambres.some(c =>
+          Array.isArray(c.lits) && c.lits.some(l => l.est_occupe)
         );
         if (hasOccupied) return false;
       } else {
@@ -149,7 +158,6 @@ export default function CollaborateurPage() {
   const fetchAllData = async (id: number) => {
     await fetchCollaborateur(id);
     await fetchBaux(id);
-    await fetchLitActuel(id);
     setLoading(false);
   };
 
@@ -193,18 +201,6 @@ export default function CollaborateurPage() {
     }
   };
 
-  const fetchLitActuel = async (id: number) => {
-    try {
-      const response = await fetch(`/api/collaborateurs/${id}/lit-actuel`);
-      if (response.ok) {
-        const data = await response.json();
-        setLitActuel(data);
-      }
-    } catch (err) {
-      console.error('Erreur chargement lit:', err);
-    }
-  };
-
   const fetchLogementsDisponibles = async () => {
     try {
       const response = await fetch('/api/logements/disponibles');
@@ -243,14 +239,13 @@ export default function CollaborateurPage() {
   };
 
   const handleDesassigner = async () => {
-    if (!litActuel) return;
+    if (bauxActifs.length === 0) return;
     if (!confirm('Voulez-vous vraiment désassigner ce collaborateur de son logement ?')) return;
 
     try {
       const response = await fetch(`/api/collaborateurs/${collaborateurId}/desassigner`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lit_id: litActuel.id }),
+        headers: { 'Content-Type': 'application/json' }, // Le body n'est plus nécessaire si l'API est intelligente
       });
 
       if (!response.ok) throw new Error('Erreur lors de la désassignation');
@@ -527,7 +522,7 @@ export default function CollaborateurPage() {
               <div className="flex justify-between items-start">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">🛏️ Logement actuel</h2>
                 <div className="flex gap-2">
-                  {litActuel ? (
+                  {bauxActifs.length > 0 ? (
                     <button
                       onClick={handleDesassigner}
                       className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
@@ -544,20 +539,20 @@ export default function CollaborateurPage() {
                   )}
                 </div>
               </div>
-              {litActuel ? (
+              {bauxActifs.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <span className="text-gray-500 text-sm">Logement</span>
-                    <p className="font-medium text-gray-900">{litActuel.logement_nom}</p>
-                    <p className="text-sm text-gray-600">{litActuel.logement_adresse}</p>
+                    <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom}</p>
+                    <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse}</p>
                   </div>
                   <div>
                     <span className="text-gray-500 text-sm">Chambre</span>
-                    <p className="font-medium text-gray-900">{litActuel.chambre_nom}</p>
+                    <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom}</p>
                   </div>
                   <div>
                     <span className="text-gray-500 text-sm">Lit</span>
-                    <p className="font-medium text-gray-900">Lit n°{litActuel.numero}</p>
+                    <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero}</p>
                   </div>
                   <div>
                     <span className="text-gray-500 text-sm">Statut</span>

@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
+  '/api/setup', // ✅ Autoriser l'accès à la route d'initialisation
 ];
 
 // ✅ Routes réservées aux admins (Admin et Super Admin)

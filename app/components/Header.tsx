@@ -33,6 +33,9 @@ export default function Header() {
               <Link href="/collaborateurs" className="text-sm text-gray-600 hover:text-blue-600">
                 Collaborateurs
               </Link>
+              <Link href="/recherche" className="text-sm text-gray-600 hover:text-blue-600">
+                Recherche
+              </Link>
             </div>
           )}
         </div>

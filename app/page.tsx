@@ -37,7 +37,7 @@ export default function HomePage() {
 
       {/* ✅ ACCÈS ADMIN - Seuls les Admins et Super Admins voient ces liens */}
       {(isAdmin || isSuperAdmin) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Link href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">🏠 Logements</h2>
             <p className="text-gray-600 text-sm">Gérer les logements</p>
@@ -49,6 +49,10 @@ export default function HomePage() {
           <Link href="/dashboard" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">📊 Dashboard</h2>
             <p className="text-gray-600 text-sm">Voir les statistiques</p>
+          </Link>
+          <Link href="/admin/modeles" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
+            <h2 className="text-xl font-semibold">📄 Modèles</h2>
+            <p className="text-gray-600 text-sm">Gérer les conventions</p>
           </Link>
         </div>
       )}

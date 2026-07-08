@@ -58,13 +58,22 @@ export async function GET(request: NextRequest) {
       <p>L'équipe technique</p>
     `;
 
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: adminEmail,
       subject: 'Initialisation de votre compte Super Admin',
       html: emailHtml,
     });
 
     console.log(`📧 Email avec le nouveau mot de passe envoyé à ${adminEmail}.`);
+
+    // ✅ VÉRIFICATION : S'assurer que l'email est bien parti
+    if (!emailResult.success) {
+      console.error('❌ Échec de l\'envoi de l\'email de setup :', emailResult.error);
+      return NextResponse.json(
+        { error: 'Le mot de passe a été créé, mais l\'envoi de l\'email a échoué. Veuillez vérifier vos logs Vercel et la configuration de votre service d\'email.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

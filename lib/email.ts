@@ -9,13 +9,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+interface EmailPayload {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  attachments?: { filename: string; path: string }[];
+}
+
+type EmailResult = 
+  | { success: true; messageId: string }
+  | { success: false; error: Error };
+
 export async function sendEmailWithAttachment({
   to,
   subject,
   html,
   text,
   attachments,
-}) {
+}: EmailPayload): Promise<EmailResult> {
   try {
     // Forcer l'envoi vers une boîte de test si la variable est activée
     const isProd = process.env.NODE_ENV === 'production';
@@ -37,10 +49,10 @@ export async function sendEmailWithAttachment({
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erreur envoi email:', error);
-    return { success: false, error };
+    return { success: false, error: error as Error };
   }
 }
 
-export async function sendEmail({ to, subject, html, text }) {
-  return sendEmailWithAttachment({ to, subject, html, text });
+export async function sendEmail(payload: Omit<EmailPayload, 'attachments'>): Promise<EmailResult> {
+  return sendEmailWithAttachment(payload);
 }

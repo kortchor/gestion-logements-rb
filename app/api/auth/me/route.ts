@@ -12,4 +12,3 @@ const getMeHandler = async (request: NextRequest, payload: TokenPayload) => {
 // On protège la route avec withAuth.
 // N'importe quel utilisateur connecté peut y accéder.
 export const GET = withAuth(getMeHandler);
-

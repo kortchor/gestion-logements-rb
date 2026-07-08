@@ -1,8 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode'; // Note: Use a library that can handle potential errors
 
 interface User {
   id: number;
@@ -24,17 +22,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = Cookies.get('token');
-    if (token) {
+    async function loadUserFromSession() {
       try {
-        const decodedToken: User = jwtDecode(token);
-        setUser(decodedToken);
+        // On appelle notre nouvelle route pour obtenir les infos de l'utilisateur
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
       } catch (error) {
-        console.error("Failed to decode token:", error);
+        console.error("Failed to fetch user session:", error);
         setUser(null);
       }
+      setLoading(false);
     }
-    setLoading(false);
+    loadUserFromSession();
   }, []);
 
   return (

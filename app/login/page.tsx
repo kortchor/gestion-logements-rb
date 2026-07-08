@@ -24,9 +24,8 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // ✅ Stocker dans localStorage pour le frontend
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Le cookie est déjà défini par le serveur.
+        // On ne stocke plus rien dans le localStorage pour l'authentification.
         
         // ✅ Rediriger
         window.location.href = '/';

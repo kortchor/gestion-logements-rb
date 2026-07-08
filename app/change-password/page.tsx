@@ -33,12 +33,10 @@ export default function ChangePasswordPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           ancien_mot_de_passe: formData.ancien_mot_de_passe,
@@ -51,8 +49,6 @@ export default function ChangePasswordPage() {
       if (response.ok) {
         setSuccess(true);
         setTimeout(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
           router.push('/login');
         }, 2000);
       } else {

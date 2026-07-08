@@ -544,11 +544,6 @@ export default function CollaborateurPage({ params }: Props) {
                   collaborateurPrenom={collaborateur.prenom || ''}
                   collaborateurEmail={collaborateur.email || ''}
                 />
-                <ReportIssueButton />
-                <DeleteCollaborateurButton 
-                  collaborateurId={collaborateur.id} 
-                  onDeleted={() => router.push('/collaborateurs')}
-                />
               </div>
             </div>
           </div>

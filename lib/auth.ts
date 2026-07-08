@@ -1,4 +1,3 @@
-import jwt from 'jsonwebtoken';
 import { SignJWT, jwtVerify } from 'jose';
 
 export interface TokenPayload {

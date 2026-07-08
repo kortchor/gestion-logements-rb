@@ -4,7 +4,7 @@ import { sendEmail } from '@/lib/email'; // sendEmail est utilisé, on le garde
 import bcrypt from 'bcryptjs'; // Correction: bcryptjs est utilisé, donc on le garde
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
-import { CollaborateurDb } from '@/types/db'; // ✅ Importer le type centralisé
+import { CollaborateurDb } from '@/types/db';
 
 // ✅ Déplacer la constante en dehors de la fonction pour une meilleure performance
 const PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';

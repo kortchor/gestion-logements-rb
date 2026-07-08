@@ -46,7 +46,12 @@ export default function NouveauCollaborateur() {
         }
         const logementsData = await response.json();
         // Aplatir la structure pour obtenir une liste simple de lits
-        const lits = logementsData.flatMap((logement: any) => logement.chambres.flatMap((chambre: any) => chambre.lits.map((lit: any) => ({ ...lit, logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom }))));
+        // ✅ CORRECTION : Gérer le cas où 'logement.chambres' n'existe pas
+        const lits = logementsData.flatMap((logement: any) => 
+          Array.isArray(logement.chambres) 
+            ? logement.chambres.flatMap((chambre: any) => Array.isArray(chambre.lits) ? chambre.lits.map((lit: any) => ({ ...lit, logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom })) : [])
+            : []
+        );
         setLitsDisponibles(lits.filter((lit: any) => !lit.est_occupe));
       } catch (error) {
         console.error('Erreur:', error);

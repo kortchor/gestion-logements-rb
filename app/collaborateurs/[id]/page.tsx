@@ -158,7 +158,7 @@ export default function CollaborateurPage() {
 
   const fetchAllData = async (id: number) => {
     await fetchCollaborateur(id);
-    await fetchBaux(id);
+    // await fetchBaux(id); // Temporairement désactivé pour le débogage
     setLoading(false);
   };
 
@@ -520,168 +520,10 @@ export default function CollaborateurPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-              <div className="flex justify-between items-start">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">🛏️ Logement actuel</h2>
-                <div className="flex gap-2">
-                  {bauxActifs.length > 0 ? (
-                    <button
-                      onClick={handleDesassigner}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                    >
-                      Désassigner
-                    </button>
-                  ) : (
-                    <button
-                      onClick={openAssignModal}
-                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
-                    >
-                      + Assigner
-                    </button>
-                  )}
-                </div>
-              </div>
-              {bauxActifs.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-gray-500 text-sm">Logement</span>
-                    <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom}</p>
-                    <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm">Chambre</span>
-                    <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm">Lit</span>
-                    <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm">Statut</span>
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                      Occupé
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  Aucun logement assigné
-                </div>
-              )}
+            {/* La section des baux est temporairement désactivée pour le débogage */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 text-center text-gray-500">
+              <p>La section des baux est en cours de maintenance.</p>
             </div>
-
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-800">📄 Baux</h2>
-                <Link
-                  href={`/collaborateurs/${collaborateur.id}/nouveau-bail`}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  + Nouveau bail
-                </Link>
-              </div>
-
-              <div className="px-6 pt-4">
-                <div className="flex gap-2 border-b border-gray-200">
-                  <button
-                    onClick={() => setActiveTab('actif')}
-                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'actif'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Baux actifs ({bauxActifs.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('historique')}
-                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === 'historique'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Historique ({bauxHistorique.length})
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {activeTab === 'actif' && bauxActifs.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    Aucun bail actif pour ce collaborateur
-                  </div>
-                )}
-
-                {activeTab === 'historique' && bauxHistorique.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    Aucun bail dans l'historique
-                  </div>
-                )}
-
-                {(activeTab === 'actif' ? bauxActifs : bauxHistorique).map((bail) => (
-                  <div key={bail.id} className="border border-gray-200 rounded-lg p-4 mb-4 last:mb-0 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="font-semibold text-gray-900">{bail.logement_nom}</h3>
-                          <span className="text-sm text-gray-500">{bail.logement_adresse}</span>
-                          {bail.chambre_privée && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
-                              Chambre privée
-                            </span>
-                          )}
-                          {bail.signe && (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                              ✅ Signé
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-0.5">
-                          <p>
-                            {bail.chambre_nom} - Lit n°{bail.lit_numero}
-                          </p>
-                          <p>
-                            📅 {format(new Date(bail.date_debut), 'dd/MM/yyyy', { locale: fr })} →{' '}
-                            {format(new Date(bail.date_fin), 'dd/MM/yyyy', { locale: fr })}
-                          </p>
-                          {bail.participation_mensuelle && (
-                            <p>
-                              💰 Participation : {bail.participation_mensuelle} € / mois
-                            </p>
-                          )}
-                          {bail.montant_caution !== null && bail.montant_caution !== undefined && (
-                            <p className="flex items-center gap-2">
-                              💰 Caution : {bail.montant_caution} €
-                              {bail.statut_caution && getCautionStatusBadge(bail.statut_caution)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/baux/${bail.id}`}
-                          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                          Détails
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {bauxActifs.length > 0 && (
-              <CautionManager 
-                bailId={bauxActifs[0].id} 
-                onUpdate={() => {
-                  if (collaborateurId) {
-                    fetchBaux(collaborateurId);
-                  }
-                }}
-              />
-            )}
           </div>
         </div>
       </div>

@@ -116,6 +116,12 @@ export default function CollaborateurPage() {
 
   useEffect(() => {
     async function fetchParamsAndData() {
+      // ✅ CORRECTION : Attendre que les params soient disponibles
+      if (!params || !params.id) {
+        console.log("⏳ En attente des paramètres de l'URL...");
+        return;
+      }
+
       try {
         const id = params.id as string; // ✅ Récupérer l'ID depuis le hook
         const idNumber = parseInt(id, 10);

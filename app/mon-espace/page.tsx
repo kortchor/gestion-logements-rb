@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import ReportProblemModal from '@/app/components/ReportProblemModal'; // ✅ Importer la nouvelle modale
 import Link from 'next/link';
 
 interface BailActif {
@@ -168,6 +169,11 @@ export default function MonEspacePage() {
           </p>
         </div>
       </div>
+      {/* ✅ Intégrer la modale ici, elle s'ouvrira via l'événement personnalisé */}
+      <ReportProblemModal 
+        bailId={bail?.id || null} 
+        logementAdresse={`${bail?.adresse || ''}, ${bail?.ville || ''}`} 
+      />
     </div>
   );
 }

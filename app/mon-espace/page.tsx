@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import ReportProblemModal from './ReportProblemModal'; // ✅ CORRECTION: Utiliser un chemin relatif
+import ReportProblemModal from '@/app/components/ReportProblemModal';
 import Link from 'next/link';
 
 interface BailActif {

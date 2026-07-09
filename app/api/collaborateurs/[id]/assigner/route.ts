@@ -17,6 +17,7 @@ const assignerHandler = async (
     const collaborateurId = parseInt(params.id);
     const body = await request.json();
     const lit_id = parseInt(body.lit_id);
+    const lit_ids = body.lit_ids || []; // Pour la chambre privée
     const participation_mensuelle = body.participation_mensuelle;
     const chambre_privée = body.chambre_privée || false;
     const modele_convention_id = body.modele_convention_id;
@@ -28,7 +29,23 @@ const assignerHandler = async (
       );
     }
 
-    if (!lit_id) {
+    // Construire la liste des lits à assigner
+    let litsAAssigner: number[] = [];
+    if (chambre_privée && lit_id) {
+      const chambreResult = await client.query('SELECT chambre_id FROM lits WHERE id = $1', [lit_id]);
+      if (chambreResult.rows.length > 0) {
+        const chambreId = chambreResult.rows[0].chambre_id;
+        const autresLitsResult = await client.query('SELECT id FROM lits WHERE chambre_id = $1 AND est_occupe = false', [chambreId]);
+        litsAAssigner = autresLitsResult.rows.map((row: any) => row.id);
+      }
+    } else if (lit_id) {
+      litsAAssigner = [lit_id];
+    } else if (lit_ids.length > 0) {
+      // Si une liste est déjà fournie
+      litsAAssigner = lit_ids;
+    }
+
+    if (litsAAssigner.length === 0) {
       return NextResponse.json(
         { error: 'Veuillez sélectionner un lit' },
         { status: 400 }
@@ -69,7 +86,7 @@ const assignerHandler = async (
        LEFT JOIN chambres ch ON l.chambre_id = ch.id
        LEFT JOIN logements log ON ch.logement_id = log.id
        WHERE l.id = $1`,
-      [lit_id]
+      [litsAAssigner[0]] // Utiliser le premier lit de la liste pour les infos générales
     );
 
     if (litResult.rows.length === 0) {
@@ -81,12 +98,25 @@ const assignerHandler = async (
 
     const lit = litResult.rows[0];
 
-    if (lit.est_occupe) {
+    // Vérifier que tous les lits à assigner sont bien libres
+    const litsIndisponibles: number[] = [];
+    for (const id of litsAAssigner) {
+      const litCheck = await client.query('SELECT est_occupe FROM lits WHERE id = $1 FOR UPDATE', [id]);
+      if (litCheck.rows.length === 0 || litCheck.rows[0].est_occupe) {
+        litsIndisponibles.push(id);
+      }
+    }
+
+    if (litsIndisponibles.length > 0) {
+      await client.query('ROLLBACK');
       return NextResponse.json(
-        { error: 'Ce lit est déjà occupé' },
-        { status: 400 }
+        { 
+          error: `Un ou plusieurs lits ne sont plus disponibles : ${litsIndisponibles.join(', ')}`,
+        },
+        { status: 409 } // 409 Conflict
       );
     }
+
 
     // NOUVEAU : Libérer l'ancien lit du collaborateur s'il en a un
     await client.query(
@@ -120,10 +150,12 @@ const assignerHandler = async (
     }
 
     // 4. Assigner le lit
-    await client.query(
-      'UPDATE lits SET est_occupe = true, collaborateur_id = $1 WHERE id = $2',
-      [collaborateurId, lit_id]
-    );
+    for (const id of litsAAssigner) {
+      await client.query(
+        'UPDATE lits SET est_occupe = true, collaborateur_id = $1 WHERE id = $2',
+        [collaborateurId, id]
+      );
+    }
 
     // 5. Créer le bail dans la base de données
     const dateDebut = body.date_debut || new Date().toISOString();
@@ -133,7 +165,7 @@ const assignerHandler = async (
       `INSERT INTO baux (collaborateur_id, logement_id, chambre_id, lit_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
-      [collaborateurId, lit.logement_id, lit.chambre_id, lit_id, dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id]
+      [collaborateurId, lit.logement_id, lit.chambre_id, litsAAssigner[0], dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id]
     );
     const nouveauBailId = bailResult.rows[0].id;
 

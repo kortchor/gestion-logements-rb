@@ -47,8 +47,10 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
 
   const [logementsDisponibles, setLogementsDisponibles] = useState<LogementDisponible[]>([]);
   const [modelesConvention, setModelesConvention] = useState<ModeleConvention[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [selectedLogement, setSelectedLogement] = useState<number | null>(null);
   const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
@@ -62,7 +64,7 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      setLoading(true);
+      setInitialLoading(true);
       setError(null);
       try {
         const [logementsRes, modelesRes] = await Promise.all([
@@ -89,7 +91,7 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         setError('Impossible de charger les données pour l\'assignation.');
         console.error(err);
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
       }
     };
 
@@ -119,8 +121,9 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const payload: any = {
@@ -143,13 +146,16 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         throw new Error(errorData.error || 'Erreur lors de l\'assignation');
       }
 
-      onSuccess();
-      onClose();
+      setSuccessMessage('Assignation réussie ! La page va se rafraîchir.');
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 2000); // Attendre 2s avant de fermer
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
       console.error(err);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -165,9 +171,10 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
 
         <div className="p-6 overflow-y-auto space-y-4">
           {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg">{error}</div>}
+          {successMessage && <div className="bg-green-100 text-green-700 p-3 rounded-lg">{successMessage}</div>}
 
-          {loading && !logementsDisponibles.length ? (
-            <div className="text-center py-8">Chargement des données...</div>
+          {initialLoading ? (
+            <div className="text-center py-8">Chargement des logements disponibles...</div>
           ) : (
             <>
               <div className="bg-gray-50 p-4 rounded-lg border">
@@ -304,10 +311,10 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         <div className="p-6 border-t mt-auto">
           <button
             onClick={handleAssigner}
-            disabled={loading || !selectedLit || !selectedModele}
+            disabled={initialLoading || isSubmitting || !selectedLit || !selectedModele}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Chargement...' : 'Confirmer l\'assignation'}
+            {isSubmitting ? 'Assignation en cours...' : 'Confirmer l\'assignation'}
           </button>
         </div>
       </div>

@@ -10,7 +10,7 @@ const assignerHandler = async (
   request: NextRequest,
   payload: TokenPayload,
   { params }: { params: { id: string } }
-) {
+) => {
   // ✅ Utiliser un client unique pour la transaction
   const client = await query.pool.connect();
   try {
@@ -28,7 +28,7 @@ const assignerHandler = async (
       );
     }
 
-    if (lit_id) {
+    if (!lit_id) {
       return NextResponse.json(
         { error: 'Veuillez sélectionner un lit' },
         { status: 400 }

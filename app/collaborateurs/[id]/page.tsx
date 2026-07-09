@@ -8,6 +8,7 @@ import { fr } from 'date-fns/locale';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 import CautionManager from '@/app/components/CautionManager'; // ✅ CORRECTION: Import manquant
 import SendCredentialsButton from '@/app/components/SendCredentialsButton';
+import AssignerLogementModal from '@/app/components/AssignerLogementModal';
 
 interface Collaborateur {
   id: number;
@@ -81,50 +82,10 @@ export default function CollaborateurPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'actif' | 'historique'>('actif');
   const params = useParams(); // ✅ Utiliser le hook
-  const [collaborateurId, setCollaborateurId] = useState<number | null>(null);
 
   // États pour la modale d'assignation
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [logementsDisponibles, setLogementsDisponibles] = useState<LogementDisponible[]>([]); // ✅ Utiliser le bon type
-  const [selectedLogement, setSelectedLogement] = useState<number | null>(null);
-  const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
-  const [selectedLit, setSelectedLit] = useState<number | null>(null);
-  const [assignLoading, setAssignLoading] = useState(false);
-  const [modelesConvention, setModelesConvention] = useState<any[]>([]);
-  const [selectedModele, setSelectedModele] = useState<string>('');
-
-  // États pour les filtres
-  const [filtres, setFiltres] = useState({
-    ville: '',
-    type_lit: '',
-    type_occupation: '',
-  });
-  const [villesDisponibles, setVillesDisponibles] = useState<string[]>([]);
-  const [participationMensuelle, setParticipationMensuelle] = useState('');
-  const [chambrePrivee, setChambrePrivee] = useState(false);
-
-  // Logements filtrés
-  const logementsFiltres = logementsDisponibles.filter(logement => {
-    if (filtres.ville && logement.ville !== filtres.ville) return false;
-    
-    if (filtres.type_occupation) {
-      if (filtres.type_occupation === 'en_attente') {
-        // ✅ S'assurer que logement.chambres est un tableau avant d'utiliser .some()
-        const hasOccupied = Array.isArray(logement.chambres) && logement.chambres.some(c =>
-          Array.isArray(c.lits) && c.lits.some(l => l.est_occupe)
-        );
-        if (hasOccupied) return false;
-      } else {
-        if (logement.type_occupation_effectif && 
-            logement.type_occupation_effectif !== filtres.type_occupation &&
-            logement.type_occupation_effectif !== 'mixte') {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  });
+  const collaborateurId = params?.id ? parseInt(params.id as string, 10) : null;
 
   useEffect(() => {
     async function fetchParamsAndData() {
@@ -144,9 +105,7 @@ export default function CollaborateurPage() {
           return;
         }
         
-        setCollaborateurId(idNumber);
         await fetchAllData(idNumber);
-        await fetchModelesConvention();
       } catch (err) {
         console.error('Erreur:', err);
         setError('Impossible de charger les informations');
@@ -155,7 +114,7 @@ export default function CollaborateurPage() {
     }
     
     fetchParamsAndData();
-  }, [params.id]); // ✅ Dépendre de params.id
+  }, [params?.id]); // ✅ Dépendre de params.id
 
   const fetchAllData = async (id: number) => {
     await fetchCollaborateur(id);
@@ -204,43 +163,6 @@ export default function CollaborateurPage() {
     }
   };
 
-  const fetchLogementsDisponibles = async () => {
-    try {
-      const response = await fetch('/api/logements/disponibles');
-      if (!response.ok) {
-        throw new Error('La réponse du serveur n\'est pas OK');
-      }
-      const logementsData = await response.json();
-
-      // ✅ Traiter directement le tableau de logements
-      if (Array.isArray(logementsData)) {
-        setLogementsDisponibles(logementsData);
-        
-        // Extraire les villes uniques pour le filtre
-        const villes = [...new Set(logementsData.map(l => l.ville).filter(v => v))];
-        setVillesDisponibles(villes);
-      } else {
-        throw new Error('Le format des données des logements est incorrect.');
-      }
-    } catch (err) {
-      console.error('Erreur chargement logements:', err);
-      setError('Erreur lors du chargement des logements disponibles');
-    }
-  };
-
-  const fetchModelesConvention = async () => {
-    try {
-      const response = await fetch('/api/admin/modeles');
-      const data = await response.json();
-      if (data.success && data.data.length > 0) {
-        setModelesConvention(data.data);
-        setSelectedModele(data.data[0].id.toString());
-      }
-    } catch (err) {
-      console.error('Erreur chargement modèles:', err);
-    }
-  };
-
   const handleDesassigner = async () => {
     if (bauxActifs.length === 0) return;
     if (!confirm('Voulez-vous vraiment désassigner ce collaborateur de son logement ?')) return;
@@ -263,69 +185,11 @@ export default function CollaborateurPage() {
     }
   };
 
-  const handleAssigner = async () => {
-    if (!selectedLit || !selectedChambre || !selectedLogement) {
-      setError('Veuillez sélectionner un logement, une chambre et un lit');
-      return;
+  const handleAssignSuccess = () => {
+    if (collaborateurId) {
+      fetchAllData(collaborateurId);
     }
-
-    if (!selectedModele) {
-      setError('Veuillez sélectionner un modèle de convention');
-      return;
-    }
-
-    setAssignLoading(true);
-    setError(null);
-
-    try {
-      const payload: any = {
-        lit_id: selectedLit,
-        chambre_id: selectedChambre,
-        logement_id: selectedLogement,
-        modele_convention_id: parseInt(selectedModele),
-        date_debut: collaborateur?.date_arrivee || new Date().toISOString().split('T')[0],
-        date_fin: collaborateur?.date_depart || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      };
-
-      if (participationMensuelle) {
-        payload.participation_mensuelle = parseFloat(participationMensuelle);
-      }
-      if (chambrePrivee) {
-        payload.chambre_privée = true;
-      }
-
-      const response = await fetch(`/api/collaborateurs/${collaborateurId}/assigner`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de l\'assignation');
-      }
-
-      setShowAssignModal(false);
-      router.refresh();
-      if (collaborateurId) {
-        await fetchAllData(collaborateurId);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de l\'assignation');
-      console.error(err);
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
-  const openAssignModal = () => {
-    fetchLogementsDisponibles();
-    setShowAssignModal(true);
-    setSelectedLogement(null);
-    setSelectedChambre(null);
-    setSelectedLit(null);
-    setParticipationMensuelle('');
-    setChambrePrivee(false);
+    // Optionnel: afficher un message de succès global
   };
 
   const getRoleLabel = (role: string) => {
@@ -535,7 +399,7 @@ export default function CollaborateurPage() {
                     </button>
                   ) : (
                     <button
-                      onClick={openAssignModal}
+                      onClick={() => setShowAssignModal(true)}
                       className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
                     >
                       + Assigner
@@ -654,266 +518,12 @@ export default function CollaborateurPage() {
       </div>
 
       {/* Modal d'assignation */}
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Assigner un logement</h2>
-                <button
-                  onClick={() => {
-                    setShowAssignModal(false);
-                    setSelectedLogement(null);
-                    setSelectedChambre(null);
-                    setSelectedLit(null);
-                    setFiltres({ ville: '', type_lit: '', type_occupation: '' });
-                    setParticipationMensuelle('');
-                    setChambrePrivee(false);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              {logementsDisponibles.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Aucun logement disponible</p>
-                  <button
-                    onClick={fetchLogementsDisponibles}
-                    className="mt-2 text-blue-600 hover:underline"
-                  >
-                    Réessayer
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">🔍 Filtrer les lits disponibles</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Ville</label>
-                        <select
-                          value={filtres.ville}
-                          onChange={(e) => {
-                            setFiltres({ ...filtres, ville: e.target.value });
-                            setSelectedLogement(null);
-                            setSelectedChambre(null);
-                            setSelectedLit(null);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="">Toutes</option>
-                          {villesDisponibles.map((v) => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Type de lit</label>
-                        <select
-                          value={filtres.type_lit}
-                          onChange={(e) => {
-                            setFiltres({ ...filtres, type_lit: e.target.value });
-                            setSelectedLogement(null);
-                            setSelectedChambre(null);
-                            setSelectedLit(null);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="">Tous</option>
-                          <option value="simple">🛏️ Simple</option>
-                          <option value="double">🛏️🛏️ Double</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Occupation</label>
-                        <select
-                          value={filtres.type_occupation}
-                          onChange={(e) => {
-                            setFiltres({ ...filtres, type_occupation: e.target.value });
-                            setSelectedLogement(null);
-                            setSelectedChambre(null);
-                            setSelectedLit(null);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="">Tous</option>
-                          <option value="mixte">🔄 Mixte</option>
-                          <option value="F">👩 Femmes</option>
-                          <option value="M">👨 Hommes</option>
-                          <option value="en_attente">⏳ En attente</option>
-                        </select>
-                      </div>
-                    </div>
-                    {(filtres.ville || filtres.type_lit || filtres.type_occupation) && (
-                      <div className="mt-2 flex justify-between items-center">
-                        <span className="text-xs text-gray-500">
-                          {logementsFiltres.length} logement(s) trouvé(s)
-                        </span>
-                        <button
-                          onClick={() => {
-                            setFiltres({ ville: '', type_lit: '', type_occupation: '' });
-                            setSelectedLogement(null);
-                            setSelectedChambre(null);
-                            setSelectedLit(null);
-                          }}
-                          className="text-xs text-red-600 hover:underline"
-                        >
-                          Réinitialiser les filtres
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Logement
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      value={selectedLogement || ''}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setSelectedLogement(isNaN(val) ? null : val);
-                        setSelectedChambre(null);
-                        setSelectedLit(null);
-                      }}
-                    >
-                      <option value="">Sélectionner un logement</option>
-                      {logementsFiltres.map((logement) => {
-                        const displayName = logement.nom_logement && logement.nom_logement !== 'Logement sans nom'
-                          ? logement.nom_logement
-                          : logement.adresse || `Logement #${logement.id}`;
-                        
-                        return (
-                          <option key={logement.id} value={logement.id}>
-                            {displayName} - {logement.adresse} ({logement.ville})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  {selectedLogement && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Chambre
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        value={selectedChambre || ''}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setSelectedChambre(isNaN(val) ? null : val);
-                          setSelectedLit(null);
-                        }}
-                      >
-                        <option value="">Sélectionner une chambre</option>
-                        {logementsFiltres
-                          .find(l => l.id === selectedLogement)
-                          ?.chambres
-                          ?.filter(c => c && c.id)
-                          .map((chambre) => (
-                            <option key={chambre.id} value={chambre.id}>
-                              {chambre.nom || `Chambre ${chambre.id}`} ({chambre.type_lit === 'simple' ? '🛏️ Simple' : '🛏️🛏️ Double'}) - {chambre.lits?.filter((l: any) => !l.est_occupe).length || 0} lit(s) libre(s)
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {selectedChambre && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Lit
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        value={selectedLit || ''}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setSelectedLit(isNaN(val) ? null : val);
-                        }}
-                      >
-                        <option value="">Sélectionner un lit</option>
-                        {logementsFiltres
-                          .find(l => l.id === selectedLogement)
-                          ?.chambres
-                          ?.find(c => c.id === selectedChambre)
-                          ?.lits
-                          ?.filter((lit: LitDisponible) => lit && !lit.est_occupe)
-                          .map((lit: LitDisponible) => (
-                            <option key={lit.id} value={lit.id}>
-                              Lit n°{lit.numero} ✅ Libre
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      💰 Participation mensuelle (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={participationMensuelle}
-                      onChange={(e) => setParticipationMensuelle(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="150.00"
-                    />
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={chambrePrivee}
-                        onChange={(e) => setChambrePrivee(e.target.checked)}
-                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="ml-3 text-sm text-gray-700 font-medium">🛏️ Chambre privée</span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits de la chambre seront assignés</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      📄 Modèle de convention
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      value={selectedModele}
-                      onChange={(e) => setSelectedModele(e.target.value)}
-                    >
-                      {modelesConvention.length === 0 ? (
-                        <option value="">⚠️ Aucun modèle disponible</option>
-                      ) : (
-                        modelesConvention.map((modele) => (
-                          <option key={modele.id} value={modele.id}>
-                            {modele.nom}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">La convention sera générée automatiquement</p>
-                  </div>
-
-                  <button
-                    onClick={handleAssigner}
-                    disabled={assignLoading || !selectedLit || !selectedModele}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {assignLoading ? 'Assignation en cours...' : 'Confirmer l\'assignation'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AssignerLogementModal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        onSuccess={handleAssignSuccess}
+        collaborateur={collaborateur}
+      />
     </div>
   );
 }

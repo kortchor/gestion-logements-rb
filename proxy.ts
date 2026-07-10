@@ -34,7 +34,7 @@ const USER_ROUTES = [
   '/mon-logement',
 ];
  
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ✅ Ignorer les fichiers statiques

@@ -8,7 +8,7 @@ import { fr } from 'date-fns/locale';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 import CautionManager from '@/app/components/CautionManager'; // ✅ CORRECTION: Import manquant
 import SendCredentialsButton from '@/app/components/SendCredentialsButton';
-import AssignerLogementModal from '@/app/components/AssignerLogementModal';
+import AssignerLogementModal from './AssignerLogementModal';
 
 interface Collaborateur {
   id: number;

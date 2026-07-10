@@ -123,15 +123,12 @@ const assignerHandler = async (
     dateHier.setDate(dateHier.getDate() - 1);
     const dateHierISO = dateHier.toISOString().split('T')[0];
 
+    // Clôturer l'ancien bail actif (s'il existe) et libérer les lits associés en une seule fois
     await client.query(
-      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL
-       WHERE id IN (
-         SELECT lit_id FROM baux 
-         WHERE collaborateur_id = $1 AND statut = 'actif' AND lit_id IS NOT NULL
-       )`,
+      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
+       WHERE collaborateur_id = $1`,
       [collaborateurId]
     );
-    // Clôture tous les baux actifs (y compris les chambres privées sans lit_id)
     await client.query("UPDATE baux SET statut = 'terminé', date_fin = $2 WHERE collaborateur_id = $1 AND statut = 'actif'", [collaborateurId, dateHierISO]);
     console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
 

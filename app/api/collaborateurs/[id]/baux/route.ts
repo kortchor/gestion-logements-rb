@@ -17,7 +17,7 @@ export async function GET(
     // Requête simplifiée qui ne plante pas même si des colonnes manquent
     const result = await query(
       `SELECT
-         b.*,
+         b.*, 
          COALESCE(l.nom, 'Logement sans nom') as logement_nom,
          COALESCE(l.adresse, 'Adresse non renseignée') as logement_adresse,
          COALESCE(c.nom, 'Chambre sans nom') as chambre_nom,

@@ -20,18 +20,17 @@ const getBauxHandler = async (
     const result = await query(
       `SELECT
          b.*, 
-         COALESCE(l.nom_logement, 'Logement sans nom') as logement_nom,
-         COALESCE(l.adresse, 'Adresse non renseignée') as logement_adresse,
-         COALESCE(c.nom, 'Chambre sans nom') as chambre_nom,
-         COALESCE(li.numero, 'N/A') as lit_numero,
-         ca.montant_caution,
-         ca.statut_caution,
-         ca.justificatif_caution_url
+         l.nom_logement as logement_nom,
+         l.adresse as logement_adresse,
+         c.nom as chambre_nom,
+         li.numero as lit_numero,
+         (SELECT montant_caution FROM cautions WHERE bail_id = b.id) as montant_caution,
+         (SELECT statut_caution FROM cautions WHERE bail_id = b.id) as statut_caution,
+         (SELECT justificatif_caution_url FROM cautions WHERE bail_id = b.id) as justificatif_caution_url
       FROM baux b
       LEFT JOIN logements l ON b.logement_id = l.id
       LEFT JOIN chambres c ON b.chambre_id = c.id
       LEFT JOIN lits li ON b.lit_id = li.id
-      LEFT JOIN cautions ca ON b.id = ca.bail_id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

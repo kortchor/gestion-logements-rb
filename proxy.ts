@@ -37,16 +37,6 @@ const USER_ROUTES = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ Ignorer les fichiers statiques
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon.ico') ||
-    pathname.startsWith('/public') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next();
-  }
-
   console.log('🛡️ [Middleware] Path:', pathname);
 
   // ✅ Routes publiques - accès libre

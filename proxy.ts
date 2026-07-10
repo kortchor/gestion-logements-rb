@@ -108,6 +108,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public|.*\\..*).*)',
+    /*
+     * Exclure les chemins qui commencent par :
+     * - api (routes API)
+     * - _next/static (fichiers statiques)
+     * - _next/image (optimisation d'images)
+     * - favicon.ico (icône)
+     * - public (fichiers publics)
+     * Inclure tous les autres chemins.
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],
 }

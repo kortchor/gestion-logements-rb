@@ -29,6 +29,7 @@ export async function GET(
       LEFT JOIN logements l ON b.logement_id = l.id
       LEFT JOIN chambres c ON b.chambre_id = c.id
       LEFT JOIN lits li ON b.lit_id = li.id
+      LEFT JOIN cautions ca ON b.id = ca.bail_id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

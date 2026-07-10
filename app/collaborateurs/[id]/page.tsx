@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation'; // ✅ Importer useParams
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -87,6 +87,45 @@ export default function CollaborateurPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const collaborateurId = params?.id ? parseInt(params.id as string, 10) : null;
 
+  // ✅ Utiliser useCallback pour que la fonction puisse être appelée depuis les effets et les gestionnaires d'événements
+  const fetchAllData = useCallback(async (id: number) => {
+    try {
+      setLoading(true);
+      setError(null); // Réinitialiser les erreurs précédentes
+
+      // Exécuter les requêtes en parallèle
+      const [collaborateurResponse, bauxResponse] = await Promise.all([
+        fetch(`/api/collaborateurs/${id}`),
+        fetch(`/api/collaborateurs/${id}/baux`)
+      ]);
+
+      // Traiter la réponse du collaborateur
+      const collaborateurResult = await collaborateurResponse.json();
+      if (!collaborateurResponse.ok || !collaborateurResult.success) {
+        throw new Error(collaborateurResult.error || 'Impossible de charger les informations du collaborateur.');
+      }
+      setCollaborateur(collaborateurResult.data);
+
+      // Traiter la réponse des baux
+      const bauxResult = await bauxResponse.json();
+      if (!bauxResponse.ok || !bauxResult.success) {
+        throw new Error(bauxResult.error || 'Impossible de charger les informations des baux.');
+      }
+      const aujourdhui = new Date();
+      aujourdhui.setHours(0, 0, 0, 0);
+      const actifs = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
+      const historique = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) < aujourdhui);
+      setBauxActifs(actifs);
+      setBauxHistorique(historique);
+
+    } catch (err) {
+      console.error('Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+    } finally {
+      setLoading(false);
+    }
+  }, []); // Le tableau de dépendances est vide car la fonction n'a pas de dépendances externes
+
   useEffect(() => {
     if (!params?.id) {
       console.log("⏳ En attente des paramètres de l'URL...");
@@ -102,46 +141,8 @@ export default function CollaborateurPage() {
       return;
     }
 
-    const fetchAllData = async (id: number) => {
-      try {
-        setLoading(true);
-        setError(null); // Réinitialiser les erreurs précédentes
-
-        // Exécuter les requêtes en parallèle
-        const [collaborateurResponse, bauxResponse] = await Promise.all([
-          fetch(`/api/collaborateurs/${id}`),
-          fetch(`/api/collaborateurs/${id}/baux`)
-        ]);
-
-        // Traiter la réponse du collaborateur
-        const collaborateurResult = await collaborateurResponse.json();
-        if (!collaborateurResponse.ok || !collaborateurResult.success) {
-          throw new Error(collaborateurResult.error || 'Impossible de charger les informations du collaborateur.');
-        }
-        setCollaborateur(collaborateurResult.data);
-
-        // Traiter la réponse des baux
-        const bauxResult = await bauxResponse.json();
-        if (!bauxResponse.ok || !bauxResult.success) {
-          throw new Error(bauxResult.error || 'Impossible de charger les informations des baux.');
-        }
-        const aujourdhui = new Date();
-        aujourdhui.setHours(0, 0, 0, 0);
-        const actifs = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
-        const historique = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) < aujourdhui);
-        setBauxActifs(actifs);
-        setBauxHistorique(historique);
-
-      } catch (err) {
-        console.error('Erreur:', err);
-        setError(err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAllData(idNumber);
-  }, [params?.id]); // Le hook se redéclenchera si l'ID change
+  }, [params?.id, fetchAllData]); // Le hook se redéclenchera si l'ID ou la fonction change
 
   const handleDesassigner = async () => {
     if (bauxActifs.length === 0 || !collaborateurId) return;
@@ -156,7 +157,6 @@ export default function CollaborateurPage() {
 
       // Recharger toutes les données pour refléter le changement
       await fetchAllData(collaborateurId);
-      // router.refresh() n'est plus forcément nécessaire si l'état est bien géré
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la désassignation');
@@ -493,7 +493,7 @@ export default function CollaborateurPage() {
                 bailId={bauxActifs[0].id} 
                 onUpdate={() => {
                   if (collaborateurId) {
-                    fetchBaux(collaborateurId);
+                    fetchAllData(collaborateurId);
                   }
                 }}
               />

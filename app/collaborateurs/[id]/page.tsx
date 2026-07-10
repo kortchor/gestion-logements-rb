@@ -154,17 +154,13 @@ export default function CollaborateurPage() {
   const fetchBaux = async (id: number) => {
     try {
       const response = await fetch(`/api/collaborateurs/${id}/baux`);
-      if (!response.ok) {
-        // Si la réponse est 404 (non trouvé), ce n'est pas une erreur système.
-        if (response.status === 404) {
-          console.log('ℹ️ Aucun bail trouvé pour ce collaborateur.');
-          setBauxActifs([]);
-          setBauxHistorique([]);
-          return;
-        }
-        throw new Error(`Erreur serveur: ${response.status}`);
-      }
+      // On lit la réponse JSON dans tous les cas
       const result = await response.json();
+
+      if (!response.ok) {
+        // Si la réponse n'est pas OK, on utilise le message d'erreur de l'API
+        throw new Error(result.error || `Erreur serveur: ${response.status}`);
+      }
 
       if (!result.success) {
         throw new Error(result.error || 'Erreur lors du chargement des baux');

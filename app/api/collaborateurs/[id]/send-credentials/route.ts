@@ -12,17 +12,17 @@ const PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 export const POST = withAuth(async (
   request: NextRequest, // ✅ Utiliser NextRequest au lieu de Request
   payload: TokenPayload,
-  context: { params: { id: string } } // ✅ CORRECTION: La signature standard est (req, context)
+  { params }: { params: { id: string } }
 ) => {
   try {
     // ✅ Vérification robuste de l'ID
-    if (!context.params.id) { // ✅ Accéder à params via context
+    if (!params.id) {
       return NextResponse.json(
         { error: 'ID de collaborateur manquant dans l\'URL' },
         { status: 400 }
       );
     }
-    const collaborateurId = parseInt(context.params.id, 10);
+    const collaborateurId = parseInt(params.id, 10);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(

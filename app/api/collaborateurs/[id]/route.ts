@@ -4,11 +4,10 @@ import { NextResponse } from 'next/server';
 // ✅ GET - Récupérer un collaborateur par son ID
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const collaborateurId = parseInt(id);
+    const collaborateurId = parseInt(params.id);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(
@@ -17,8 +16,22 @@ export async function GET(
       );
     }
 
+    // ✅ Utiliser la requête complète qui joint les informations du logement actif
     const result = await query(
-      'SELECT * FROM collaborateurs WHERE id = $1',
+      `SELECT 
+        c.*,
+        COALESCE(l.id, NULL) as lit_id,
+        COALESCE(l.numero, NULL) as lit_numero,
+        COALESCE(ch.nom, NULL) as chambre_nom,
+        COALESCE(log.id, NULL) as logement_id,
+        COALESCE(log.adresse, NULL) as logement_adresse,
+        COALESCE(b.id, NULL) as bail_id
+      FROM collaborateurs c
+      LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE
+      LEFT JOIN lits l ON b.lit_id = l.id
+      LEFT JOIN chambres ch ON l.chambre_id = ch.id
+      LEFT JOIN logements log ON ch.logement_id = log.id
+      WHERE c.id = $1`,
       [collaborateurId]
     );
 
@@ -42,11 +55,10 @@ export async function GET(
 // ✅ PUT - Mettre à jour un collaborateur
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const collaborateurId = parseInt(id);
+    const collaborateurId = parseInt(params.id);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(
@@ -120,11 +132,10 @@ export async function PUT(
 // ✅ DELETE - Supprimer un collaborateur
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const collaborateurId = parseInt(id);
+    const collaborateurId = parseInt(params.id);
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(

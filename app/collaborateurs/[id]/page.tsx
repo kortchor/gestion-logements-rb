@@ -135,8 +135,8 @@ export default function CollaborateurPage() {
 
   const fetchCollaborateur = async (id: number) => {
     try {
-      // ✅ CORRECTION: Utilisation du paramètre de recherche `?id=` comme défini dans l'API
-      const response = await fetch(`/api/collaborateurs?id=${id}`);
+      // ✅ CORRECTION: Utilisation de la route RESTful /api/collaborateurs/[id]
+      const response = await fetch(`/api/collaborateurs/${id}`);
       if (!response.ok) throw new Error('Erreur lors du chargement du collaborateur');
       const data = await response.json();
       if (data.success) {

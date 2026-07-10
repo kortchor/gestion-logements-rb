@@ -165,7 +165,11 @@ const assignerHandler = async (
       `INSERT INTO baux (collaborateur_id, logement_id, chambre_id, lit_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
-      [collaborateurId, lit.logement_id, lit.chambre_id, litsAAssigner[0], dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id]
+      [
+        collaborateurId, lit.logement_id, lit.chambre_id, 
+        chambre_privée ? null : litsAAssigner[0], // ✅ Ne pas lier de lit si la chambre est privée
+        dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id
+      ]
     );
     const nouveauBailId = bailResult.rows[0].id;
 

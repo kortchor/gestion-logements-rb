@@ -70,21 +70,28 @@ export async function proxy(request: NextRequest) {
 
     console.log('👤 [Middleware] Utilisateur:', payload.email, 'Rôle:', payload.role);
     const userRole = payload.role;
+    const isSuperAdminRoute = SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route));
+    const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
 
-    // ✅ Vérification des permissions pour les routes SUPER_ADMIN
-    if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      if (userRole !== 'super_admin') {
-        console.log('⛔ [Middleware] Accès refusé (Super Admin requis) pour:', pathname);
-        return NextResponse.redirect(new URL('/', request.url));
-      }
-    }
-
-    // ✅ Vérification des permissions pour les routes ADMIN
-    if (ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      if (userRole !== 'super_admin' && userRole !== 'admin') {
-        console.log('⛔ [Middleware] Accès refusé (Admin requis) pour:', pathname);
-        return NextResponse.redirect(new URL('/', request.url));
-      }
+    switch (userRole) {
+      case 'super_admin':
+        // Le Super Admin a accès à tout
+        break;
+      case 'admin':
+        // L'Admin ne peut pas accéder aux routes Super Admin
+        if (isSuperAdminRoute) {
+          console.log('⛔ [Middleware] Accès refusé (Super Admin requis) pour:', pathname);
+          return NextResponse.redirect(new URL('/', request.url));
+        }
+        break;
+      case 'user':
+      default:
+        // Les utilisateurs simples ne peuvent accéder qu'à leurs routes
+        if (isAdminRoute || isSuperAdminRoute) {
+          console.log('⛔ [Middleware] Accès refusé (Admin requis) pour:', pathname);
+          return NextResponse.redirect(new URL('/', request.url));
+        }
+        break;
     }
 
     return NextResponse.next();

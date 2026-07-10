@@ -11,17 +11,17 @@ export async function GET(request: Request) {
       const result = await query(
         `SELECT 
           c.*,
-          l.id as lit_id,
-          l.numero as lit_numero,
-          ch.nom as chambre_nom,
-          ch.type_lit,
-          log.id as logement_id,
-          log.adresse as logement_adresse,
-          log.ville as logement_ville,
-          log.type_occupation_effectif as logement_type_occupation,
-          b.id as bail_id,
-          b.participation_mensuelle,
-          b.date_fin as bail_date_fin
+          COALESCE(l.id, NULL) as lit_id,
+          COALESCE(l.numero, NULL) as lit_numero,
+          COALESCE(ch.nom, NULL) as chambre_nom,
+          COALESCE(ch.type_lit, NULL) as type_lit,
+          COALESCE(log.id, NULL) as logement_id,
+          COALESCE(log.adresse, NULL) as logement_adresse,
+          COALESCE(log.ville, NULL) as logement_ville,
+          COALESCE(log.type_occupation_effectif, NULL) as logement_type_occupation,
+          COALESCE(b.id, NULL) as bail_id,
+          COALESCE(b.participation_mensuelle, NULL) as participation_mensuelle,
+          COALESCE(b.date_fin, NULL) as bail_date_fin
         FROM collaborateurs c
         LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE LEFT JOIN lits l ON b.lit_id = l.id LEFT JOIN chambres ch ON l.chambre_id = ch.id LEFT JOIN logements log ON ch.logement_id = log.id
         WHERE c.id = $1`,
@@ -57,17 +57,8 @@ export async function GET(request: Request) {
         c.centre_affectation,
         c.clefs,
         c.mot_de_passe,
-        c.est_actif,
-        l.id as lit_id,
-        l.numero as lit_numero,
-        ch.nom as chambre_nom,
-        log.adresse as logement_adresse,
-        log.ville as logement_ville,
-        log.type_occupation_effectif as logement_type_occupation,
-        b.id as bail_id,
-        b.participation_mensuelle
+        c.est_actif
       FROM collaborateurs c
-      LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE LEFT JOIN lits l ON b.lit_id = l.id LEFT JOIN chambres ch ON l.chambre_id = ch.id LEFT JOIN logements log ON ch.logement_id = log.id
       ORDER BY c.id
     `);
     

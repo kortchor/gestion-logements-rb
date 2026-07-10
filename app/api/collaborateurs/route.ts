@@ -19,12 +19,11 @@ export async function GET(request: Request) {
           log.adresse as logement_adresse,
           log.ville as logement_ville,
           log.type_occupation_effectif as logement_type_occupation,
-          b.participation_mensuelle
+          b.id as bail_id,
+          b.participation_mensuelle,
+          b.date_fin as bail_date_fin
         FROM collaborateurs c
-        LEFT JOIN lits l ON c.id = l.collaborateur_id
-        LEFT JOIN chambres ch ON l.chambre_id = ch.id
-        LEFT JOIN logements log ON ch.logement_id = log.id
-        LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.logement_id = log.id AND b.date_fin >= CURRENT_DATE
+        LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE LEFT JOIN lits l ON b.lit_id = l.id LEFT JOIN chambres ch ON l.chambre_id = ch.id LEFT JOIN logements log ON ch.logement_id = log.id
         WHERE c.id = $1`,
         [parseInt(id)]
       );
@@ -65,12 +64,10 @@ export async function GET(request: Request) {
         log.adresse as logement_adresse,
         log.ville as logement_ville,
         log.type_occupation_effectif as logement_type_occupation,
+        b.id as bail_id,
         b.participation_mensuelle
       FROM collaborateurs c
-      LEFT JOIN lits l ON c.id = l.collaborateur_id
-      LEFT JOIN chambres ch ON l.chambre_id = ch.id
-      LEFT JOIN logements log ON ch.logement_id = log.id
-      LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.logement_id = log.id AND b.date_fin >= CURRENT_DATE
+      LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE LEFT JOIN lits l ON b.lit_id = l.id LEFT JOIN chambres ch ON l.chambre_id = ch.id LEFT JOIN logements log ON ch.logement_id = log.id
       ORDER BY c.id
     `);
     

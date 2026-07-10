@@ -111,10 +111,15 @@ export default function CollaborateurPage() {
       if (!bauxResponse.ok || !bauxResult.success) {
         throw new Error(bauxResult.error || 'Impossible de charger les informations des baux.');
       }
-      const aujourdhui = new Date();
-      aujourdhui.setHours(0, 0, 0, 0);
-      const actifs = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
-      const historique = bauxResult.data.filter((bail: Bail) => new Date(bail.date_fin) < aujourdhui);
+      
+      // ✅ CORRECTION: Comparaison de dates insensible au fuseau horaire
+      const today = new Date();
+      const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const actifs = bauxResult.data.filter((bail: Bail) => 
+        bail.date_fin.split('T')[0] >= todayDateString);
+      const historique = bauxResult.data.filter((bail: Bail) => 
+        bail.date_fin.split('T')[0] < todayDateString);
       setBauxActifs(actifs);
       setBauxHistorique(historique);
 

@@ -7,7 +7,7 @@ const getBauxHandler = async (
   request: NextRequest,
   payload: TokenPayload, // Le payload du token est maintenant disponible
   { params }: { params: { id: string } }
-) {
+) => {
   try {
     const collaborateurId = parseInt(params.id, 10);
 

@@ -433,19 +433,23 @@ export default function CollaborateurPage() {
               </div>
               {bauxActifs.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-gray-500 text-sm">Logement</span>
-                    <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom}</p>
-                    <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm">Chambre</span>
-                    <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm">Lit</span>
-                    <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero}</p>
-                  </div>
+                  {bauxActifs[0] && (
+                    <>
+                      <div>
+                        <span className="text-gray-500 text-sm">Logement</span>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom}</p>
+                        <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-sm">Chambre</span>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-sm">Lit</span>
+                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero}</p>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <span className="text-gray-500 text-sm">Statut</span>
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">

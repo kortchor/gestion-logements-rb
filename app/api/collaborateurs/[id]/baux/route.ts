@@ -21,7 +21,10 @@ export async function GET(
          COALESCE(l.nom, 'Logement sans nom') as logement_nom,
          COALESCE(l.adresse, 'Adresse non renseignée') as logement_adresse,
          COALESCE(c.nom, 'Chambre sans nom') as chambre_nom,
-         COALESCE(li.numero, 'N/A') as lit_numero
+         COALESCE(li.numero, 'N/A') as lit_numero,
+         ca.montant as montant_caution,
+         ca.statut as statut_caution,
+         ca.justificatif_url as justificatif_caution_url
       FROM baux b
       LEFT JOIN logements l ON b.logement_id = l.id
       LEFT JOIN chambres c ON b.chambre_id = c.id

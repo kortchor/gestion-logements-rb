@@ -124,11 +124,15 @@ const assignerHandler = async (
     const dateHierISO = dateHier.toISOString().split('T')[0];
 
     await client.query(
-      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
-       WHERE id IN (SELECT lit_id FROM baux WHERE collaborateur_id = $1 AND date_fin >= NOW())`,
-      [collaborateurId, dateHierISO]
+      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL
+       WHERE id IN (
+         SELECT lit_id FROM baux 
+         WHERE collaborateur_id = $1 AND statut = 'actif' AND lit_id IS NOT NULL
+       )`,
+      [collaborateurId]
     );
-    await client.query('UPDATE baux SET date_fin = $2 WHERE collaborateur_id = $1 AND date_fin >= NOW()', [collaborateurId, dateHierISO]);
+    // Clôture tous les baux actifs (y compris les chambres privées sans lit_id)
+    await client.query("UPDATE baux SET statut = 'terminé', date_fin = $2 WHERE collaborateur_id = $1 AND statut = 'actif'", [collaborateurId, dateHierISO]);
     console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
 
     // 3. Vérifier la règle de mixité si le logement n'est pas mixte

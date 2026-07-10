@@ -17,11 +17,10 @@ const getBauxHandler = async (
 
     console.log('📋 Récupération des baux pour le collaborateur:', collaborateurId);
 
-    // Requête simplifiée qui ne plante pas même si des colonnes manquent
     const result = await query(
       `SELECT
          b.*, 
-         COALESCE(l.nom, 'Logement sans nom') as logement_nom,
+         COALESCE(l.nom_logement, 'Logement sans nom') as logement_nom,
          COALESCE(l.adresse, 'Adresse non renseignée') as logement_adresse,
          COALESCE(c.nom, 'Chambre sans nom') as chambre_nom,
          COALESCE(li.numero, 'N/A') as lit_numero,

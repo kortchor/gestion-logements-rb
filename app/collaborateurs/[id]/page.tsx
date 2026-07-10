@@ -102,15 +102,6 @@ export default function CollaborateurPage() {
       return;
     }
 
-    const id = params.id as string;
-    const idNumber = parseInt(id, 10);
-
-    if (isNaN(idNumber)) {
-      setError('ID de collaborateur invalide');
-      setLoading(false);
-      return;
-    }
-
     const fetchAllData = async (id: number) => {
       try {
         setLoading(true);

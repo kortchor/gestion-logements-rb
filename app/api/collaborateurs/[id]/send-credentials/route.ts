@@ -33,6 +33,7 @@ export const POST = withAuth(async (
     
     // Récupérer les infos du collaborateur
     const result = await query<CollaborateurDb>( // ✅ Utiliser le type importé
+      // ✅ CORRECTION: Ajouter nom et prenom à la requête
       'SELECT nom, prenom, email, mot_de_passe FROM collaborateurs WHERE id = $1',
       [collaborateurId]
     );

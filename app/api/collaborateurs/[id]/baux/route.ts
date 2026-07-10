@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
-export async function GET(
+const getBauxHandler = async (
   request: NextRequest,
+  payload: TokenPayload, // Le payload du token est maintenant disponible
   { params }: { params: { id: string } }
 ) {
   try {
@@ -49,3 +52,6 @@ export async function GET(
     );
   }
 }
+
+// Exporter la méthode GET protégée par l'authentification
+export const GET = withAuth(getBauxHandler, ['admin', 'super_admin', 'user']);

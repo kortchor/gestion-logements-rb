@@ -118,12 +118,18 @@ const assignerHandler = async (
     }
 
 
-    // NOUVEAU : Libérer l'ancien lit du collaborateur s'il en a un
+    // AMÉLIORATION : Mettre fin à l'ancien bail actif et libérer le(s) lit(s) associé(s)
+    const dateHier = new Date();
+    dateHier.setDate(dateHier.getDate() - 1);
+    const dateHierISO = dateHier.toISOString().split('T')[0];
+
     await client.query(
-      'UPDATE lits SET est_occupe = false, collaborateur_id = NULL WHERE collaborateur_id = $1',
-      [collaborateurId]
+      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
+       WHERE id IN (SELECT lit_id FROM baux WHERE collaborateur_id = $1 AND date_fin >= NOW())`,
+      [collaborateurId, dateHierISO]
     );
-    console.log(`✅ Ancien lit du collaborateur ${collaborateurId} libéré (si existant).`);
+    await client.query('UPDATE baux SET date_fin = $2 WHERE collaborateur_id = $1 AND date_fin >= NOW()', [collaborateurId, dateHierISO]);
+    console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
 
     // 3. Vérifier la règle de mixité si le logement n'est pas mixte
     if (!lit.mixte_autorise) {

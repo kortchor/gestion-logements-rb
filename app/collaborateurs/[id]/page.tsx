@@ -166,6 +166,10 @@ export default function CollaborateurPage() {
       }
       const result = await response.json();
 
+      if (!result.success) {
+        throw new Error(result.error || 'Erreur lors du chargement des baux');
+      }
+
       if (result.success) {
         const aujourdhui = new Date();
         aujourdhui.setHours(0, 0, 0, 0); // Pour une comparaison juste

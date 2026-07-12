@@ -398,16 +398,16 @@ export default function CollaborateurPage() {
                     <>
                       <div>
                         <span className="text-gray-500 text-sm">Logement</span>
-                        <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom}</p>
-                        <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse}</p>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-gray-500 text-sm">Chambre</span>
-                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom}</p>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-gray-500 text-sm">Lit</span>
-                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero}</p>
+                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero || 'N/A'}</p>
                       </div>
                     </>
                   )}

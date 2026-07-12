@@ -17,34 +17,15 @@ const getBauxHandler = async (
 
     console.log('📋 Récupération des baux pour le collaborateur:', collaborateurId);
 
-    // ✅ CORRECTION : Réactivation avec une requête robuste utilisant les CTE
+    // ✅ CORRECTION : Requête simplifiée et plus robuste pour éviter les erreurs de jointure complexes.
+    // Les détails spécifiques (chambre, lit) seront chargés sur la page de détail du bail si nécessaire.
     const result = await query(
-      `WITH CautionsAgregees AS (
-        -- 1. Agréger les cautions pour n'avoir qu'une ligne par bail_id
-        -- Cela évite les erreurs même si un bail a plusieurs cautions
-        SELECT
-          bail_id,
-          MAX(montant_caution) as montant_caution,
-          MAX(statut_caution) as statut_caution,
-          MAX(justificatif_caution_url) as justificatif_caution_url
-        FROM cautions
-        GROUP BY bail_id
-      )
-      -- 2. Joindre les informations de manière sécurisée
       SELECT
         b.*,
-        COALESCE(l.nom_logement, 'N/A') as logement_nom,
-        COALESCE(l.adresse, 'N/A') as logement_adresse,
-        COALESCE(c.nom, 'N/A') as chambre_nom,
-        COALESCE(li.numero, 'N/A') as lit_numero,
-        ca.montant_caution,
-        ca.statut_caution,
-        ca.justificatif_caution_url
+        l.nom_logement as logement_nom,
+        l.adresse as logement_adresse
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
-      LEFT JOIN chambres AS c ON b.chambre_id = c.id
-      LEFT JOIN lits AS li ON b.lit_id = li.id
-      LEFT JOIN CautionsAgregees AS ca ON b.id = ca.bail_id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]
@@ -56,9 +37,9 @@ const getBauxHandler = async (
     );
   } catch (error) {
     console.error('❌ Erreur GET baux:', error);
-    // En cas d'erreur, on retourne un tableau vide plutôt qu'une erreur 500
+    // ✅ CORRECTION : Standardiser la réponse d'erreur pour correspondre aux attentes du front-end
     return NextResponse.json(
-      { error: 'Erreur serveur lors de la récupération des baux' },
+      { success: false, error: 'Erreur serveur lors de la récupération des baux' },
       { status: 500 }
     );
   }

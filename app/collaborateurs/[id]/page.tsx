@@ -88,7 +88,7 @@ export default function CollaborateurPage() {
   const collaborateurId = params?.id ? parseInt(params.id as string, 10) : null;
 
   // ✅ Utiliser useCallback pour que la fonction puisse être appelée depuis les effets et les gestionnaires d'événements
-  const fetchAllData = useCallback(async (id: number) => {
+  const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null); // Réinitialiser les erreurs précédentes
@@ -96,7 +96,7 @@ export default function CollaborateurPage() {
       // Exécuter les requêtes en parallèle
       const [collaborateurResponse, bauxResponse] = await Promise.all([
         fetch(`/api/collaborateurs/${id}`),
-        fetch(`/api/collaborateurs/${id}/baux`)
+        fetch(`/api/collaborateurs/${collaborateurId}/baux`)
       ]);
 
       // Traiter la réponse du collaborateur
@@ -129,7 +129,7 @@ export default function CollaborateurPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // Le tableau de dépendances est vide car la fonction n'a pas de dépendances externes
+  }, [collaborateurId]); // ✅ Mettre à jour la fonction si l'ID change
 
   useEffect(() => {
     if (!params?.id) {
@@ -137,16 +137,17 @@ export default function CollaborateurPage() {
       return;
     }
 
-    const id = params.id as string;
-    const idNumber = parseInt(id, 10);
+    // ✅ CORRECTION: Récupérer et valider l'ID à l'intérieur du useEffect
+    const idNumber = parseInt(params.id as string, 10);
 
     if (isNaN(idNumber)) {
       setError('ID de collaborateur invalide');
       setLoading(false);
       return;
     }
-
-    fetchAllData(idNumber);
+    
+    // Appeler la fonction de récupération des données
+    fetchAllData();
   }, [params?.id, fetchAllData]); // Le hook se redéclenchera si l'ID ou la fonction change
 
   const handleDesassigner = async () => {
@@ -161,7 +162,7 @@ export default function CollaborateurPage() {
       if (!response.ok) throw new Error('Erreur lors de la désassignation');
 
       // Recharger toutes les données pour refléter le changement
-      await fetchAllData(collaborateurId);
+      await fetchAllData();
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la désassignation');
@@ -171,7 +172,7 @@ export default function CollaborateurPage() {
 
   const handleAssignSuccess = () => {
     if (collaborateurId) {
-      fetchAllData(collaborateurId);
+      fetchAllData();
     }
     // Optionnel: afficher un message de succès global
   };
@@ -498,7 +499,7 @@ export default function CollaborateurPage() {
                 bailId={bauxActifs[0].id} 
                 onUpdate={() => {
                   if (collaborateurId) {
-                    fetchAllData(collaborateurId);
+                    fetchAllData();
                   }
                 }}
               />

@@ -45,18 +45,15 @@ export default function NouveauCollaborateur() {
           throw new Error('Erreur serveur lors de la récupération des lits');
         }
         const logementsData = await response.json();
-        // Aplatir la structure pour obtenir une liste simple de lits
-        const lits = logementsData.flatMap((logement: any) => { // ✅ CORRECTION : Gérer le cas où 'logement.chambres' n'existe pas
-          // S'assurer que logement.chambres est un tableau avant de continuer
-          if (!Array.isArray(logement.chambres)) {
-            return [];
-          }
-          return logement.chambres.flatMap((chambre: any) => 
-            Array.isArray(chambre.lits) 
-            ? chambre.lits.map((lit: any) => ({ ...lit, logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom }))
-            : []
-          );
-        });
+        
+        // ✅ CORRECTION : Logique d'aplatissement plus robuste
+        const lits = logementsData.flatMap((logement: any) => 
+          (logement.chambres || []).flatMap((chambre: any) => 
+            (chambre.lits || []).map((lit: any) => ({ 
+              ...lit, 
+              logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom 
+            }))
+          ));
         setLitsDisponibles(lits.filter((lit: any) => !lit.est_occupe));
       } catch (error) {
         console.error('Erreur:', error);

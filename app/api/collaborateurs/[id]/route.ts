@@ -32,5 +32,4 @@ const getCollaborateurHandler = async (
   }
 };
 
-// Exporter la méthode GET protégée par l'authentification
 export const GET = withAuth(getCollaborateurHandler, ['admin', 'super_admin', 'user']);

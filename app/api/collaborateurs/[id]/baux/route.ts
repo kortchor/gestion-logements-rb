@@ -17,20 +17,38 @@ const getBauxHandler = async (
 
     console.log('📋 Récupération des baux pour le collaborateur:', collaborateurId);
 
+    // ✅ CORRECTION : Utilisation de CTE pour une requête plus robuste et lisible
     const result = await query(
-      `SELECT
-         b.*, 
-         l.nom_logement as logement_nom,
-         l.adresse as logement_adresse,
-         c.nom as chambre_nom,
-         li.numero as lit_numero,
-         (SELECT montant_caution FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as montant_caution,
-         (SELECT statut_caution FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as statut_caution,
-         (SELECT justificatif_caution_url FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as justificatif_caution_url
-      FROM baux b
-      LEFT JOIN logements l ON b.logement_id = l.id
-      LEFT JOIN chambres c ON b.chambre_id = c.id
-      LEFT JOIN lits li ON b.lit_id = li.id
+      `WITH DerniereCaution AS (
+        -- 1. Isoler la dernière caution pour chaque bail
+        SELECT 
+          bail_id,
+          montant_caution,
+          statut_caution,
+          justificatif_caution_url
+        FROM (
+          SELECT 
+            bail_id, montant_caution, statut_caution, justificatif_caution_url,
+            ROW_NUMBER() OVER(PARTITION BY bail_id ORDER BY created_at DESC) as rn
+          FROM cautions
+        ) sub
+        WHERE rn = 1
+      )
+      -- 2. Construire le résultat final en joignant les informations
+      SELECT
+        b.*,
+        COALESCE(l.nom_logement, 'N/A') as logement_nom,
+        COALESCE(l.adresse, 'N/A') as logement_adresse,
+        COALESCE(c.nom, 'N/A') as chambre_nom,
+        COALESCE(li.numero, 'N/A') as lit_numero,
+        dc.montant_caution,
+        dc.statut_caution,
+        dc.justificatif_caution_url
+      FROM baux AS b
+      LEFT JOIN logements AS l ON b.logement_id = l.id
+      LEFT JOIN chambres AS c ON b.chambre_id = c.id
+      LEFT JOIN lits AS li ON b.lit_id = li.id
+      LEFT JOIN DerniereCaution AS dc ON b.id = dc.bail_id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

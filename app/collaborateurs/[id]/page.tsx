@@ -95,7 +95,7 @@ export default function CollaborateurPage() {
 
       // Exécuter les requêtes en parallèle
       const [collaborateurResponse, bauxResponse] = await Promise.all([
-        fetch(`/api/collaborateurs/${id}`),
+        fetch(`/api/collaborateurs/${collaborateurId}`),
         fetch(`/api/collaborateurs/${collaborateurId}/baux`)
       ]);
 

@@ -20,7 +20,7 @@ const getBauxHandler = async (
     // ✅ CORRECTION : Requête simplifiée et plus robuste pour éviter les erreurs de jointure complexes.
     // Les détails spécifiques (chambre, lit) seront chargés sur la page de détail du bail si nécessaire.
     const result = await query(
-      SELECT
+      `SELECT
         b.*,
         l.nom_logement as logement_nom,
         l.adresse as logement_adresse

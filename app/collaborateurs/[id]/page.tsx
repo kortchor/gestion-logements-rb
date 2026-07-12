@@ -93,11 +93,9 @@ export default function CollaborateurPage() {
       setLoading(true);
       setError(null); // Réinitialiser les erreurs précédentes
 
-      // Exécuter les requêtes en parallèle
-      const [collaborateurResponse, bauxResponse] = await Promise.all([
-        fetch(`/api/collaborateurs/${collaborateurId}`),
-        fetch(`/api/collaborateurs/${collaborateurId}/baux`)
-      ]);
+      // --- DÉSACTIVATION TEMPORAIRE ---
+      // On ne charge que les informations du collaborateur pour isoler le problème.
+      const collaborateurResponse = await fetch(`/api/collaborateurs/${collaborateurId}`);
 
       // Traiter la réponse du collaborateur
       const collaborateurResult = await collaborateurResponse.json();
@@ -105,23 +103,11 @@ export default function CollaborateurPage() {
         throw new Error(collaborateurResult.error || 'Impossible de charger les informations du collaborateur.');
       }
       setCollaborateur(collaborateurResult.data);
-
-      // Traiter la réponse des baux
-      const bauxResult = await bauxResponse.json();
-      if (!bauxResponse.ok || !bauxResult.success) {
-        throw new Error(bauxResult.error || 'Impossible de charger les informations des baux.');
-      }
       
-      // ✅ CORRECTION: Comparaison de dates insensible au fuseau horaire
-      const today = new Date();
-      const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-      const actifs = bauxResult.data.filter((bail: Bail) => 
-        bail.date_fin.split('T')[0] >= todayDateString);
-      const historique = bauxResult.data.filter((bail: Bail) => 
-        bail.date_fin.split('T')[0] < todayDateString);
-      setBauxActifs(actifs);
-      setBauxHistorique(historique);
+      // On initialise les baux à un tableau vide.
+      setBauxActifs([]);
+      setBauxHistorique([]);
+      // --- FIN DE LA DÉSACTIVATION ---
 
     } catch (err) {
       console.error('Erreur:', err);

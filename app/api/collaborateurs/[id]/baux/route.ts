@@ -24,9 +24,9 @@ const getBauxHandler = async (
          l.adresse as logement_adresse,
          c.nom as chambre_nom,
          li.numero as lit_numero,
-         (SELECT montant_caution FROM cautions WHERE bail_id = b.id) as montant_caution,
-         (SELECT statut_caution FROM cautions WHERE bail_id = b.id) as statut_caution,
-         (SELECT justificatif_caution_url FROM cautions WHERE bail_id = b.id) as justificatif_caution_url
+         (SELECT montant_caution FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as montant_caution,
+         (SELECT statut_caution FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as statut_caution,
+         (SELECT justificatif_caution_url FROM cautions WHERE bail_id = b.id ORDER BY created_at DESC LIMIT 1) as justificatif_caution_url
       FROM baux b
       LEFT JOIN logements l ON b.logement_id = l.id
       LEFT JOIN chambres c ON b.chambre_id = c.id

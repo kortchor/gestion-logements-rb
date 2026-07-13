@@ -22,10 +22,15 @@ const getBauxHandler = async (
     const result = await query(
       `SELECT
         b.*,
-        l.nom_logement as logement_nom,
-        l.adresse as logement_adresse
+        COALESCE(l.nom_logement, 'N/A') as logement_nom,
+        COALESCE(l.adresse, 'N/A') as logement_adresse,
+        COALESCE(c.nom, 'N/A') as chambre_nom,
+        COALESCE(li.numero, 'N/A') as lit_numero,
+        l.photos_etat_lieux_entree
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
+      LEFT JOIN chambres AS c ON b.chambre_id = c.id
+      LEFT JOIN lits AS li ON b.lit_id = li.id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

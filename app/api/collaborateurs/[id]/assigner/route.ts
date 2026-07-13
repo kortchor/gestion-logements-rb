@@ -85,6 +85,7 @@ const assignerHandler = async (
         l.id, 
         l.est_occupe,
         ch.logement_id,
+        l.chambre_id,
         log.mixte_autorise,
         log.type_occupation_effectif,
         log.adresse,

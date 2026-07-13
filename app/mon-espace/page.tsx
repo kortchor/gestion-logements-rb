@@ -53,7 +53,7 @@ export default function MonEspacePage() {
 
           // Filtrer pour ne garder que le bail actif
           const aujourdhui = new Date();
-          aujourdhui.setHours(0, 0, 0, 0);
+          const aujourdhuiStr = aujourdhui.toISOString().split('T')[0];
           const actif = result.data.find((bail: Bail) => new Date(bail.date_fin) >= aujourdhui);
           setBailActif(actif || null);
 

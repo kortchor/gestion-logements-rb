@@ -23,8 +23,7 @@ const getBauxHandler = async (
       `SELECT
         b.*,
         l.nom_logement as logement_nom,
-        l.adresse as logement_adresse,
-        l.photos_etat_lieux_entree
+        l.adresse as logement_adresse
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
       WHERE b.collaborateur_id = $1

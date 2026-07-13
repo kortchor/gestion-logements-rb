@@ -26,19 +26,9 @@ const getBauxHandler = async (
           'id', l.id,
           'nom', COALESCE(l.nom_logement, 'N/A'),
           'adresse', COALESCE(l.adresse, 'N/A')
-        ) as logement,
-        json_build_object(
-          'id', c.id,
-          'nom', COALESCE(c.nom, 'N/A')
-        ) as chambre,
-        json_build_object(
-          'id', li.id,
-          'numero', COALESCE(li.numero, 'N/A')
-        ) as lit
+        ) as logement
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
-      LEFT JOIN chambres AS c ON b.chambre_id = c.id
-      LEFT JOIN lits AS li ON b.lit_id = li.id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

@@ -20,7 +20,7 @@ const assignerHandler = async (
     const lit_ids = body.lit_ids || []; // Pour la chambre privée
     const participation_mensuelle = body.participation_mensuelle;
     const chambre_privée = body.chambre_privée || false;
-    const modele_convention_id = body.modele_convention_id;
+    const modele_convention_id = body.modele_convention_id ? parseInt(body.modele_convention_id) : null;
 
     if (isNaN(collaborateurId)) {
       return NextResponse.json(
@@ -179,7 +179,7 @@ const assignerHandler = async (
       [
         collaborateurId, lit.logement_id, lit.chambre_id, 
         chambre_privée ? null : litsAAssigner[0], // ✅ Ne pas lier de lit si la chambre est privée
-        dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id
+        dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id || null
       ]
     );
     const nouveauBailId = bailResult.rows[0].id;
@@ -187,6 +187,12 @@ const assignerHandler = async (
     // 6. Générer le PDF de la convention
     const modeleResult = await client.query('SELECT contenu FROM modeles_convention WHERE id = $1', [modele_convention_id]);
     const modeleContenu = modeleResult.rows.length > 0 ? modeleResult.rows[0].contenu : null;
+
+    // Si aucun modèle n'est trouvé, on ne peut pas continuer la signature
+    if (!modeleContenu) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({ error: 'Modèle de convention non trouvé ou non sélectionné.' }, { status: 400 });
+    }
 
     const pdfBuffer = await generateConventionPDF({
       template: modeleContenu,

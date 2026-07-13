@@ -47,9 +47,9 @@ export default function NouveauCollaborateur() {
         const logementsData = await response.json();
         
         // ✅ AMÉLIORATION : Utiliser la structure de données hiérarchique de l'API
-        const lits = logementsData.flatMap((logement: any) =>
-          (logement.chambres || []).flatMap((chambre: any) =>
-            (chambre.lits || []).map((lit: any) => ({
+        const lits = logementsData.flatMap((logement: any) => 
+          (logement.chambres || []).flatMap((chambre: any) => 
+            (chambre.lits || []).map((lit: any) => ({ 
               ...lit, 
               logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom 
             }))

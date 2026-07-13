@@ -270,7 +270,7 @@ export default function NouveauCollaborateur() {
               <option value="">Non assigné</option>
               {litsDisponibles.map((lit) => ( // ✅ Plus besoin de 'any'
                 <option key={lit.id} value={lit.id}>
-                  {lit.ville} - {lit.logement_adresse} - {lit.chambre_nom} - Lit {lit.numero}
+                  {lit.logement_adresse}, {lit.ville} (Chambre: {lit.chambre_nom} - Lit n°{lit.numero})
                 </option>
               ))}
             </select>

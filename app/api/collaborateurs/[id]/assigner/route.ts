@@ -87,7 +87,7 @@ const assignerHandler = async (
         ch.logement_id,
         l.chambre_id,
         log.mixte_autorise,
-        log.type_occupation_effectif,
+        log.type_occupation_effectif, // ✅ CORRECTION : Ajout de la colonne 'ville'
         log.adresse,
         log.ville,
         log.nom_logement,

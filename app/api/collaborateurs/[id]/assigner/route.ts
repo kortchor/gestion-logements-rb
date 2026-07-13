@@ -41,11 +41,13 @@ const assignerHandler = async (
     // Construire la liste des lits à assigner
     let litsAAssigner: number[] = [];
     if (chambre_privée && lit_id) {
-      const chambreResult = await client.query('SELECT chambre_id FROM lits WHERE id = $1', [lit_id]);
-      if (chambreResult.rows.length > 0) {
-        const chambreId = chambreResult.rows[0].chambre_id;
-        const autresLitsResult = await client.query('SELECT id FROM lits WHERE chambre_id = $1 AND est_occupe = false', [chambreId]);
-        litsAAssigner = autresLitsResult.rows.map((row: any) => row.id);
+      // Amélioration : Récupérer tous les lits de la chambre du lit sélectionné en une seule requête
+      const litsChambreResult = await client.query<{ id: number }>(
+        `SELECT id FROM lits WHERE chambre_id = (SELECT chambre_id FROM lits WHERE id = $1) AND est_occupe = false`, 
+        [lit_id]
+      );
+      if (litsChambreResult.rows.length > 0) {
+        litsAAssigner = litsChambreResult.rows.map(row => row.id);
       }
     } else if (lit_id) {
       litsAAssigner = [lit_id];

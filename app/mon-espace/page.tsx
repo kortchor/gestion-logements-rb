@@ -44,20 +44,15 @@ export default function MonEspacePage() {
       const fetchMyData = async () => {
         try {
           setLoading(true);
-          const response = await fetch(`/api/collaborateurs/${session.user.id}/baux`);
+          // Amélioration : Demander directement le bail actif à l'API
+          const response = await fetch(`/api/collaborateurs/${session.user.id}/baux?statut=actif`);
           const result = await response.json();
 
           if (!response.ok || !result.success) {
             throw new Error(result.error || 'Impossible de charger vos informations de logement.');
           }
-
-          // Filtrer pour ne garder que le bail actif
-          const aujourdhui = new Date();
-          aujourdhui.setHours(0, 0, 0, 0); // Pour une comparaison juste
-          const actif = result.data.find(
-            (bail: Bail) => bail.date_fin && new Date(bail.date_fin) >= aujourdhui
-          );
-          setBailActif(actif || null);
+          // L'API retourne directement le bail actif (ou null)
+          setBailActif(result.data || null);
 
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Une erreur est survenue.');

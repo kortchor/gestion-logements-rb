@@ -39,17 +39,23 @@ interface Bail {
   participation_mensuelle: number | null;
   chambre_privée: boolean;
   signe: boolean;
-  logement_id: number;
-  logement_nom: string;
-  logement_adresse: string;
-  chambre_id: number;
-  chambre_nom: string;
-  lit_id: number;
-  lit_numero: string;
+  logement: {
+    id: number;
+    nom: string;
+    adresse: string;
+    photos_etat_lieux_entree: string[] | null;
+  };
+  chambre: {
+    id: number;
+    nom: string;
+  };
+  lit: {
+    id: number;
+    numero: string;
+  };
   montant_caution: number | null;
   statut_caution: string;
   justificatif_caution_url: string | null;
-  photos_etat_lieux_entree: string[] | null; // ✅ Ajouter les photos
 }
 
 // ✅ Définir des types précis pour les logements disponibles
@@ -399,16 +405,16 @@ export default function CollaborateurPage() {
                     <>
                       <div>
                         <span className="text-gray-500 text-sm">Logement</span>
-                        <p className="font-medium text-gray-900">{bauxActifs[0].logement_nom || 'N/A'}</p>
-                        <p className="text-sm text-gray-600">{bauxActifs[0].logement_adresse || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].logement?.nom || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">{bauxActifs[0].logement?.adresse || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-gray-500 text-sm">Chambre</span>
-                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre_nom || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre?.nom || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-gray-500 text-sm">Lit</span>
-                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit_numero || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit?.numero || 'N/A'}</p>
                       </div>
                     </>
                   )}
@@ -426,11 +432,11 @@ export default function CollaborateurPage() {
               )}
 
               {/* ✅ Affichage des photos de l'état des lieux */}
-              {bauxActifs.length > 0 && bauxActifs[0].photos_etat_lieux_entree && bauxActifs[0].photos_etat_lieux_entree.length > 0 && (
+              {bauxActifs.length > 0 && bauxActifs[0].logement?.photos_etat_lieux_entree && bauxActifs[0].logement.photos_etat_lieux_entree.length > 0 && (
                 <div className="mt-6">
                   <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux d'entrée</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {bauxActifs[0].photos_etat_lieux_entree.map((photoUrl, index) => (
+                    {bauxActifs[0].logement.photos_etat_lieux_entree.map((photoUrl, index) => (
                       <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
                         <img 
                           src={photoUrl} 
@@ -497,8 +503,8 @@ export default function CollaborateurPage() {
                   <div key={bail.id} className="border border-gray-200 rounded-lg p-4 mb-4 last:mb-0 hover:bg-gray-50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-bold">{bail.logement_nom}</p>
-                        <p className="text-sm text-gray-600">{bail.logement_adresse}</p>
+                        <p className="font-bold">{bail.logement?.nom || 'Logement non spécifié'}</p>
+                        <p className="text-sm text-gray-600">{bail.logement?.adresse || 'Adresse non spécifiée'}</p>
                         <p className="text-sm text-gray-500">
                           Du {format(new Date(bail.date_debut), 'dd/MM/yyyy', { locale: fr })} au {format(new Date(bail.date_fin), 'dd/MM/yyyy', { locale: fr })}
                         </p>

@@ -17,15 +17,25 @@ const getBauxHandler = async (
 
     console.log('📋 Récupération des baux pour le collaborateur:', collaborateurId);
 
-    // ✅ CORRECTION : Requête simplifiée et plus robuste pour éviter les erreurs de jointure complexes.
-    // Les détails spécifiques (chambre, lit) seront chargés sur la page de détail du bail si nécessaire.
+    // ✅ AMÉLIORATION : Requête SQL entièrement refactorisée pour être plus robuste et performante
+    // en utilisant les fonctions d'agrégation JSON de PostgreSQL.
     const result = await query(
       `SELECT
-        b.*,
-        COALESCE(l.nom_logement, 'N/A') as logement_nom,
-        COALESCE(l.adresse, 'N/A') as logement_adresse,
-        COALESCE(c.nom, 'N/A') as chambre_nom,
-        COALESCE(li.numero, 'N/A') as lit_numero
+        b.id, b.date_debut, b.date_fin, b.participation_mensuelle, b.chambre_privée, b.signe,
+        json_build_object(
+          'id', l.id,
+          'nom', COALESCE(l.nom_logement, 'N/A'),
+          'adresse', COALESCE(l.adresse, 'N/A'),
+          'photos_etat_lieux_entree', l.photos_etat_lieux_entree
+        ) as logement,
+        json_build_object(
+          'id', c.id,
+          'nom', COALESCE(c.nom, 'N/A')
+        ) as chambre,
+        json_build_object(
+          'id', li.id,
+          'numero', COALESCE(li.numero, 'N/A')
+        ) as lit
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
       LEFT JOIN chambres AS c ON b.chambre_id = c.id

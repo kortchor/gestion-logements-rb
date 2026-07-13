@@ -20,23 +20,12 @@ const getBauxHandler = async (
     // ✅ AMÉLIORATION : Requête SQL entièrement refactorisée pour être plus robuste et performante
     // en utilisant les fonctions d'agrégation JSON de PostgreSQL.
     const result = await query(
-      `WITH CautionsAgregees AS (
-        -- Agréger les cautions pour n'avoir qu'une ligne par bail_id
-        SELECT
-          bail_id,
-          MAX(montant_caution) as montant_caution,
-          MAX(statut_caution) as statut_caution,
-          MAX(justificatif_caution_url) as justificatif_caution_url
-        FROM cautions
-        GROUP BY bail_id
-      )
       SELECT
         b.id, b.date_debut, b.date_fin, b.participation_mensuelle, b.chambre_privée, b.signe,
         json_build_object(
           'id', l.id,
           'nom', COALESCE(l.nom_logement, 'N/A'),
-          'adresse', COALESCE(l.adresse, 'N/A'),
-          'photos_etat_lieux_entree', COALESCE(l.photos_etat_lieux_entree, '{}'::text[])
+          'adresse', COALESCE(l.adresse, 'N/A')
         ) as logement,
         json_build_object(
           'id', c.id,
@@ -45,15 +34,11 @@ const getBauxHandler = async (
         json_build_object(
           'id', li.id,
           'numero', COALESCE(li.numero, 'N/A')
-        ) as lit,
-        ca.montant_caution,
-        ca.statut_caution,
-        ca.justificatif_caution_url
+        ) as lit
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
       LEFT JOIN chambres AS c ON b.chambre_id = c.id
       LEFT JOIN lits AS li ON b.lit_id = li.id
-      LEFT JOIN CautionsAgregees AS ca ON b.id = ca.bail_id
       WHERE b.collaborateur_id = $1
       ORDER BY b.date_debut DESC`,
       [collaborateurId]

@@ -20,7 +20,7 @@ const getBauxHandler = async (
     // ✅ AMÉLIORATION : Requête SQL entièrement refactorisée pour être plus robuste et performante
     // en utilisant les fonctions d'agrégation JSON de PostgreSQL.
     const result = await query(
-      SELECT
+      `SELECT
         b.id, b.date_debut, b.date_fin, b.participation_mensuelle, b.chambre_privée, b.signe,
         json_build_object(
           'id', l.id,

@@ -26,7 +26,6 @@ const getBauxHandler = async (
         COALESCE(l.adresse, 'N/A') as logement_adresse,
         COALESCE(c.nom, 'N/A') as chambre_nom,
         COALESCE(li.numero, 'N/A') as lit_numero,
-        l.photos_etat_lieux_entree
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id
       LEFT JOIN chambres AS c ON b.chambre_id = c.id

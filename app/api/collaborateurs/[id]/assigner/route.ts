@@ -16,7 +16,7 @@ const assignerHandler = async (
   try {
     const collaborateurId = parseInt(params.id);
     const body = await request.json();
-    const lit_id = parseInt(body.lit_id);
+    const lit_id_str = body.lit_id;
     const lit_ids = body.lit_ids || []; // Pour la chambre privée
     const participation_mensuelle = body.participation_mensuelle;
     const chambre_privée = body.chambre_privée || false;
@@ -25,6 +25,15 @@ const assignerHandler = async (
     if (isNaN(collaborateurId)) {
       return NextResponse.json(
         { error: 'ID de collaborateur invalide' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ AMÉLIORATION : Validation robuste de l'ID du lit
+    const lit_id = lit_id_str ? parseInt(lit_id_str) : null;
+    if (lit_id_str && (lit_id === null || isNaN(lit_id))) {
+      return NextResponse.json(
+        { error: 'ID de lit invalide fourni.' },
         { status: 400 }
       );
     }

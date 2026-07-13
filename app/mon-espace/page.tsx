@@ -15,11 +15,22 @@ interface Collaborateur {
 
 interface Bail {
   id: number;
-  logement_nom: string;
-  logement_adresse: string;
   date_debut: string;
   date_fin: string;
-  photos_etat_lieux_entree: string[] | null;
+  logement: {
+    id: number;
+    nom: string;
+    adresse: string;
+    photos_etat_lieux_entree: string[] | null;
+  };
+  chambre: {
+    id: number;
+    nom: string;
+  };
+  lit: {
+    id: number;
+    numero: string;
+  };
 }
 
 export default function MonEspacePage() {
@@ -85,19 +96,19 @@ export default function MonEspacePage() {
         {bailActif ? (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-semibold">{bailActif.logement_nom}</h2>
-              <p className="text-gray-600">{bailActif.logement_adresse}</p>
+              <h2 className="text-xl font-semibold">{bailActif.logement?.nom || 'Logement non spécifié'}</h2>
+              <p className="text-gray-600">{bailActif.logement?.adresse || 'Adresse non spécifiée'}</p>
             </div>
             <p className="text-sm text-gray-500">
               Période d'occupation : du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}
             </p>
             
             {/* Affichage des photos de l'état des lieux */}
-            {bailActif.photos_etat_lieux_entree && bailActif.photos_etat_lieux_entree.length > 0 && (
+            {bailActif.logement?.photos_etat_lieux_entree && bailActif.logement.photos_etat_lieux_entree.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux d'entrée</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {bailActif.photos_etat_lieux_entree.map((photoUrl, index) => (
+                  {bailActif.logement.photos_etat_lieux_entree.map((photoUrl, index) => (
                     <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
                       <img src={photoUrl} alt={`État des lieux ${index + 1}`} className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity" />
                     </a>

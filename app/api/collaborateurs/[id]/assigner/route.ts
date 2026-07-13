@@ -123,14 +123,18 @@ const assignerHandler = async (
     dateHier.setDate(dateHier.getDate() - 1);
     const dateHierISO = dateHier.toISOString().split('T')[0];
 
-    // Clôturer l'ancien bail actif (s'il existe) et libérer les lits associés en une seule fois
-    await client.query(
-      `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
-       WHERE collaborateur_id = $1`,
-      [collaborateurId]
-    );
-    await client.query("UPDATE baux SET statut = 'terminé', date_fin = $2 WHERE collaborateur_id = $1 AND statut = 'actif'", [collaborateurId, dateHierISO]);
-    console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
+    // ✅ AMÉLIORATION : Clôturer l'ancien bail actif uniquement s'il existe
+    const ancienBailActifResult = await client.query("SELECT id FROM baux WHERE collaborateur_id = $1 AND statut = 'actif' LIMIT 1", [collaborateurId]);
+    if (ancienBailActifResult.rows.length > 0) {
+      // Libérer les anciens lits
+      await client.query(
+        `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
+         WHERE collaborateur_id = $1`,
+        [collaborateurId]
+      );
+      await client.query("UPDATE baux SET statut = 'terminé', date_fin = $2 WHERE collaborateur_id = $1 AND statut = 'actif'", [collaborateurId, dateHierISO]);
+      console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
+    }
 
     // 3. Vérifier la règle de mixité si le logement n'est pas mixte
     if (!lit.mixte_autorise) {

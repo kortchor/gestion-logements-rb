@@ -54,7 +54,9 @@ export default function MonEspacePage() {
           // Filtrer pour ne garder que le bail actif
           const aujourdhui = new Date();
           aujourdhui.setHours(0, 0, 0, 0); // Pour une comparaison juste
-          const actif = result.data.find((bail: Bail) => bail.date_fin && new Date(bail.date_fin) >= aujourdhui);
+          const actif = result.data.find(
+            (bail: Bail) => bail.date_fin && new Date(bail.date_fin) >= aujourdhui
+          );
           setBailActif(actif || null);
 
         } catch (err) {

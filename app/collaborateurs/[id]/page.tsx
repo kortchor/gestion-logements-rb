@@ -123,8 +123,12 @@ export default function CollaborateurPage() {
       const today = new Date();
       const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-      const actifs = bauxResult.data.filter((bail: Bail) => bail.date_fin.split('T')[0] >= todayDateString);
-      const historique = bauxResult.data.filter((bail: Bail) => bail.date_fin.split('T')[0] < todayDateString);
+      // ✅ AMÉLIORATION : Logique de filtrage des baux plus robuste
+      const actifs = bauxResult.data.filter((bail: Bail) => {
+        return bail.date_fin && bail.date_fin.split('T')[0] >= todayDateString;
+      });
+      const historique = bauxResult.data.filter((bail: Bail) => 
+        !bail.date_fin || bail.date_fin.split('T')[0] < todayDateString);
       setBauxActifs(actifs);
       setBauxHistorique(historique);
 

@@ -97,6 +97,12 @@ export default function CollaborateurPage() {
   // ✅ Utiliser useCallback pour que la fonction puisse être appelée depuis les effets et les gestionnaires d'événements
   const fetchAllData = useCallback(async () => {
     try {
+      // ✅ CORRECTION : S'assurer que l'ID est valide avant de lancer la requête
+      if (!collaborateurId || isNaN(collaborateurId)) {
+        setError("L'identifiant du collaborateur dans l'URL est invalide.");
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null); // Réinitialiser les erreurs précédentes
 
@@ -141,23 +147,11 @@ export default function CollaborateurPage() {
   }, [collaborateurId]); // ✅ Mettre à jour la fonction si l'ID change
 
   useEffect(() => {
-    if (!params?.id) {
-      console.log("⏳ En attente des paramètres de l'URL...");
-      return;
-    }
-
-    // ✅ CORRECTION: Récupérer et valider l'ID à l'intérieur du useEffect
-    const idNumber = parseInt(params.id as string, 10);
-
-    if (isNaN(idNumber)) {
-      setError('ID de collaborateur invalide');
-      setLoading(false);
-      return;
-    }
-    
-    // Appeler la fonction de récupération des données
+    // ✅ CORRECTION : Simplification de la logique.
+    // Le hook se déclenche quand `params.id` change.
+    // `collaborateurId` est recalculé, et `fetchAllData` est appelé avec le nouvel ID.
     fetchAllData();
-  }, [params?.id, fetchAllData]); // Le hook se redéclenchera si l'ID ou la fonction change
+  }, [fetchAllData]); // Le hook se redéclenchera si la fonction (et donc son `collaborateurId`) change
 
   const handleDesassigner = async () => {
     if (bauxActifs.length === 0 || !collaborateurId) return;

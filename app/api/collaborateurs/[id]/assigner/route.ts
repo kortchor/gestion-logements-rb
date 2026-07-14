@@ -213,7 +213,7 @@ const assignerHandler = async (
     });
 
     // 7. Mettre à jour le bail avec l'ID de la demande de signature
-    await client.query('UPDATE baux SET signature_request_id = $1 WHERE id = $2', [signatureData.signatureId, nouveauBailId]);
+    await client.query('UPDATE baux SET signature_request_id = $1 WHERE id = $2', [signatureData.requestId, nouveauBailId]);
 
     // 8. Envoyer l'email au collaborateur avec le lien de signature
     await sendEmail({

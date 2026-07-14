@@ -41,8 +41,10 @@ export async function GET(request: Request) {
 
 // ✅ POST - Créer un collaborateur (SANS mot de passe)
 export async function POST(request: Request) {
+  const client = await query.pool.connect();
   try {
     const body = await request.json();
+    await client.query('BEGIN');
 
     const {
       nom,
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
     } = body;
 
     // Vérifier si l'email existe déjà
-    const checkResult = await query(
+    const checkResult = await client.query(
       'SELECT id FROM collaborateurs WHERE email = $1',
       [email]
     );
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // Créer le collaborateur (SANS mot de passe)
-    const result = await query(
+    const result = await client.query(
       `INSERT INTO collaborateurs 
        (nom, prenom, email, telephone, genre, date_arrivee, date_depart, 
         date_debut_contrat, date_fin_contrat, vehicule, animal, commentaire,
@@ -105,25 +107,29 @@ export async function POST(request: Request) {
 
     // Assigner à un lit si spécifié
     if (lit_id) {
-      const litResult = await query(
+      const litResult = await client.query(
         'SELECT id FROM lits WHERE id = $1 AND est_occupe = false',
         [parseInt(lit_id)]
       );
 
       if (litResult.rows.length > 0) {
-        await query(
+        await client.query(
           'UPDATE lits SET est_occupe = true, collaborateur_id = $1 WHERE id = $2',
           [collaborateurId, parseInt(lit_id)]
         );
       }
     }
 
+    await client.query('COMMIT');
     return NextResponse.json({ success: true, id: collaborateurId }, { status: 201 });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ Erreur POST:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la création' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }

@@ -15,7 +15,7 @@ if (YOUSIGN_API_KEY) {
 } else {
   console.warn('⚠️ [Signature] Clé API Yousign non trouvée. Utilisation de la simulation.');
   // Importer dynamiquement la simulation
-  sendSignatureRequest = require('./signature.mock').sendSignatureRequest;
+  sendSignatureRequest = require('./yousign.js').sendSignatureRequest;
 }
 
 export { sendSignatureRequest };

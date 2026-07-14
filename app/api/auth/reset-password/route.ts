@@ -10,14 +10,14 @@ export async function POST(request: Request) {
 
     if (!token || !mot_de_passe) {
       return NextResponse.json(
-        { error: 'Token et mot de passe requis' },
+        { success: false, error: 'Token et mot de passe requis' },
         { status: 400 }
       );
     }
 
     if (mot_de_passe.length < 6) {
       return NextResponse.json(
-        { error: 'Le mot de passe doit contenir au moins 6 caractères' },
+        { success: false, error: 'Le mot de passe doit contenir au moins 6 caractères' },
         { status: 400 }
       );
     }
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Lien de réinitialisation invalide ou expiré' },
+        { success: false, error: 'Lien de réinitialisation invalide ou expiré' },
         { status: 400 }
       );
     }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     await client.query('ROLLBACK');
     console.error('❌ Erreur:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la réinitialisation' },
+      { success: false, error: 'Erreur lors de la réinitialisation' },
       { status: 500 }
     );
   } finally {

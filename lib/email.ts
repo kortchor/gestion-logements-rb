@@ -21,27 +21,22 @@ type EmailResult =
   | { success: true; messageId: string }
   | { success: false; error: Error };
 
-export async function sendEmailWithAttachment({
-  to,
-  subject,
-  html,
-  text,
-  attachments,
-}: EmailPayload): Promise<EmailResult> {
+export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
   try {
+    const { to, subject, html, text, attachments } = payload;
+
     // Forcer l'envoi vers une boîte de test si la variable est activée
     const isProd = process.env.NODE_ENV === 'production';
     const isForced = process.env.FORCE_MAILTRAP === 'true';
     const finalTo = (isProd && isForced) ? (process.env.MAILTRAP_TEST_EMAIL || 'test@mailtrap.io') : to;
 
     console.log(`📧 Envoi à: ${finalTo} (original: ${to})`);
-
     const info = await transporter.sendMail({
       from: '"Les Roches Blanches" <noreply@roches-blanches.com>',
       to: finalTo,
       subject: subject,
       text,
-      html: html || text,
+      html: html,
       attachments,
     });
 
@@ -51,8 +46,4 @@ export async function sendEmailWithAttachment({
     console.error('❌ Erreur envoi email:', error);
     return { success: false, error: error as Error };
   }
-}
-
-export async function sendEmail(payload: Omit<EmailPayload, 'attachments'>): Promise<EmailResult> {
-  return sendEmailWithAttachment(payload);
 }

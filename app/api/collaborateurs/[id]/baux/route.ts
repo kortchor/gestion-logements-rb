@@ -26,7 +26,7 @@ const getBauxHandler = async (
           'id', l.id,
           'nom', COALESCE(l.nom_logement, 'N/A'),
           'adresse', COALESCE(l.adresse, 'N/A'),
-          'photos_etat_lieux_entree', l.photos_etat_lieux_entree
+          'etat_lieux_photos', l.etat_lieux_photos
         ) as logement,
         json_build_object(
           'id', ch.id,

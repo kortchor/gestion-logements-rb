@@ -25,7 +25,7 @@ interface AssignmentBody {
  * Valide les données d'entrée pour l'assignation et récupère les informations nécessaires.
  */
 async function validateAssignment(client: PoolClient, collaborateurId: number, body: AssignmentBody) {
-  const { lit_id: lit_id_str, lit_ids = [], chambre_privée = false, modele_convention_id: modele_convention_id_str } = body;
+  const { lit_id: lit_id_str, lit_ids = [], chambre_privée = false, modele_convention_id: modele_convention_id_str, date_debut, date_fin } = body;
 
   if (isNaN(collaborateurId)) {
     return { error: NextResponse.json({ error: 'ID de collaborateur invalide' }, { status: 400 }) };
@@ -39,6 +39,18 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   const modele_convention_id = modele_convention_id_str ? parseInt(modele_convention_id_str) : null;
   if (!modele_convention_id) {
     return { error: NextResponse.json({ error: 'Modèle de convention non sélectionné.' }, { status: 400 }) };
+  }
+
+  // ✅ AMÉLIORATION: Valider les formats de date
+  const isoDateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z)?$/;
+  if (date_debut && !isoDateRegex.test(date_debut)) {
+    return { error: NextResponse.json({ error: 'Format de date_debut invalide. Attendu: YYYY-MM-DD ou format ISO 8601.' }, { status: 400 }) };
+  }
+  if (date_fin && !isoDateRegex.test(date_fin)) {
+    return { error: NextResponse.json({ error: 'Format de date_fin invalide. Attendu: YYYY-MM-DD ou format ISO 8601.' }, { status: 400 }) };
+  }
+  if (date_debut && date_fin && new Date(date_debut) > new Date(date_fin)) {
+    return { error: NextResponse.json({ error: 'La date de début ne peut pas être postérieure à la date de fin.' }, { status: 400 }) };
   }
 
   // 1. Construire la liste des lits à assigner

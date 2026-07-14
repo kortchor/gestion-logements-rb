@@ -43,7 +43,7 @@ interface Bail {
     id: number;
     nom: string;
     adresse: string;
-    photos_etat_lieux_entree: string[] | null;
+    etat_lieux_photos: string | null;
   };
   chambre: {
     id: number;
@@ -429,19 +429,29 @@ export default function CollaborateurPage() {
               )}
 
               {/* ✅ Affichage des photos de l'état des lieux */}
-              {bauxActifs.length > 0 && bauxActifs[0].logement?.photos_etat_lieux_entree && bauxActifs[0].logement.photos_etat_lieux_entree.length > 0 && (
+              {bauxActifs.length > 0 && bauxActifs[0].logement?.etat_lieux_photos && (
                 <div className="mt-6">
                   <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux d'entrée</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {bauxActifs[0].logement.photos_etat_lieux_entree.map((photoUrl, index) => (
-                      <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
-                        <img 
-                          src={photoUrl} 
-                          alt={`État des lieux ${index + 1}`} 
-                          className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity"
-                        />
-                      </a>
-                    ))}
+                    {(() => {
+                      try {
+                        const photos = JSON.parse(bauxActifs[0].logement.etat_lieux_photos);
+                        return Array.isArray(photos) ? photos : [];
+                      } catch {
+                        return [];
+                      }
+                    })().map((photo: { name: string; data: string } | string, index: number) => {
+                      const photoUrl = typeof photo === 'string' ? photo : photo.data;
+                      return (
+                        <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
+                          <img 
+                            src={photoUrl} 
+                            alt={`État des lieux ${index + 1}`} 
+                            className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity"
+                          />
+                        </a>
+                      );
+                    })}
                   </div>
                 </div>
               )}

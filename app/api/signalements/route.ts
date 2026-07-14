@@ -1,6 +1,6 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmailWithAttachment } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { withAuth } from '@/lib/api-helpers';
@@ -140,14 +140,14 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
       </html>
     `;
 
-    await sendEmailWithAttachment({
+    await sendEmail({
       to: techEmail,
       subject: `🔧 Signalement technique : ${sujet}`,
       html: emailHtml,
       attachments,
     });
 
-    await sendEmailWithAttachment({
+    await sendEmail({
       to: rhEmail,
       subject: `🔧 Copie signalement technique : ${sujet}`,
       html: emailHtml,

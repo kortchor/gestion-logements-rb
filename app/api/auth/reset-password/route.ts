@@ -1,9 +1,9 @@
-import { query } from '@/lib/db';
+import { query, pool } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
-  const client = await query.pool.connect();
+  const client = await pool.connect();
   try {
     const body = await request.json();
     const { token, mot_de_passe } = body;

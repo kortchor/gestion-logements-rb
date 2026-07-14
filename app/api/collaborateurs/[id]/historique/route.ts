@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const collaborateurId = parseInt(params.id);
+    const { id } = await params;
+    const collaborateurId = parseInt(id);
 
     const result = await query(
       `SELECT 

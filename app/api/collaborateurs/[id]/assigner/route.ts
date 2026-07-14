@@ -1,4 +1,4 @@
-import { query } from '@/lib/db';
+import { query, pool } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { PoolClient } from 'pg'; // ✅ AMÉLIORATION: Importer le type du client
 import { withAuth } from '@/lib/api-helpers';
@@ -129,7 +129,7 @@ const assignerHandler = async (
   context: { params: { id: string } } // ✅ CORRECTION: Accepter le contexte complet
 ) => {
   // ✅ Utiliser un client unique pour la transaction
-  const client = await query.pool.connect();
+  const client = await pool.connect();
   try {
     const collaborateurId = parseInt(context.params.id); // ✅ CORRECTION: Utiliser context.params.id
     const body: AssignmentBody = await request.json();

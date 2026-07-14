@@ -1,4 +1,4 @@
-import { query } from '@/lib/db';
+import { query, pool } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 // ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
 // ✅ POST - Créer un collaborateur (SANS mot de passe)
 export async function POST(request: Request) {
-  const client = await query.pool.connect();
+  const client = await pool.connect();
   try {
     const body = await request.json();
     await client.query('BEGIN');

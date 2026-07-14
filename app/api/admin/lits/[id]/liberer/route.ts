@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const litId = parseInt(params.id);
+    const { id } = await params;
+    const litId = parseInt(id);
 
     // Vérifier que le lit existe
     const checkResult = await query(

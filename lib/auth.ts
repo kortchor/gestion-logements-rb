@@ -23,7 +23,7 @@ export async function encrypt(payload: any) {
 export async function verifyToken(input: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(input, key, { algorithms: ['HS256'] });
-    return payload as TokenPayload;
+    return payload as unknown as TokenPayload;
   } catch (error) {
     console.error('❌ Erreur de vérification du token:', error);
     return null;

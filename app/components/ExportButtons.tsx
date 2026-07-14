@@ -201,7 +201,7 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
 
       // Pied de page
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `${filename}_${new Date().toLocaleDateString('fr-FR')}.pdf`;

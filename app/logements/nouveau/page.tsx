@@ -467,7 +467,9 @@ export default function NouveauLogement() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleFileRemove('etat_lieux_photos', 'etat_lieux_photos')}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, etat_lieux_photos: '' }));
+                  }}
                   className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50"
                   title="Supprimer toutes les photos"
                 >

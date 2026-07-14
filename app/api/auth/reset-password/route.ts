@@ -9,7 +9,6 @@ export async function POST(request: Request) {
     const { token, mot_de_passe } = body;
 
     if (!token || !mot_de_passe) {
-      client.release();
       return NextResponse.json(
         { error: 'Token et mot de passe requis' },
         { status: 400 }
@@ -17,7 +16,6 @@ export async function POST(request: Request) {
     }
 
     if (mot_de_passe.length < 6) {
-      client.release();
       return NextResponse.json(
         { error: 'Le mot de passe doit contenir au moins 6 caractères' },
         { status: 400 }
@@ -32,7 +30,6 @@ export async function POST(request: Request) {
     );
 
     if (result.rows.length === 0) {
-      client.release();
       return NextResponse.json(
         { error: 'Lien de réinitialisation invalide ou expiré' },
         { status: 400 }

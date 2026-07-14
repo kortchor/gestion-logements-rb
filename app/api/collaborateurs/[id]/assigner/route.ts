@@ -197,12 +197,12 @@ const assignerHandler = async (
     const dateFin = body.date_fin || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
 
     const bailResult = await client.query(
-      `INSERT INTO baux (collaborateur_id, logement_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO baux (collaborateur_id, logement_id, date_debut, date_fin, participation_mensuelle, chambre_privée)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
       [
         collaborateurId, lit.logement_id, dateDebut, dateFin,
-        participation_mensuelle, chambre_privée, modele_convention_id || null
+        participation_mensuelle, chambre_privée
       ]
     );
     const nouveauBailId = bailResult.rows[0].id;

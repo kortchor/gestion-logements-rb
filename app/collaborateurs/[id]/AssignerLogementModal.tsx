@@ -202,7 +202,7 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Logement</label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-w-0 max-w-full"
                   value={selectedLogement || ''}
                   onChange={e => {
                     const val = parseInt(e.target.value);
@@ -210,11 +210,15 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                     setSelectedChambre(null);
                     setSelectedLit(null);
                   }}
+                  style={{ width: '100%' }}
                 >
                   <option value="">Sélectionner un logement</option>
                   {logementsFiltres.map(logement => (
-                    <option key={logement.id} value={logement.id}>
-                      {logement.nom_logement || logement.adresse} ({logement.ville})
+                    <option key={logement.id} value={logement.id} title={`${logement.adresse}, ${logement.ville}${logement.nom_logement ? ` (${logement.nom_logement})` : ''}`}>
+                      {logement.nom_logement
+                        ? `${logement.nom_logement} — ${logement.adresse}, ${logement.ville}`
+                        : `${logement.adresse}, ${logement.ville}`
+                      }
                     </option>
                   ))}
                 </select>

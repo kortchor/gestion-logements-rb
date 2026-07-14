@@ -102,7 +102,7 @@ export default function CollaborateurPage() {
 
       // ✅ CORRECTION : Réactivation de la récupération des baux en parallèle
       const [collaborateurResponse, bauxResponse] = await Promise.all([
-        fetch(`/api/collaborateurs/${collaborateurId}`),
+        fetch(`/api/collaborateurs/${collaborateurId}`), // ✅ CORRECTION: Utiliser la route API spécifique et sécurisée
         fetch(`/api/collaborateurs/${collaborateurId}/baux`)
       ]);
 

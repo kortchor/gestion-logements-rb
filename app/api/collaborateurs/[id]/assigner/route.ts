@@ -165,14 +165,22 @@ const assignerHandler = async (
     dateHier.setDate(dateHier.getDate() - 1);
     const dateHierISO = dateHier.toISOString().split('T')[0];
 
-    const ancienBailActifResult = await client.query("SELECT id FROM baux WHERE collaborateur_id = $1 AND statut = 'actif' LIMIT 1", [collaborateurId]);
+    // Un bail est considéré "actif" si sa date_fin >= aujourd'hui
+    const aujourdhui = new Date().toISOString().split('T')[0];
+    const ancienBailActifResult = await client.query(
+      "SELECT id FROM baux WHERE collaborateur_id = $1 AND date_fin >= $2::date LIMIT 1",
+      [collaborateurId, aujourdhui]
+    );
     if (ancienBailActifResult.rows.length > 0) {
       await client.query(
         `UPDATE lits SET est_occupe = false, collaborateur_id = NULL 
          WHERE collaborateur_id = $1`,
         [collaborateurId]
       );
-      await client.query("UPDATE baux SET statut = 'terminé', date_fin = $2 WHERE collaborateur_id = $1 AND statut = 'actif'", [collaborateurId, dateHierISO]);
+      await client.query(
+        "UPDATE baux SET date_fin = $2 WHERE collaborateur_id = $1 AND date_fin >= $3::date",
+        [collaborateurId, dateHierISO, aujourdhui]
+      );
       console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
     }
 
@@ -184,18 +192,17 @@ const assignerHandler = async (
       );
     }
 
-    // 4. Créer le nouveau bail
+    // 4. Créer le nouveau bail (sans colonnes chambre_id/lit_id qui n'existent pas)
     const dateDebut = body.date_debut || new Date().toISOString();
     const dateFin = body.date_fin || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
 
     const bailResult = await client.query(
-      `INSERT INTO baux (collaborateur_id, logement_id, chambre_id, lit_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO baux (collaborateur_id, logement_id, date_debut, date_fin, participation_mensuelle, chambre_privée, modele_convention_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
-        collaborateurId, lit.logement_id, lit.chambre_id, 
-        chambre_privée ? null : litsAAssigner[0], // ✅ Ne pas lier de lit si la chambre est privée
-        dateDebut, dateFin, participation_mensuelle, chambre_privée, modele_convention_id || null
+        collaborateurId, lit.logement_id, dateDebut, dateFin,
+        participation_mensuelle, chambre_privée, modele_convention_id || null
       ]
     );
     const nouveauBailId = bailResult.rows[0].id;
@@ -215,26 +222,14 @@ const assignerHandler = async (
       participationMensuelle: participation_mensuelle,
     });
 
-    // 6. Envoyer la demande de signature
-    const signatureData = await sendSignatureRequest({
-      documentContent: pdfBuffer,
-      documentName: `Convention-${collaborateur.prenom}-${collaborateur.nom}.pdf`,
-      signerEmail: collaborateur.email,
-      signerNom: collaborateur.nom,
-      signerPrenom: collaborateur.prenom,
-    });
-
-    // 7. Mettre à jour le bail avec l'ID de la demande de signature
-    await client.query('UPDATE baux SET signature_request_id = $1 WHERE id = $2', [signatureData.requestId, nouveauBailId]);
-
-    // 8. Envoyer l'email au collaborateur avec le lien de signature
+    // Note: La signature électronique sera gérée via une fonctionnalité séparée
+    // Envoyer simplement un email de notification
     await sendEmail({
       to: collaborateur.email,
-      subject: '📄 Votre convention de logement est prête à être signée',
+      subject: '📄 Convention de logement créée',
       html: `
         <p>Bonjour ${collaborateur.prenom},</p>
-        <p>Votre convention de logement est prête. Veuillez la signer en cliquant sur le lien ci-dessous :</p>
-        <a href="${signatureData.signatureLink}">Signer ma convention</a>
+        <p>Votre convention de logement a été créée. Vous pouvez la consulter depuis votre espace personnel.</p>
       `,
     });
 

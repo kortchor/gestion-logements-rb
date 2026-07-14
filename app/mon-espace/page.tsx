@@ -1,74 +1,73 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-
-// Définir les types pour les données que nous allons utiliser
-interface Collaborateur {
-  id: number;
-  nom: string;
-  prenom: string;
-  email: string;
-}
 
 interface Bail {
   id: number;
   date_debut: string;
   date_fin: string;
+  participation_mensuelle: number | null;
   logement: {
     id: number;
     nom: string;
     adresse: string;
-    photos_etat_lieux_entree: string[] | null;
-  };
-  chambre: {
-    id: number;
-    nom: string;
-  };
-  lit: {
-    id: number;
-    numero: string;
+    etat_lieux_photos: string | null;
   };
 }
 
 export default function MonEspacePage() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading } = useAuth();
   const [bailActif, setBailActif] = useState<Bail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchMonLogement = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/collaborateurs/${user.id}/baux`);
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Erreur lors du chargement');
+      }
+
+      // Filtrer le bail actif (date_fin >= aujourd'hui)
+      const today = new Date().toISOString().split('T')[0];
+      const actif = result.data.find((b: Bail) => b.date_fin && b.date_fin.split('T')[0] >= today);
+      setBailActif(actif || null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.id) {
-      const fetchMyData = async () => {
-        try {
-          setLoading(true);
-          // Amélioration : Demander directement le bail actif à l'API
-          const response = await fetch(`/api/collaborateurs/${session.user.id}/baux?statut=actif`);
-          const result = await response.json();
-
-          if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Impossible de charger vos informations de logement.');
-          }
-          // L'API retourne directement le bail actif (ou null)
-          setBailActif(result.data || null);
-
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchMyData();
-    } else if (status === 'unauthenticated') {
+    if (!authLoading && user) {
+      fetchMonLogement();
+    } else if (!authLoading && !user) {
       setLoading(false);
       setError("Vous devez être connecté pour accéder à cet espace.");
     }
-  }, [session, status]);
+  }, [authLoading, user, fetchMonLogement]);
 
-  if (loading || status === 'loading') {
+  // Afficher les photos
+  const getPhotos = (etatLieuxPhotos: string | null): string[] => {
+    if (!etatLieuxPhotos) return [];
+    try {
+      const parsed = JSON.parse(etatLieuxPhotos);
+      return Array.isArray(parsed) ? parsed.map((p: any) => typeof p === 'string' ? p : p.data) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  if (authLoading || loading) {
     return (
       <div className="container mx-auto p-4 text-center">
         <p className="text-gray-500">Chargement de votre espace...</p>
@@ -86,6 +85,8 @@ export default function MonEspacePage() {
     );
   }
 
+  const photos = bailActif ? getPhotos(bailActif.logement?.etat_lieux_photos) : [];
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">🏠 Mon Logement</h1>
@@ -93,21 +94,25 @@ export default function MonEspacePage() {
         {bailActif ? (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-semibold">{bailActif.logement?.nom || 'Logement non spécifié'}</h2>
-              <p className="text-gray-600">{bailActif.logement?.adresse || 'Adresse non spécifiée'}</p>
+              <h2 className="text-xl font-semibold">{bailActif.logement?.nom || 'Logement'}</h2>
+              <p className="text-gray-700">{bailActif.logement?.adresse || 'Adresse non spécifiée'}</p>
             </div>
             <p className="text-sm text-gray-500">
               Période d'occupation : du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}
             </p>
-            
-            {/* Affichage des photos de l'état des lieux */}
-            {bailActif.logement?.photos_etat_lieux_entree && bailActif.logement.photos_etat_lieux_entree.length > 0 && (
+            {bailActif.participation_mensuelle != null && (
+              <p className="text-sm text-gray-500">
+                💰 Participation mensuelle : <strong>{bailActif.participation_mensuelle} €</strong>
+              </p>
+            )}
+
+            {photos.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux d'entrée</h3>
+                <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {bailActif.logement.photos_etat_lieux_entree.map((photoUrl, index) => (
-                    <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
-                      <img src={photoUrl} alt={`État des lieux ${index + 1}`} className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity" />
+                  {photos.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                      <img src={url} alt={`Photo ${i + 1}`} className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity border" />
                     </a>
                   ))}
                 </div>
@@ -115,7 +120,7 @@ export default function MonEspacePage() {
             )}
           </div>
         ) : (
-          <p>Vous n'avez pas de logement actuellement assigné.</p>
+          <p className="text-gray-500">Vous n'avez pas de logement actuellement assigné.</p>
         )}
       </div>
     </div>

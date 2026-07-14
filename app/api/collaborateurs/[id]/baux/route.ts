@@ -25,7 +25,8 @@ const getBauxHandler = async (
         json_build_object(
           'id', l.id,
           'nom', COALESCE(l.nom_logement, 'N/A'),
-          'adresse', COALESCE(l.adresse, 'N/A')
+          'adresse', COALESCE(l.adresse, 'N/A'),
+          'etat_lieux_photos', l.etat_lieux_photos
         ) as logement
       FROM baux AS b
       LEFT JOIN logements AS l ON b.logement_id = l.id

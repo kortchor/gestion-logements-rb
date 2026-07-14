@@ -43,15 +43,6 @@ interface Bail {
     id: number;
     nom: string;
     adresse: string;
-    etat_lieux_photos: string | null;
-  };
-  chambre: {
-    id: number;
-    nom: string;
-  };
-  lit: {
-    id: number;
-    numero: string;
   };
   montant_caution: number | null;
   statut_caution: string;
@@ -405,14 +396,6 @@ export default function CollaborateurPage() {
                         <p className="font-medium text-gray-900">{bauxActifs[0].logement?.nom || 'N/A'}</p>
                         <p className="text-sm text-gray-600">{bauxActifs[0].logement?.adresse || 'N/A'}</p>
                       </div>
-                      <div>
-                        <span className="text-gray-500 text-sm">Chambre</span>
-                        <p className="font-medium text-gray-900">{bauxActifs[0].chambre?.nom || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 text-sm">Lit</span>
-                        <p className="font-medium text-gray-900">Lit n°{bauxActifs[0].lit?.numero || 'N/A'}</p>
-                      </div>
                     </>
                   )}
                   <div>
@@ -425,34 +408,6 @@ export default function CollaborateurPage() {
               ) : (
                 <div className="text-center py-4 text-gray-500">
                   Aucun logement assigné
-                </div>
-              )}
-
-              {/* ✅ Affichage des photos de l'état des lieux */}
-              {bauxActifs.length > 0 && bauxActifs[0].logement?.etat_lieux_photos && (
-                <div className="mt-6">
-                  <h3 className="text-md font-semibold text-gray-700 mb-3">📷 Photos de l'état des lieux d'entrée</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {(() => {
-                      try {
-                        const photos = JSON.parse(bauxActifs[0].logement.etat_lieux_photos);
-                        return Array.isArray(photos) ? photos : [];
-                      } catch {
-                        return [];
-                      }
-                    })().map((photo: { name: string; data: string } | string, index: number) => {
-                      const photoUrl = typeof photo === 'string' ? photo : photo.data;
-                      return (
-                        <a key={index} href={photoUrl} target="_blank" rel="noopener noreferrer">
-                          <img 
-                            src={photoUrl} 
-                            alt={`État des lieux ${index + 1}`} 
-                            className="w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity"
-                          />
-                        </a>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </div>

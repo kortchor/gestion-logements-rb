@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { TokenPayload } from './auth';
+import { TokenPayload, verifyToken } from './auth'; // ✅ CORRECTION: Importer verifyToken
 
 type ApiHandler = (
   request: NextRequest,
@@ -11,26 +10,23 @@ type ApiHandler = (
 export function withAuth(handler: ApiHandler, allowedRoles: string[]) {
   return async (request: NextRequest, context: { params: { [key: string]: string | string[] | undefined } }) => {
     try {
-      // ✅ DÉBALLER LA PROMESSE
-      const params = context.params ? await context.params : {};
-      
       const token = request.cookies.get('token')?.value;
 
       if (!token) {
         return NextResponse.json({ success: false, error: 'Non autorisé' }, { status: 401 });
       }
 
-      const payload = await verifyToken(token);
+      const payload = await verifyToken(token) as TokenPayload;
       
       if (!payload) {
-        return NextResponse.json({ error: 'Token invalide' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'Token invalide' }, { status: 401 });
       }
 
       if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(payload.role)) {
-        return NextResponse.json({ error: 'Accès refusé. Rôle non autorisé.' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'Accès refusé. Rôle non autorisé.' }, { status: 403 });
       }
 
-      return handler(request, payload, { params });
+      return handler(request, payload, context);
     } catch (error) {
       console.error('Erreur withAuth:', error);
       if (error instanceof Error && (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError')) {

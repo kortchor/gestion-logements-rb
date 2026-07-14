@@ -288,11 +288,10 @@ export default function CollaborateurPage() {
                 {collaborateur.genre && (
                   <div>
                     <span className="text-gray-500">Genre</span>
-                    <p className="font-medium text-gray-900">
-                      {collaborateur.genre === 'homme' ? '👨 Homme' : 
-                       collaborateur.genre === 'femme' ? '👩 Femme' : 
-                       collaborateur.genre}
-                    </p>
+                    <p className="font-medium text-gray-900">{
+                      collaborateur.genre === 'M' ? '👨 Homme' :
+                      collaborateur.genre === 'F' ? '👩 Femme' : collaborateur.genre
+                    }</p>
                   </div>
                 )}
                 <div>

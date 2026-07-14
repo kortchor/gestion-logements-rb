@@ -5,7 +5,9 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const result = await query(`
+    const id = searchParams.get('id');
+
+    let queryText = `
       SELECT 
         c.id,
         c.nom,
@@ -25,9 +27,18 @@ export async function GET(request: Request) {
         c.clefs,
         c.mot_de_passe,
         c.est_actif
-      FROM collaborateurs c
-      ORDER BY c.id
-    `);
+      FROM collaborateurs c`;
+
+    const queryParams = [];
+
+    if (id) {
+      queryText += ' WHERE c.id = $1';
+      queryParams.push(id);
+    } else {
+      queryText += ' ORDER BY c.id';
+    }
+
+    const result = await query(queryText, queryParams);
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {

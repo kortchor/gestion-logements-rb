@@ -16,7 +16,15 @@ type ApiHandler = (
 export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
   return async (request: NextRequest, context: { params: Promise<Params> }) => {
     try {
-      const token = request.cookies.get('token')?.value;
+      // Lire le token depuis le cookie OU depuis le header Authorization (fallback)
+      let token = request.cookies.get('token')?.value;
+      
+      if (!token) {
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+          token = authHeader.slice(7);
+        }
+      }
 
       if (!token) {
         return NextResponse.json({ success: false, error: 'Non autorisé' }, { status: 401 });

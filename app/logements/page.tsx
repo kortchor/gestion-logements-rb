@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import DeleteLogementButton from '@/app/components/DeleteLogementButton';
 import ExportButtons from '@/app/components/ExportButtons';
+import ToggleLogementActifButton from '@/app/components/ToggleLogementActifButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,24 +155,38 @@ export default async function LogementsPage() {
                       </td>
                       <td className="px-6 py-4 text-center">{logement.nombre_chambres || 0}</td>
                       <td className="px-6 py-4 text-center">{logement.total_lits || 0}</td>
-                      <td className="px-6 py-4">{getOccupationLabel(logement)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {getOccupationLabel(logement)}
+                        {logement.est_actif === false && (
+                          <span className="badge badge-red">⏸️ Inactif</span>
+                        )}
+                      </div>
+                    </td>
                       <td className="px-6 py-4">
-                        <a
-                          href={`/logements/${logement.id}/modifier`}
-                          className="text-blue-600 hover:underline no-underline mr-3"
-                        >
-                          ✏️ Modifier
-                        </a>
-                        <a
-                          href={`/logements/${logement.id}`}
-                          className="text-blue-600 hover:underline no-underline mr-3"
-                        >
-                          Voir
-                        </a>
-                        <DeleteLogementButton 
-                          logementId={logement.id} 
-                          logementAdresse={logement.adresse} 
-                        />
+                        <div className="flex items-center gap-1">
+                          <ToggleLogementActifButton
+                            logementId={logement.id}
+                            logementAdresse={logement.adresse}
+                            estActif={logement.est_actif !== false}
+                          />
+                          <a
+                            href={`/logements/${logement.id}/modifier`}
+                            className="text-blue-600 hover:underline no-underline mr-1 text-sm"
+                          >
+                            ✏️
+                          </a>
+                          <a
+                            href={`/logements/${logement.id}`}
+                            className="text-blue-600 hover:underline no-underline mr-1 text-sm"
+                          >
+                            👁️
+                          </a>
+                          <DeleteLogementButton 
+                            logementId={logement.id} 
+                            logementAdresse={logement.adresse} 
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}

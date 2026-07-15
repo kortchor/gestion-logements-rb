@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { withSuperAdminAuth } from '@/lib/api-helpers';
 
 /**
  * API de migration à appeler UNE FOIS après le déploiement sur Vercel.
  * URL: GET https://ton-domaine.vercel.app/api/migrate
+ * Protégée et accessible uniquement par les Super Admins.
  */
-export async function GET() {
+const migrateHandler = async () => {
   const client = await pool.connect();
   const logs: string[] = [];
 
@@ -54,4 +56,6 @@ export async function GET() {
   } finally {
     client.release();
   }
-}
+};
+
+export const GET = withSuperAdminAuth(migrateHandler);

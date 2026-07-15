@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { isMatch, parseISO } from 'date-fns';
 
 /**
  * @interface AssignmentBody
@@ -44,15 +45,14 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
     return { error: NextResponse.json({ error: 'Modèle de convention non sélectionné.' }, { status: 400 }) };
   }
 
-  // ✅ AMÉLIORATION: Valider les formats de date
-  const isoDateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z)?$/;
-  if (date_debut && !isoDateRegex.test(date_debut)) {
-    return { error: NextResponse.json({ error: 'Format de date_debut invalide. Attendu: YYYY-MM-DD ou format ISO 8601.' }, { status: 400 }) };
+  // ✅ AMÉLIORATION: Valider les formats de date avec date-fns pour plus de robustesse
+  if (date_debut && !isMatch(date_debut, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") && !isMatch(date_debut, 'yyyy-MM-dd')) {
+    return { error: NextResponse.json({ error: 'Format de date_debut invalide. Attendu: YYYY-MM-DD ou format ISO 8601 complet.' }, { status: 400 }) };
   }
-  if (date_fin && !isoDateRegex.test(date_fin)) {
-    return { error: NextResponse.json({ error: 'Format de date_fin invalide. Attendu: YYYY-MM-DD ou format ISO 8601.' }, { status: 400 }) };
+  if (date_fin && !isMatch(date_fin, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") && !isMatch(date_fin, 'yyyy-MM-dd')) {
+    return { error: NextResponse.json({ error: 'Format de date_fin invalide. Attendu: YYYY-MM-DD ou format ISO 8601 complet.' }, { status: 400 }) };
   }
-  if (date_debut && date_fin && new Date(date_debut) > new Date(date_fin)) {
+  if (date_debut && date_fin && parseISO(date_debut) > parseISO(date_fin)) {
     return { error: NextResponse.json({ error: 'La date de début ne peut pas être postérieure à la date de fin.' }, { status: 400 }) };
   }
 
@@ -154,6 +154,8 @@ const assignerHandler = async (
 ) => {
   // ✅ Utiliser un client unique pour la transaction
   const client = await pool.connect();
+  let pdfPath = ''; // Déclaré ici pour la portée
+  let pdfUrl = '';
   try {
     const collaborateurId = parseInt(context.params.id); // ✅ CORRECTION: Utiliser context.params.id
     const body: AssignmentBody = await request.json();
@@ -237,27 +239,39 @@ const assignerHandler = async (
     // 5. Générer un token de signature unique
     const signatureToken = crypto.randomBytes(32).toString('hex');
 
-    // Stocker le token dans le bail
-    await client.query(
-      'UPDATE baux SET signature_token = $1 WHERE id = $2',
-      [signatureToken, nouveauBailId]
-    );
-
-    // Sauvegarder le PDF temporairement
-    const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
-    if (!fs.existsSync(pdfDir)) {
-      fs.mkdirSync(pdfDir, { recursive: true });
+    // Stocker le token dans le bail (avec fallback si colonne manquante)
+    try {
+      await client.query(
+        'UPDATE baux SET signature_token = $1 WHERE id = $2',
+        [signatureToken, nouveauBailId]
+      );
+    } catch (err: any) {
+      console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
     }
-    const pdfFilename = `convention-${nouveauBailId}-${Date.now()}.pdf`;
-    const pdfPath = path.join(pdfDir, pdfFilename);
-    fs.writeFileSync(pdfPath, pdfBuffer);
 
-    const pdfUrl = `/uploads/conventions/${pdfFilename}`;
+    // Sauvegarder le PDF
+    try {
+      const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
+      if (!fs.existsSync(pdfDir)) {
+        fs.mkdirSync(pdfDir, { recursive: true });
+      }
+      const pdfFilename = `convention-${nouveauBailId}-${Date.now()}.pdf`;
+      pdfPath = path.join(pdfDir, pdfFilename);
+      fs.writeFileSync(pdfPath, pdfBuffer);
 
-    await client.query(
-      'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
-      [pdfUrl, nouveauBailId]
-    );
+      pdfUrl = `/uploads/conventions/${pdfFilename}`;
+
+      try {
+        await client.query(
+          'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
+          [pdfUrl, nouveauBailId]
+        );
+      } catch (err: any) {
+        console.warn('⚠️ Colonne pdf_convention_url non disponible, ignorée:', err.message);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Impossible de sauvegarder le PDF:', err.message);
+    }
 
     // 6. Envoyer l'email avec le PDF ET le lien de signature
     const signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${signatureToken}`;

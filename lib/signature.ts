@@ -10,10 +10,9 @@ let sendSignatureRequest: any;
 
 if (YOUSIGN_API_KEY) {
   console.log('✅ [Signature] Utilisation de l\'API Yousign (production).');
-  // Importer dynamiquement la vraie implémentation
-  // ✅ CORRECTION: Pour le moment, nous utilisons la simulation même en production
-  // pour éviter l'erreur. Il faudra créer un fichier `signature.yousign.ts`
-  // avec la vraie logique et décommenter la ligne originale.
+  // Importer dynamiquement la vraie implémentation.
+  // NOTE: Actuellement, le projet est configuré pour utiliser la simulation.
+  // Pour activer la vraie signature, il faudra créer un fichier `signature.yousign.ts` et l'importer ici.
   sendSignatureRequest = require('./yousign.js').sendSignatureRequest;
 } else {
   console.warn('⚠️ [Signature] Clé API Yousign non trouvée. Utilisation de la simulation.');

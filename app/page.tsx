@@ -24,26 +24,40 @@ export default function HomePage() {
   const isSimpleUser = user.role === 'user';
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-10 w-auto" />
-          <div>
-            <h1 className="text-3xl font-bold text-blue-900">Les Roches Blanches</h1>
-            <p className="text-sm text-gray-500">Gestion des logements</p>
+    <div className="min-h-screen">
+      {/* Hero section avec image de fond */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src="/images/accueil-fond.webp" 
+            alt="Les Roches Blanches" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+        </div>
+        <div className="relative max-w-7xl mx-auto px-8 py-20">
+          <div className="flex items-center gap-4 mb-4">
+            <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-14 w-auto" />
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-lg">Les Roches Blanches</h1>
+              <p className="text-lg text-blue-200 font-medium">Gestion des logements</p>
+            </div>
+          </div>
+          <p className="text-white/90 text-xl max-w-2xl mt-6">
+            Bienvenue <strong className="text-white">{user.prenom} {user.nom}</strong> 👋
+          </p>
+          <div className="mt-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+            <span className="text-sm text-white/90">
+              {isSuperAdmin ? '👑 Super Administrateur' : isReadOnly ? '👁️ Administrateur (Lecture)' : isAdmin ? '👤 Administrateur' : '👀 Utilisateur'}
+            </span>
           </div>
         </div>
-        <span className="text-sm text-gray-500">
-          {isSuperAdmin ? '👑 Super Admin' : isReadOnly ? '👁️ Admin (Lecture)' : isAdmin ? '👤 Admin' : '👀 Utilisateur'}
-        </span>
       </div>
 
-      <p className="text-gray-600 mb-6">
-        Bienvenue <strong>{user.prenom} {user.nom}</strong> 👋
-      </p>
-
-      {/* ✅ ACCÈS ADMIN - Tous les profils admin voient ces pages */}
-      {isAdmin && (
+      {/* Contenu principal */}
+      <div className="max-w-7xl mx-auto px-8 py-10">
+        {/* ✅ ACCÈS ADMIN - Tous les profils admin voient ces pages */}
+        {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Link href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
             <h2 className="text-xl font-semibold">🏠 Logements</h2>
@@ -74,6 +88,7 @@ export default function HomePage() {
           </Link>
         </div>
       )}
+      </div>
     </div>
   );
 }

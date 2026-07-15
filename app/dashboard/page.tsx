@@ -113,7 +113,18 @@ export default async function DashboardPage() {
   `);
   const budget = budgetResult.rows[0];
 
-  // 6. Coût par centre analytique
+  // 6. Total loyers propriétaires (prix_loyer des logements actifs)
+  const loyersResult = await query(`
+    SELECT 
+      SUM(prix_loyer) as total_loyers_mensuels,
+      COUNT(*) as nb_logements_actifs
+    FROM logements
+    WHERE est_actif IS NOT FALSE
+      AND prix_loyer IS NOT NULL
+  `);
+  const loyers = loyersResult.rows[0];
+
+  // 7. Coût par centre analytique
   const coutCentreResult = await query(`
     SELECT 
       c.centre_principal,
@@ -172,7 +183,7 @@ export default async function DashboardPage() {
       <h1 className="text-3xl font-bold mb-6">📊 Dashboard</h1>
 
       {/* Cartes de statistiques globales */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
           <p className="text-sm text-gray-500">🏠 Logements</p>
           <p className="text-2xl font-bold">{stats?.total_logements || 0}</p>
@@ -198,6 +209,13 @@ export default async function DashboardPage() {
             {stats?.total_lits > 0 ? Math.round((stats?.lits_occupes / stats?.total_lits) * 100) : 0}%
           </p>
           <p className="text-xs text-gray-500">des lits occupés</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
+          <p className="text-sm text-gray-500">🏠 Loyers propriétaires</p>
+          <p className="text-2xl font-bold text-red-600">
+            {loyers?.total_loyers_mensuels ? `${parseFloat(loyers.total_loyers_mensuels).toFixed(2)} €` : '0 €'}
+          </p>
+          <p className="text-xs text-gray-500">/ mois ({loyers?.nb_logements_actifs || 0} logements actifs)</p>
         </div>
       </div>
 

@@ -29,15 +29,11 @@ export default function AdminUsersPage() {
     est_actif: true,
   });
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  // On supprime localStorage - le token est dans le cookie httpOnly, envoyé automatiquement
 
   useEffect(() => {
-    if (!token) {
-      router.push('/login');
-      return;
-    }
     fetchUsers();
-  }, [token]);
+  }, []);
 
   // Si l'URL contient ?action=create-admin, ouvrir le formulaire avec le rôle pré-sélectionné
   useEffect(() => {
@@ -45,18 +41,13 @@ export default function AdminUsersPage() {
     if (params.get('action') === 'create-admin') {
       setShowForm(true);
       setFormData(prev => ({ ...prev, role: 'admin' }));
-      // Nettoyer l'URL
       window.history.replaceState({}, '', '/admin/users');
     }
   }, []);
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch('/api/admin/users');
       const data = await response.json();
       if (data.success) {
         setUsers(data.data);
@@ -83,10 +74,7 @@ export default function AdminUsersPage() {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
@@ -112,9 +100,7 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch(`/api/admin/users?id=${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
       const data = await response.json();
       if (data.success) {
@@ -145,7 +131,6 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch(`/api/collaborateurs/${user.id}/send-credentials`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await response.json();
       if (response.ok) {

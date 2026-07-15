@@ -86,6 +86,20 @@ export default function UserMenu() {
             {isSuperAdmin && (
               <>
                 <a
+                  href="/admin/users"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsOpen(false)}
+                >
+                  👥 Gérer les utilisateurs
+                </a>
+                <a
+                  href="/admin/users?action=create-admin"
+                  className="block px-4 py-2 text-sm text-blue-700 font-semibold hover:bg-blue-50"
+                  onClick={() => setIsOpen(false)}
+                >
+                  ➕ Ajouter un Admin
+                </a>
+                <a
                   href="/admin/technicien"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   onClick={() => setIsOpen(false)}

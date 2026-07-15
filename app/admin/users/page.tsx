@@ -39,6 +39,17 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [token]);
 
+  // Si l'URL contient ?action=create-admin, ouvrir le formulaire avec le rôle pré-sélectionné
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'create-admin') {
+      setShowForm(true);
+      setFormData(prev => ({ ...prev, role: 'admin' }));
+      // Nettoyer l'URL
+      window.history.replaceState({}, '', '/admin/users');
+    }
+  }, []);
+
   const fetchUsers = async () => {
     try {
       const response = await fetch('/api/admin/users', {

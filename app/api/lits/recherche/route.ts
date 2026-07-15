@@ -1,26 +1,30 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withReadAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville');
     const type_lit = searchParams.get('type_lit');
     const type_occupation = searchParams.get('type_occupation');
-    const date_debut = searchParams.get('date_debut');
-    const date_fin = searchParams.get('date_fin');
 
     let sql = `
       SELECT 
         l.id,
         l.numero,
+        l.chambre_id,
         ch.nom as chambre_nom,
         ch.type_lit,
+        ch.logement_id,
+        log.nom_logement,
         log.adresse as logement_adresse,
         log.ville,
-        log.type_occupation as logement_type_occupation
+        log.mixte_autorise,
+        log.type_occupation_effectif as type_occupation
       FROM lits l
       LEFT JOIN chambres ch ON l.chambre_id = ch.id
       LEFT JOIN logements log ON ch.logement_id = log.id
@@ -44,9 +48,13 @@ export async function GET(request: Request) {
     }
 
     if (type_occupation) {
-      sql += ` AND log.type_occupation = $${paramIndex}`;
-      params.push(type_occupation);
-      paramIndex++;
+      if (type_occupation === 'mixte') {
+        sql += ` AND log.mixte_autorise = true`;
+      } else if (type_occupation === 'fille') {
+        sql += ` AND (log.type_occupation_effectif = 'F' OR log.mixte_autorise = true)`;
+      } else if (type_occupation === 'garçon') {
+        sql += ` AND (log.type_occupation_effectif = 'M' OR log.mixte_autorise = true)`;
+      }
     }
 
     sql += ` ORDER BY log.ville, log.adresse, ch.nom, l.numero`;
@@ -60,4 +68,6 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withReadAuth(getHandler);

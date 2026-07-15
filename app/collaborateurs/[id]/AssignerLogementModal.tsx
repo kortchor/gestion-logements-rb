@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface LitDisponible {
   id: number;

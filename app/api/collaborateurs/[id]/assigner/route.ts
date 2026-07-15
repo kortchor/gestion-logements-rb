@@ -21,6 +21,7 @@ interface AssignmentBody {
   participation_mensuelle: number;
   date_debut?: string;
   date_fin?: string;
+  force_mixite?: boolean; // Super Admin peut forcer la mixité
 }
 
 /**
@@ -112,17 +113,26 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   }
   const modeleContenu = modeleResult.rows[0].contenu;
 
-  // 4. Vérifier la règle de mixité
-  if (!lit.mixte_autorise) {
+  // 4. Vérifier la règle de mixité (sauf si force_mixite est true)
+  if (!lit.mixte_autorise && !body.force_mixite) {
     const occupantsResult = await client.query(
       `SELECT c.genre FROM collaborateurs c JOIN lits l ON c.id = l.collaborateur_id JOIN chambres ch ON l.chambre_id = ch.id WHERE ch.logement_id = $1 AND c.id != $2`,
       [lit.logement_id, collaborateurId]
     );
-    // ✅ AMÉLIORATION: Vérifier si au moins un occupant a un genre différent.
     const premierOccupantGenre = occupantsResult.rows.length > 0 ? occupantsResult.rows[0].genre : null;
     const mixiteNonRespectee = occupantsResult.rows.some(occupant => occupant.genre !== collaborateur.genre);
     if (mixiteNonRespectee) {
-      return { error: NextResponse.json({ error: `Ce logement est non-mixte et déjà occupé par un collaborateur de genre '${premierOccupantGenre}'` }, { status: 400 }) };
+      // Retourner une erreur avec la possibilité pour le Super Admin de forcer
+      // Le frontend affichera un bouton "Forcer l'assignation" pour les Super Admin
+      return { 
+        error: NextResponse.json({ 
+          error: `Ce logement est non-mixte et déjà occupé par un collaborateur de genre '${premierOccupantGenre}'`,
+          code: 'MIXITE_BLOCKED',
+          logementId: lit.logement_id,
+          genreActuel: premierOccupantGenre,
+          genreTente: collaborateur.genre,
+        }, { status: 400 }) 
+      };
     }
   }
 

@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/setup', // ✅ Autoriser l'accès à la route d'initialisation
+  '/signature', // ✅ Autoriser l'accès public à la page de signature
 ];
 
 // ✅ Routes réservées aux admins (Admin et Super Admin)

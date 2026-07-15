@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TokenPayload, verifyToken } from './auth'; // ✅ CORRECTION: Importer verifyToken
+import { TokenPayload, verifyToken } from './auth';
 
 type Params = { [key: string]: string | string[] | undefined };
 
@@ -9,8 +9,11 @@ type ApiHandler = (
   context: { params: Params }
 ) => Promise<NextResponse>;
 
+/**
+ * @description Protège une route API par authentification et vérification des rôles.
+ * Les rôles autorisés peuvent être 'admin', 'super_admin', 'user', 'admin_readonly'.
+ */
 export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
-  // ✅ Compatible Next.js 15 : params est désormais une Promise
   return async (request: NextRequest, context: { params: Promise<Params> }) => {
     try {
       const token = request.cookies.get('token')?.value;
@@ -29,7 +32,11 @@ export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
         return NextResponse.json({ success: false, error: 'Accès refusé. Rôle non autorisé.' }, { status: 403 });
       }
 
-      // Résoudre la promesse params avant d'appeler le handler
+      // Vérifier que admin_readonly ne tente pas une écriture (POST, PUT, DELETE)
+      if (payload.role === 'admin_readonly' && !isReadOnlyAllowed(request.method)) {
+        return NextResponse.json({ success: false, error: 'Accès refusé. Ce profil est en lecture seule.' }, { status: 403 });
+      }
+
       const resolvedParams = await context.params;
       return handler(request, payload, { params: resolvedParams });
     } catch (error) {
@@ -42,7 +49,27 @@ export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
   };
 }
 
+/**
+ * Vérifie si la méthode HTTP est autorisée pour un admin_readonly
+ */
+function isReadOnlyAllowed(method: string): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+}
+
+/**
+ * Helper pour les routes GET en lecture seule (accessible à admin_readonly)
+ */
+export function withReadAuth(handler: ApiHandler) {
+  return withAuth(handler, ['admin', 'super_admin', 'admin_readonly', 'user']);
+}
+
+/**
+ * Helper pour les routes d'écriture (accessible à admin et super_admin uniquement)
+ */
+export function withWriteAuth(handler: ApiHandler) {
+  return withAuth(handler, ['admin', 'super_admin']);
+}
+
 export function withSuperAdminAuth(handler: ApiHandler) {
-  // ✅ Simplification : withSuperAdminAuth est maintenant un cas particulier de withAuth
   return withAuth(handler, ['super_admin']);
 }

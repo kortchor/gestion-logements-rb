@@ -34,10 +34,12 @@ export default function UserMenu() {
   }
 
   const isSuperAdmin = user.role === 'super_admin';
+  const isAdminOrSuperAdmin = user.role === 'admin' || user.role === 'super_admin';
   const getRoleLabel = () => {
     switch (user.role) {
       case 'super_admin': return '👑 Super Admin';
       case 'admin': return '👤 Admin';
+      case 'admin_readonly': return '👁️ Admin (Lecture)';
       default: return '👀 Utilisateur';
     }
   };

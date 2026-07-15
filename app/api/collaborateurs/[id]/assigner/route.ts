@@ -1,11 +1,13 @@
 import { query, pool } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { PoolClient } from 'pg'; // ✅ AMÉLIORATION: Importer le type du client
+import { PoolClient } from 'pg';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { generateConventionPDF } from '@/lib/generateConventionPDF';
-import { sendSignatureRequest } from '@/lib/signature';
 import { sendEmail } from '@/lib/email';
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * @interface AssignmentBody
@@ -222,15 +224,88 @@ const assignerHandler = async (
       participationMensuelle: participation_mensuelle,
     });
 
-    // Note: La signature électronique sera gérée via une fonctionnalité séparée
-    // Envoyer simplement un email de notification
+    // 5. Générer un token de signature unique
+    const signatureToken = crypto.randomBytes(32).toString('hex');
+
+    // Stocker le token dans le bail
+    await client.query(
+      'UPDATE baux SET signature_token = $1 WHERE id = $2',
+      [signatureToken, nouveauBailId]
+    );
+
+    // Sauvegarder le PDF temporairement
+    const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+    const pdfFilename = `convention-${nouveauBailId}-${Date.now()}.pdf`;
+    const pdfPath = path.join(pdfDir, pdfFilename);
+    fs.writeFileSync(pdfPath, pdfBuffer);
+
+    const pdfUrl = `/uploads/conventions/${pdfFilename}`;
+
+    await client.query(
+      'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
+      [pdfUrl, nouveauBailId]
+    );
+
+    // 6. Envoyer l'email avec le PDF ET le lien de signature
+    const signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${signatureToken}`;
+
     await sendEmail({
       to: collaborateur.email,
-      subject: '📄 Convention de logement créée',
+      subject: `📄 Convention de logement - ${collaborateur.prenom} ${collaborateur.nom}`,
       html: `
-        <p>Bonjour ${collaborateur.prenom},</p>
-        <p>Votre convention de logement a été créée. Vous pouvez la consulter depuis votre espace personnel.</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .header { background-color: #1a56db; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; }
+            .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }
+            .info-box { background-color: #dbeafe; border-left: 4px solid #1a56db; padding: 15px; margin: 15px 0; }
+            .btn { background-color: #1a56db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🏨 Les Roches Blanches</h1>
+            <p>Convention de logement à signer</p>
+          </div>
+          <div class="content">
+            <h2>Bonjour ${collaborateur.prenom} ${collaborateur.nom},</h2>
+            <p>Votre convention de logement a été créée. Veuillez la consulter et la signer électroniquement.</p>
+            
+            <div class="info-box">
+              <h3>📍 Informations du logement</h3>
+              <p><strong>Adresse :</strong> ${lit.adresse}</p>
+              <p><strong>Ville :</strong> ${lit.ville}</p>
+              <p><strong>Date d'arrivée :</strong> ${new Date(dateDebut).toLocaleDateString('fr-FR')}</p>
+              <p><strong>Date de départ :</strong> ${new Date(dateFin).toLocaleDateString('fr-FR')}</p>
+            </div>
+            
+            <p style="margin-top: 20px;">
+              <a href="${signatureLink}" class="btn">✍️ Signer la convention</a>
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
+              🔗 Lien de signature valable 7 jours<br>
+              📎 La convention est également disponible en pièce jointe.
+            </p>
+          </div>
+          <div class="footer">
+            <p>Les Roches Blanches - Gestion des logements saisonniers</p>
+            <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+          </div>
+        </body>
+        </html>
       `,
+      attachments: [
+        {
+          filename: `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
+          path: pdfPath,
+        },
+      ],
     });
 
     // ✅ Valider la transaction
@@ -239,7 +314,12 @@ const assignerHandler = async (
     return NextResponse.json(
       { 
         success: true, 
-        message: 'Lit assigné avec succès',
+        message: 'Lit assigné avec succès. La convention a été envoyée par email avec lien de signature.',
+        bail: {
+          id: nouveauBailId,
+          signatureLink,
+          pdfUrl,
+        },
       },
       { status: 200 }
     );

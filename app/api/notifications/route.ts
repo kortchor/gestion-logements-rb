@@ -100,6 +100,6 @@ const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 };
 
-export const GET = withAuth(getHandler, ['admin', 'super_admin']);
+export const GET = withAuth(getHandler, ['admin', 'super_admin', 'admin_readonly']);
 export const PUT = withAuth(putHandler, ['admin', 'super_admin']);
 export const DELETE = withAuth(deleteHandler, ['admin', 'super_admin']);

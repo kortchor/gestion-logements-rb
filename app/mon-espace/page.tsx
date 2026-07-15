@@ -89,13 +89,18 @@ export default function MonEspacePage() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">🏠 Mon Logement</h1>
+    <div className="flex items-center gap-3 mb-6">
+      <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-8 w-auto" />
+      <h1 className="text-2xl font-bold">🏠 Mon Logement</h1>
+    </div>
       <div className="bg-white p-6 rounded-lg shadow-md">
         {bailActif ? (
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-semibold">{bailActif.logement?.nom || 'Logement'}</h2>
-              <p className="text-gray-700">{bailActif.logement?.adresse || 'Adresse non spécifiée'}</p>
+              <p className="text-gray-700">
+                <span className="font-medium">📍 Adresse :</span> {bailActif.logement?.adresse || 'Adresse non spécifiée'}
+              </p>
             </div>
             <p className="text-sm text-gray-500">
               Période d'occupation : du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}

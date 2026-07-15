@@ -15,14 +15,15 @@ export default function Header() {
     return null;
   }
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'admin_readonly';
 
   return (
     <header className="bg-white shadow-md">
       <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <Link href="/" className="text-xl font-bold text-blue-600 no-underline">
-            🏨 Gestion Logements
+          <Link href="/" className="no-underline flex items-center gap-3">
+            <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-9 w-auto" />
+            <span className="text-lg font-bold text-blue-600">Gestion Logements</span>
           </Link>
           {/* Liens de navigation pour les utilisateurs connectés */}
           {user && (

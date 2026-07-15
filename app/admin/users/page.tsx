@@ -133,6 +133,7 @@ export default function AdminUsersPage() {
     switch (role) {
       case 'super_admin': return '👑 Super Admin';
       case 'admin': return '👤 Admin';
+      case 'admin_readonly': return '👁️ Admin (Lecture)';
       default: return '👀 Utilisateur';
     }
   };
@@ -222,6 +223,7 @@ export default function AdminUsersPage() {
               >
                 <option value="user">Utilisateur</option>
                 <option value="admin">Admin</option>
+                <option value="admin_readonly">Admin (Lecture seule)</option>
                 <option value="super_admin">Super Admin</option>
               </select>
             </div>

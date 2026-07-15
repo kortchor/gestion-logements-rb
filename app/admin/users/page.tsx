@@ -129,6 +129,24 @@ export default function AdminUsersPage() {
     setShowForm(true);
   };
 
+  const handleSendCredentials = async (user: User) => {
+    if (!confirm(`📧 Envoyer les identifiants à ${user.prenom} ${user.nom} (${user.email}) ?`)) return;
+    try {
+      const response = await fetch(`/api/collaborateurs/${user.id}/send-credentials`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('✅ Identifiants envoyés avec succès !');
+      } else {
+        alert(data.error || '❌ Erreur lors de l\'envoi');
+      }
+    } catch (err) {
+      alert('❌ Erreur de connexion');
+    }
+  };
+
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'super_admin': return '👑 Super Admin';
@@ -219,12 +237,12 @@ export default function AdminUsersPage() {
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md input-brutalist"
               >
-                <option value="user">Utilisateur</option>
-                <option value="admin">Admin</option>
-                <option value="admin_readonly">Admin (Lecture seule)</option>
-                <option value="super_admin">Super Admin</option>
+                <option value="user">👀 Utilisateur</option>
+                <option value="admin">👤 Admin</option>
+                <option value="admin_readonly">👁️ Admin (Lecture seule)</option>
+                <option value="super_admin">👑 Super Admin</option>
               </select>
             </div>
             <div className="flex items-center">
@@ -289,18 +307,27 @@ export default function AdminUsersPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <button
-                    onClick={() => handleEdit(user)}
-                    className="text-blue-600 hover:underline mr-3"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    🗑️
-                  </button>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => handleSendCredentials(user)}
+                      className="text-green-600 hover:text-green-800 hover:underline text-sm"
+                      title="Envoyer les identifiants par email"
+                    >
+                      📧
+                    </button>
+                    <button
+                      onClick={() => handleEdit(user)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

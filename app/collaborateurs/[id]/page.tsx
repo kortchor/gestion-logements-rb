@@ -239,12 +239,12 @@ export default function CollaborateurPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
-              <Link
-                href="/collaborateurs"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+              <button
+                onClick={() => router.back()}
+                className="text-gray-600 hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer"
               >
                 ← Retour
-              </Link>
+              </button>
               <h1 className="text-xl font-semibold text-gray-900">
                 {collaborateur.prenom} {collaborateur.nom}
               </h1>

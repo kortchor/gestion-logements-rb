@@ -113,6 +113,21 @@ export default async function DashboardPage() {
   `);
   const budget = budgetResult.rows[0];
 
+  // 6. Coût par centre analytique
+  const coutCentreResult = await query(`
+    SELECT 
+      c.centre_principal,
+      COUNT(DISTINCT c.id) as nb_collaborateurs,
+      SUM(b.participation_mensuelle) as cout_total_mensuel,
+      ROUND(AVG(b.participation_mensuelle), 2) as cout_moyen
+    FROM collaborateurs c
+    JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE
+    WHERE c.centre_principal IS NOT NULL AND c.centre_principal != ''
+    GROUP BY c.centre_principal
+    ORDER BY cout_total_mensuel DESC
+  `);
+  const coutParCentre = coutCentreResult.rows;
+
   // Nombre de collaborateurs logés
   const logesResult = await query(`
     SELECT COUNT(DISTINCT collaborateur_id) as nb_loges
@@ -261,6 +276,49 @@ export default async function DashboardPage() {
           💰 <strong>Budget total mensuel :</strong> {budget?.total_mensuel ? `${parseFloat(budget.total_mensuel).toFixed(2)} €` : '0 €'}
           &nbsp;({budget?.nb_baux_actifs || 0} baux actifs)
         </p>
+      </div>
+
+      {/* 💰 Coûts par centre analytique */}
+      <div className="card mt-6">
+        <div className="p-6">
+          <h2 className="section-title">💰 Coûts par centre analytique</h2>
+          {coutParCentre.length === 0 ? (
+            <p className="text-gray-500 text-sm">Aucun bail actif avec centre analytique renseigné</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table-brutalist">
+                <thead>
+                  <tr>
+                    <th>Centre</th>
+                    <th>👥 Collaborateurs</th>
+                    <th>💰 Coût total / mois</th>
+                    <th>📊 Coût moyen / collab</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coutParCentre.map((centre: any) => (
+                    <tr key={centre.centre_principal}>
+                      <td className="font-bold">{centre.centre_principal}</td>
+                      <td>{centre.nb_collaborateurs}</td>
+                      <td className="font-mono font-bold">{parseFloat(centre.cout_total_mensuel).toFixed(2)} €</td>
+                      <td className="font-mono">{parseFloat(centre.cout_moyen).toFixed(2)} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100 font-bold">
+                  <tr>
+                    <td>TOTAL</td>
+                    <td>{coutParCentre.reduce((sum: number, c: any) => sum + parseInt(c.nb_collaborateurs), 0)}</td>
+                    <td className="font-mono">
+                      {coutParCentre.reduce((sum: number, c: any) => sum + parseFloat(c.cout_total_mensuel), 0).toFixed(2)} €
+                    </td>
+                    <td className="font-mono">-</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

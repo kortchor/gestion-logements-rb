@@ -1,14 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
+import { useOnClickOutside } from '@/app/hooks/useOnClickOutside';
 import ReportIssueButton from './ReportIssueButton';
 
 export default function UserMenu() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const { user, loading } = useAuth();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fermer le menu en cliquant à l'extérieur
+  useOnClickOutside(menuRef, useCallback(() => {
+    if (isOpen) setIsOpen(false);
+  }, [isOpen]));
 
   const handleLogout = async () => {
     try {
@@ -45,7 +52,7 @@ export default function UserMenu() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors"

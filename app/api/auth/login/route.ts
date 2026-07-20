@@ -36,10 +36,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ SÉCURITÉ : N'accepter le mot de passe "master" qu'en développement
+    // ✅ SÉCURITÉ : Utiliser variable d'env pour mot de passe de test
     let isPasswordValid = false;
+    const devPassword = process.env.DEV_PASSWORD || '';
     
-    if (process.env.NODE_ENV !== 'production' && mot_de_passe === 'admin123') {
+    if (process.env.NODE_ENV !== 'production' && devPassword && mot_de_passe === devPassword) {
       isPasswordValid = true;
       console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', email);
     } else if (user.mot_de_passe) {

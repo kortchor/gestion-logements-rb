@@ -1,0 +1,14 @@
+{
+  "name": "gestion-logements-rb-runtime-validation",
+  "version": "1.0.0",
+  "description": "Baseline runtime validation plan for the Next.js app",
+  "steps": [
+    {
+      "name": "build-app",
+      "type": "command",
+      "command": "npm run build",
+      "cwd": ".",
+      "expectExitCode": 0
+    }
+  ]
+}

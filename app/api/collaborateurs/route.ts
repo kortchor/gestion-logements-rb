@@ -25,7 +25,6 @@ export async function GET(request: Request) {
         c.centre_principal,
         c.centre_affectation,
         c.clefs,
-        c.mot_de_passe,
         c.est_actif
       FROM collaborateurs c`;
 

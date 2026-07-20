@@ -245,6 +245,12 @@ export default function CollaborateurPage() {
               >
                 ← Retour
               </button>
+            </div>
+            <div className="flex items-center gap-4">              
+              <Link href="/collaborateurs" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <span aria-hidden="true">←</span> Retour à la liste
+              </Link>
+
               <h1 className="text-xl font-semibold text-gray-900">
                 {collaborateur.prenom} {collaborateur.nom}
               </h1>

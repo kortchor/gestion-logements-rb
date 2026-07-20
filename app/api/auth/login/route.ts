@@ -2,22 +2,40 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
+import { loginSchema } from '@/lib/validation';
+import { checkRateLimit, LOGIN_RATE_LIMIT } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, mot_de_passe } = body;
 
-    if (!email || !mot_de_passe) {
+    // 🔐 Rate limiting
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    const email = body?.email?.toLowerCase().trim() || '';
+    const rateLimitKey = `login:${email || clientIp}`;
+
+    if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT)) {
+      console.warn(`⛔ Rate limit dépassé pour: ${email || clientIp}`);
       return NextResponse.json(
-        { error: 'Email et mot de passe requis' },
+        { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+        { status: 429 }
+      );
+    }
+
+    // ✅ Validation des entrées
+    const validation = loginSchema.validate(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Données invalides', errors: validation.errors },
         { status: 400 }
       );
     }
 
+    const { email: validEmail, mot_de_passe } = validation.data;
+
     const result = await query(
       'SELECT id, nom, prenom, email, mot_de_passe, role, est_actif FROM collaborateurs WHERE email = $1',
-      [email]
+      [validEmail]
     );
 
     if (result.rows.length === 0) {
@@ -36,13 +54,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ SÉCURITÉ : Utiliser variable d'env pour mot de passe de test
+    // 🔐 Vérifier le mot de passe
     let isPasswordValid = false;
     const devPassword = process.env.DEV_PASSWORD || '';
     
     if (process.env.NODE_ENV !== 'production' && devPassword && mot_de_passe === devPassword) {
       isPasswordValid = true;
-      console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', email);
+      console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', validEmail);
     } else if (user.mot_de_passe) {
       isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     }

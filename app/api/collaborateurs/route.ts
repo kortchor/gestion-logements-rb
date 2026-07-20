@@ -1,5 +1,6 @@
 import { query, pool } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { createCollaborateurSchema } from '@/lib/validation';
 
 // ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
 export async function GET(request: Request) {
@@ -54,33 +55,30 @@ export async function POST(request: Request) {
   const client = await pool.connect();
   try {
     const body = await request.json();
-    await client.query('BEGIN');
 
-    const {
-      nom,
-      prenom,
-      email,
-      telephone,
-      genre,
-      date_arrivee,
-      date_depart,
-      date_debut_contrat,
-      date_fin_contrat,
-      vehicule,
-      animal,
-      commentaire,
-      centre_principal,
-      centre_affectation,
-      lit_id,
-    } = body;
+    // ✅ Validation des entrées
+    const validation = createCollaborateurSchema.validate(body);
+    if (!validation.success) {
+      await client.release();
+      return NextResponse.json(
+        { error: 'Données invalides', errors: validation.errors },
+        { status: 400 }
+      );
+    }
+
+    const validatedData = validation.data;
+
+    await client.query('BEGIN');
 
     // Vérifier si l'email existe déjà
     const checkResult = await client.query(
       'SELECT id FROM collaborateurs WHERE email = $1',
-      [email]
+      [validatedData.email]
     );
 
     if (checkResult.rows.length > 0) {
+      await client.query('ROLLBACK');
+      await client.release();
       return NextResponse.json(
         { error: 'Un collaborateur avec cet email existe déjà' },
         { status: 400 }
@@ -96,36 +94,36 @@ export async function POST(request: Request) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, 'user')
        RETURNING id`,
       [
-        nom,
-        prenom,
-        email,
-        telephone || null,
-        genre,
-        date_arrivee,
-        date_depart || null,
-        date_debut_contrat || null,
-        date_fin_contrat || null,
-        vehicule || false,
-        animal || false,
-        commentaire || null,
-        centre_principal || null,
-        centre_affectation || null,
+        validatedData.nom,
+        validatedData.prenom,
+        validatedData.email,
+        validatedData.telephone,
+        validatedData.genre,
+        validatedData.date_arrivee,
+        validatedData.date_depart,
+        validatedData.date_debut_contrat,
+        validatedData.date_fin_contrat,
+        validatedData.vehicule,
+        validatedData.animal,
+        validatedData.commentaire,
+        validatedData.centre_principal,
+        validatedData.centre_affectation,
       ]
     );
 
     const collaborateurId = result.rows[0].id;
 
     // Assigner à un lit si spécifié
-    if (lit_id) {
+    if (body.lit_id) {
       const litResult = await client.query(
         'SELECT id FROM lits WHERE id = $1 AND est_occupe = false',
-        [parseInt(lit_id)]
+        [parseInt(body.lit_id)]
       );
 
       if (litResult.rows.length > 0) {
         await client.query(
           'UPDATE lits SET est_occupe = true, collaborateur_id = $1 WHERE id = $2',
-          [collaborateurId, parseInt(lit_id)]
+          [collaborateurId, parseInt(body.lit_id)]
         );
       }
     }

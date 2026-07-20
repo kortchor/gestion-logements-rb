@@ -25,28 +25,38 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
+      {/* Header avec logo */}
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center gap-3">
+          <img 
+            src="/images/les-roches-blanches-logo-gold-5et.png" 
+            alt="Les Roches Blanches Logo" 
+            className="h-10 w-auto"
+          />
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Les Roches Blanches</h1>
+            <p className="text-xs text-gray-500">Gestion des logements</p>
+          </div>
+        </div>
+      </div>
+
       {/* Hero section avec image de fond */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img 
-            src="/images/accueil-fond.webp" 
+            src="/images/page accueil.webp" 
             alt="Les Roches Blanches" 
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
         </div>
         <div className="relative max-w-7xl mx-auto px-8 py-20">
-          <div className="flex items-center gap-4 mb-4">
-            <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-14 w-auto" />
-            <div>
-              <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-lg">Les Roches Blanches</h1>
-              <p className="text-lg text-blue-200 font-medium">Gestion des logements</p>
-            </div>
+          <div className="mb-4">
+            <p className="text-white/90 text-xl">
+              Bienvenue <strong className="text-white text-2xl">{user.prenom} {user.nom}</strong> 👋
+            </p>
           </div>
-          <p className="text-white/90 text-xl max-w-2xl mt-6">
-            Bienvenue <strong className="text-white">{user.prenom} {user.nom}</strong> 👋
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
             <span className="text-sm text-white/90">
               {isSuperAdmin ? '👑 Super Administrateur' : isReadOnly ? '👁️ Administrateur (Lecture)' : isAdmin ? '👤 Administrateur' : '👀 Utilisateur'}
             </span>

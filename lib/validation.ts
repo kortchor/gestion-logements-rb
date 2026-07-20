@@ -117,6 +117,70 @@ export const createCollaborateurSchema = {
 };
 
 /**
+ * Schéma de validation pour la création de logement
+ */
+export const createLogementSchema = {
+  validate: (data: any): ValidationResult<any> => {
+    const errors: ValidationError[] = [];
+
+    // Nom logement
+    if (!data?.nom_logement || typeof data.nom_logement !== 'string' || data.nom_logement.trim().length === 0) {
+      errors.push({ field: 'nom_logement', message: 'Nom du logement requis' });
+    } else if (data.nom_logement.length > 200) {
+      errors.push({ field: 'nom_logement', message: 'Nom trop long (max 200 caractères)' });
+    }
+
+    // Adresse
+    if (!data?.adresse || typeof data.adresse !== 'string' || data.adresse.trim().length === 0) {
+      errors.push({ field: 'adresse', message: 'Adresse requise' });
+    } else if (data.adresse.length > 300) {
+      errors.push({ field: 'adresse', message: 'Adresse trop longue (max 300 caractères)' });
+    }
+
+    // Ville
+    if (!data?.ville || typeof data.ville !== 'string' || data.ville.trim().length === 0) {
+      errors.push({ field: 'ville', message: 'Ville requise' });
+    } else if (data.ville.length > 100) {
+      errors.push({ field: 'ville', message: 'Ville trop longue (max 100 caractères)' });
+    }
+
+    // Type
+    if (data?.type && typeof data.type === 'string') {
+      if (data.type.length > 50) {
+        errors.push({ field: 'type', message: 'Type trop long (max 50 caractères)' });
+      }
+    }
+
+    // Prix loyer (optionnel mais doit être un nombre)
+    if (data?.prix_loyer !== undefined && data.prix_loyer !== null) {
+      if (typeof data.prix_loyer !== 'number' || data.prix_loyer < 0) {
+        errors.push({ field: 'prix_loyer', message: 'Prix de loyer invalide (doit être positif)' });
+      }
+    }
+
+    if (errors.length > 0) {
+      return { success: false, errors };
+    }
+
+    return {
+      success: true,
+      data: {
+        nom_logement: data.nom_logement.trim(),
+        adresse: data.adresse.trim(),
+        ville: data.ville.trim(),
+        type: data.type?.trim() || null,
+        prix_loyer: data.prix_loyer || null,
+        proprietaire: data.proprietaire?.trim() || null,
+        contact_proprietaire: data.contact_proprietaire?.trim() || null,
+        description_detaillee: data.description_detaillee?.trim() || null,
+        est_visible: Boolean(data.est_visible),
+        mixte_autorise: Boolean(data.mixte_autorise),
+      },
+    };
+  },
+};
+
+/**
  * Helper pour valider un email
  */
 function isValidEmail(email: string): boolean {

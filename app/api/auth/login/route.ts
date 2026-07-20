@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
 import { loginSchema } from '@/lib/validation';
 import { checkRateLimit, LOGIN_RATE_LIMIT } from '@/lib/rate-limit';
+import { logAuth, logSecurityEvent } from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
     const rateLimitKey = `login:${email || clientIp}`;
 
     if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT)) {
+      logSecurityEvent('rate_limit_exceeded', { email, ip: clientIp });
       console.warn(`⛔ Rate limit dépassé pour: ${email || clientIp}`);
       return NextResponse.json(
         { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
     // ✅ Validation des entrées
     const validation = loginSchema.validate(body);
     if (!validation.success) {
+      logSecurityEvent('login_validation_failed', { email, errors: validation.errors });
       return NextResponse.json(
         { error: 'Données invalides', errors: validation.errors },
         { status: 400 }
@@ -39,6 +42,7 @@ export async function POST(request: Request) {
     );
 
     if (result.rows.length === 0) {
+      logAuth(0, validEmail, 'login', false);
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     const user = result.rows[0];
 
     if (!user.est_actif) {
+      logAuth(user.id, validEmail, 'login_inactive_account', false);
       return NextResponse.json(
         { error: 'Votre compte a été désactivé' },
         { status: 401 }
@@ -60,12 +65,14 @@ export async function POST(request: Request) {
     
     if (process.env.NODE_ENV !== 'production' && devPassword && mot_de_passe === devPassword) {
       isPasswordValid = true;
+      logSecurityEvent('login_dev_password_used', { email: validEmail });
       console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', validEmail);
     } else if (user.mot_de_passe) {
       isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     }
 
     if (!isPasswordValid) {
+      logAuth(user.id, validEmail, 'login', false);
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
@@ -79,6 +86,8 @@ export async function POST(request: Request) {
       prenom: user.prenom,
       role: user.role,
     });
+
+    logAuth(user.id, validEmail, 'login', true);
 
     const response = NextResponse.json({
       success: true,
@@ -103,6 +112,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
+    logSecurityEvent('login_error', { error: error instanceof Error ? error.message : 'unknown' });
     console.error('❌ Erreur login:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la connexion' },

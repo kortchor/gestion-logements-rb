@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+import { logRequest } from '@/lib/logger';
 
 // ✅ Routes publiques (sans authentification)
 const PUBLIC_ROUTES = [
@@ -34,42 +35,97 @@ const SUPER_ADMIN_ROUTES = [
 const USER_ROUTES = [
   '/mon-logement',
 ];
+
+/**
+ * Ajoute les headers de sécurité à la réponse
+ */
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  // 🔒 Content Security Policy (CSP)
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:;"
+  );
+
+  // Empêcher le clickjacking
+  response.headers.set('X-Frame-Options', 'DENY');
+
+  // Empêcher le MIME-sniffing
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+
+  // XSS Protection (pour IE/Edge)
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+
+  // Referrer Policy
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Permissions Policy (anciennement Feature-Policy)
+  response.headers.set(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=()'
+  );
+
+  // HSTS (HTTPS Strict Transport Security) - uniquement en production
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
+  }
+
+  return response;
+}
  
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const startTime = Date.now();
 
-  console.log('🛡️ [Middleware] Path:', pathname);
+  console.log('🛡️ [Proxy] Path:', pathname);
+
+  // Ignorer les assets statiques
+  if (pathname.startsWith('/_next') || pathname.startsWith('/public')) {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
 
   // ✅ Routes publiques - accès libre
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    console.log('✅ [Middleware] Route publique');
-    return NextResponse.next();
+    console.log('✅ [Proxy] Route publique');
+    const response = NextResponse.next();
+    const duration = Date.now() - startTime;
+    logRequest(request.method, pathname, 200, duration);
+    return addSecurityHeaders(response);
   }
 
   // ✅ Récupérer le token depuis le cookie
   const token = request.cookies.get('token')?.value;
 
-  console.log('🔑 [Middleware] Token:', token ? '✅ Présent' : '❌ Absent');
+  console.log('🔑 [Proxy] Token:', token ? '✅ Présent' : '❌ Absent');
 
   // Si pas de token, rediriger vers login
   if (!token) {
-    console.log('🔀 [Middleware] Redirection vers /login');
+    console.log('🔀 [Proxy] Redirection vers /login');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
-    return NextResponse.redirect(loginUrl);
+    const duration = Date.now() - startTime;
+    logRequest(request.method, pathname, 302, duration);
+    const response = NextResponse.redirect(loginUrl);
+    return addSecurityHeaders(response);
   }
 
   // ✅ VÉRIFIER LA SIGNATURE DU TOKEN (Correctif de sécurité majeur)
   try {
     const payload = await verifyToken(token);
     if (!payload) {
-      console.error('❌ [Middleware] Token invalide ou expiré');
+      console.error('❌ [Proxy] Token invalide ou expiré');
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl);
+      const duration = Date.now() - startTime;
+      logRequest(request.method, pathname, 401, duration);
+      const response = NextResponse.redirect(loginUrl);
+      return addSecurityHeaders(response);
     }
 
-    console.log('👤 [Middleware] Utilisateur:', payload.email, 'Rôle:', payload.role);
+    console.log('👤 [Proxy] Utilisateur:', payload.email, 'Rôle:', payload.role);
     const userRole = payload.role;
     const isSuperAdminRoute = SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route));
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
@@ -81,26 +137,38 @@ export async function proxy(request: NextRequest) {
       case 'admin':
         // L'Admin ne peut pas accéder aux routes Super Admin
         if (isSuperAdminRoute) {
-          console.log('⛔ [Middleware] Accès refusé (Super Admin requis) pour:', pathname);
-          return NextResponse.redirect(new URL('/', request.url));
+          console.log('⛔ [Proxy] Accès refusé (Super Admin requis) pour:', pathname);
+          const duration = Date.now() - startTime;
+          logRequest(request.method, pathname, 403, duration);
+          const response = NextResponse.redirect(new URL('/', request.url));
+          return addSecurityHeaders(response);
         }
         break;
       case 'user':
       default:
         // Les utilisateurs simples ne peuvent accéder qu'à leurs routes
         if (isAdminRoute || isSuperAdminRoute) {
-          console.log('⛔ [Middleware] Accès refusé (Admin requis) pour:', pathname);
-          return NextResponse.redirect(new URL('/', request.url));
+          console.log('⛔ [Proxy] Accès refusé (Admin requis) pour:', pathname);
+          const duration = Date.now() - startTime;
+          logRequest(request.method, pathname, 403, duration);
+          const response = NextResponse.redirect(new URL('/', request.url));
+          return addSecurityHeaders(response);
         }
         break;
     }
 
-    return NextResponse.next();
+    const duration = Date.now() - startTime;
+    logRequest(request.method, pathname, 200, duration);
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
   } catch (error) {
-    console.error('❌ [Middleware] Erreur lors de la vérification du token:', error);
+    console.error('❌ [Proxy] Erreur lors de la vérification du token:', error);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
-    return NextResponse.redirect(loginUrl);
+    const duration = Date.now() - startTime;
+    logRequest(request.method, pathname, 500, duration);
+    const response = NextResponse.redirect(loginUrl);
+    return addSecurityHeaders(response);
   }
 }
 

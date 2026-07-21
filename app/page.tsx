@@ -30,7 +30,7 @@ export default function HomePage() {
         {/* Image de fond fullscreen */}
         <div className="absolute inset-0">
           <img 
-            src="/images/page accueil.webp" 
+            src="/images/Nouvelle page.jpg" 
             alt="Les Roches Blanches" 
             className="w-full h-full object-cover"
           />

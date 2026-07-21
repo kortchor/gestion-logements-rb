@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
-        { error: 'Non authentifié' },
+        { error: 'Non authentifié. Veuillez vous connecter.' },
         { status: 401 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
-        { error: 'Token invalide' },
+        { error: 'Votre session a expiré. Veuillez vous reconnecter.' },
         { status: 401 }
       );
     }
@@ -41,7 +41,16 @@ export async function POST(request: NextRequest) {
     const email = payload.email;
 
     // Récupérer les données du formulaire
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json(
+        { error: 'Format de requête invalide' },
+        { status: 400 }
+      );
+    }
+
     const { ancien_mot_de_passe, nouveau_mot_de_passe } = body;
 
     // Validation
@@ -126,8 +135,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('❌ Erreur change-password:', error);
+    // Ne pas révéler les détails de l'erreur au client pour des raisons de sécurité
     return NextResponse.json(
-      { error: 'Erreur serveur' },
+      { error: 'Une erreur serveur est survenue. Veuillez réessayer plus tard.' },
       { status: 500 }
     );
   }

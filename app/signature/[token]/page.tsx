@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function SignaturePage({ params }: { params: { token: string } }) {
+export default function SignaturePage({ params }: { params: Promise<{ token: string }> }) {
   const router = useRouter();
+  const resolvedParams = use(params);
   const [loading, setLoading] = useState(false);
   const [signatureData, setSignatureData] = useState<any>(null);
   const [error, setError] = useState('');
@@ -13,7 +14,7 @@ export default function SignaturePage({ params }: { params: { token: string } })
   useEffect(() => {
     async function fetchContrat() {
       try {
-        const response = await fetch(`/api/signature/${params.token}`);
+        const response = await fetch(`/api/signature/${resolvedParams.token}`);
         const data = await response.json();
         if (data.success) {
           setSignatureData(data.data);
@@ -25,12 +26,12 @@ export default function SignaturePage({ params }: { params: { token: string } })
       }
     }
     fetchContrat();
-  }, [params.token]);
+  }, [resolvedParams.token]);
 
   const handleSignature = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/signature/${params.token}`, {
+      const response = await fetch(`/api/signature/${resolvedParams.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signe: true }),

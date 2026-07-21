@@ -24,7 +24,6 @@ export default function AdminUsersPage() {
     nom: '',
     prenom: '',
     email: '',
-    mot_de_passe: '',
     role: 'user',
     est_actif: true,
   });
@@ -82,7 +81,7 @@ export default function AdminUsersPage() {
       if (data.success) {
         setShowForm(false);
         setEditingUser(null);
-        setFormData({ nom: '', prenom: '', email: '', mot_de_passe: '', role: 'user', est_actif: true });
+        setFormData({ nom: '', prenom: '', email: '', role: 'user', est_actif: true });
         fetchUsers();
       } else {
         setError(data.error || 'Erreur');
@@ -119,7 +118,6 @@ export default function AdminUsersPage() {
       nom: user.nom,
       prenom: user.prenom,
       email: user.email,
-      mot_de_passe: '',
       role: user.role,
       est_actif: user.est_actif,
     });
@@ -164,7 +162,7 @@ export default function AdminUsersPage() {
           onClick={() => {
             setShowForm(true);
             setEditingUser(null);
-            setFormData({ nom: '', prenom: '', email: '', mot_de_passe: '', role: 'user', est_actif: true });
+            setFormData({ nom: '', prenom: '', email: '', role: 'user', est_actif: true });
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
@@ -184,6 +182,11 @@ export default function AdminUsersPage() {
           <h2 className="text-xl font-semibold mb-4">
             {editingUser ? '✏️ Modifier l\'utilisateur' : '➕ Nouvel utilisateur'}
           </h2>
+          {!editingUser && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded mb-4 text-sm">
+              ℹ️ Les identifiants de connexion seront générés automatiquement et envoyés par email au nouvel utilisateur.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
@@ -213,19 +216,6 @@ export default function AdminUsersPage() {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {editingUser ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe *'}
-              </label>
-              <input
-                type="password"
-                required={!editingUser}
-                value={formData.mot_de_passe}
-                onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder={editingUser ? 'Laisser vide pour ne pas changer' : ''}
               />
             </div>
             <div>

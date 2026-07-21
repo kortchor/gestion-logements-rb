@@ -3,6 +3,32 @@
 import { useAuth } from '@/app/context/AuthContext';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+// Enregistrer les composants Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface DashboardStats {
   totalLogements: number;
@@ -13,19 +39,33 @@ interface DashboardStats {
   bauxEncours: number;
 }
 
+interface CostData {
+  totalCoutMois: number;
+  mois: string;
+}
+
+interface CostByCenter {
+  centre_analytique: string;
+  coût_total: number;
+  nombre_logements: number;
+}
+
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [costData, setCostData] = useState<CostData | null>(null);
+  const [costByCenter, setCostByCenter] = useState<CostByCenter[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [costsLoading, setCostsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
         setStatsLoading(true);
         setError('');
 
-        const [logementsRes, collaborateursRes, bauxRes] = await Promise.all([
+        const [logementsRes, collaborateursRes, bauxRes, costsRes, costsByCenterRes] = await Promise.all([
           fetch('/api/logements').catch(err => {
             console.error('Erreur logements:', err);
             return new Response(JSON.stringify([]), { status: 500 });
@@ -38,12 +78,22 @@ export default function DashboardPage() {
             console.error('Erreur baux:', err);
             return new Response(JSON.stringify({ baux: [] }), { status: 500 });
           }),
+          fetch('/api/dashboard/costs').catch(err => {
+            console.error('Erreur coûts mensuels:', err);
+            return new Response(JSON.stringify({ success: false }), { status: 500 });
+          }),
+          fetch('/api/dashboard/costs?type=by-center').catch(err => {
+            console.error('Erreur coûts par centre:', err);
+            return new Response(JSON.stringify({ success: false }), { status: 500 });
+          }),
         ]);
 
         // Gérer les réponses avec try-catch
         let logements = [];
         let collaborateurs = [];
         let baux = [];
+        let costs = null;
+        let costsByCenter = [];
 
         try {
           const logementsData = await logementsRes.json();
@@ -67,6 +117,24 @@ export default function DashboardPage() {
         } catch (e) {
           console.error('Erreur parsing baux:', e);
           baux = [];
+        }
+
+        try {
+          const costsResponse = await costsRes.json();
+          if (costsResponse.success && costsResponse.data) {
+            setCostData(costsResponse.data);
+          }
+        } catch (e) {
+          console.error('Erreur parsing coûts mensuels:', e);
+        }
+
+        try {
+          const costsCenterResponse = await costsByCenterRes.json();
+          if (costsCenterResponse.success && Array.isArray(costsCenterResponse.data)) {
+            setCostByCenter(costsCenterResponse.data);
+          }
+        } catch (e) {
+          console.error('Erreur parsing coûts par centre:', e);
         }
 
         // Calculer les baux en cours
@@ -95,11 +163,12 @@ export default function DashboardPage() {
         setStats(null);
       } finally {
         setStatsLoading(false);
+        setCostsLoading(false);
       }
     };
 
     if (user) {
-      fetchStats();
+      fetchData();
     }
   }, [user]);
 
@@ -191,7 +260,92 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Actions rapides */}
+        {/* Graphiques de coûts */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">💰 Analyse des coûts</h2>
+          
+          {costsLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Coût mensuel total */}
+              {costData && (
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Coût mensuel total</h3>
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-green-600 mb-2">
+                      {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </div>
+                    <p className="text-sm text-gray-600">Somme des loyers actuels - {costData.mois}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Coûts par centre analytique */}
+              {costByCenter.length > 0 && (
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Coûts par centre analytique</h3>
+                  <div className="space-y-3">
+                    {costByCenter.map((center) => (
+                      <div key={center.centre_analytique} className="flex items-between justify-between p-3 bg-gray-50 rounded">
+                        <div>
+                          <p className="font-medium text-gray-800">{center.centre_analytique}</p>
+                          <p className="text-xs text-gray-600">{center.nombre_logements} logements</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-blue-600">
+                            {center.coût_total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Graphique pie chart - répartition par centre */}
+              {costByCenter.length > 0 && (
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Répartition des coûts</h3>
+                  <div style={{ position: 'relative', height: '300px' }}>
+                    <Pie
+                      data={{
+                        labels: costByCenter.map((c) => c.centre_analytique),
+                        datasets: [
+                          {
+                            label: 'Coûts par centre',
+                            data: costByCenter.map((c) => c.coût_total),
+                            backgroundColor: [
+                              '#3b82f6',
+                              '#10b981',
+                              '#f59e0b',
+                              '#ef4444',
+                              '#8b5cf6',
+                              '#ec4899',
+                            ],
+                            borderColor: '#fff',
+                            borderWidth: 2,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'bottom' as const,
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="mt-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Actions rapides</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

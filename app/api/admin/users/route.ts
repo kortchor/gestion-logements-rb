@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { withSuperAdminAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { generatePassword } from '@/lib/password-utils';
+import { sendEmail } from '@/lib/email';
+import { getAdminCredentialsEmailTemplate } from '@/lib/emailTemplates';
 
 // ✅ GET - Récupérer tous les utilisateurs (Super Admin uniquement)
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
@@ -30,15 +33,16 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 };
 
-// ✅ POST - Créer un utilisateur
+// ✅ POST - Créer un utilisateur avec mot de passe généré automatiquement
 const postHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const body = await request.json();
-    const { nom, prenom, email, mot_de_passe, role, est_actif } = body;
+    const { nom, prenom, email, role, est_actif } = body;
 
-    if (!nom || !prenom || !email || !mot_de_passe) {
+    // Validation: nom, prenom, email requis (pas mot_de_passe)
+    if (!nom || !prenom || !email) {
       return NextResponse.json(
-        { error: 'Tous les champs sont requis' },
+        { error: 'Le nom, prénom et email sont requis' },
         { status: 400 }
       );
     }
@@ -56,8 +60,11 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
       );
     }
 
+    // Générer automatiquement un mot de passe sécurisé
+    const generatedPassword = generatePassword(12);
+
     // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
+    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
     // Créer l'utilisateur
     const result = await query(
@@ -68,7 +75,33 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
       [nom, prenom, email, hashedPassword, role || 'user', est_actif !== undefined ? est_actif : true]
     );
 
-    return NextResponse.json({ success: true, data: result.rows[0] }, { status: 201 });
+    const newUser = result.rows[0];
+
+    // Envoyer un email avec les credentials
+    try {
+      const emailTemplate = getAdminCredentialsEmailTemplate({
+        nom,
+        prenom,
+        email,
+        motDePasse: generatedPassword,
+        siteUrl: process.env.NEXTAUTH_URL || 'https://gestion-logements-rb.vercel.app',
+      });
+
+      await sendEmail({
+        to: email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+      });
+
+      console.log(`✅ Email de credentials envoyé à ${email}`);
+    } catch (emailError) {
+      console.error('⚠️ Erreur lors de l\'envoi de l\'email:', emailError);
+      // L'utilisateur est créé même si l'email échoue
+      // Le super admin peut renvoyer les credentials manuellement
+    }
+
+    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
     console.error('❌ Erreur:', error);
     return NextResponse.json(

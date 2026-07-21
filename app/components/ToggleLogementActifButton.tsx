@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface Props {
   logementId: number;
@@ -9,8 +10,15 @@ interface Props {
 }
 
 export default function ToggleLogementActifButton({ logementId, logementAdresse, estActif }: Props) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [actif, setActif] = useState(estActif);
+  const isReadOnly = user?.role === 'admin_readonly';
+
+  // Masquer le bouton si utilisateur est admin_readonly
+  if (isReadOnly) {
+    return null;
+  }
 
   const handleToggle = async () => {
     const action = actif ? 'désactiver' : 'réactiver';

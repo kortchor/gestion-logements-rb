@@ -141,3 +141,95 @@ export async function POST(request: Request) {
     client.release();
   }
 }
+
+// ✅ DELETE - Supprimer un collaborateur
+export async function DELETE(request: Request) {
+  const client = await pool.connect();
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID du collaborateur requis' },
+        { status: 400 }
+      );
+    }
+
+    const collaborateurId = parseInt(id);
+    if (isNaN(collaborateurId)) {
+      return NextResponse.json(
+        { error: 'ID du collaborateur invalide' },
+        { status: 400 }
+      );
+    }
+
+    await client.query('BEGIN');
+
+    // Vérifier que le collaborateur existe
+    const collaborateurResult = await client.query(
+      'SELECT id, nom, prenom FROM collaborateurs WHERE id = $1',
+      [collaborateurId]
+    );
+
+    if (collaborateurResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return NextResponse.json(
+        { error: 'Collaborateur non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    const collaborateur = collaborateurResult.rows[0];
+
+    // Vérifier s'il n'a pas de baux actifs
+    const bauxResult = await client.query(
+      `SELECT COUNT(*) as count FROM baux WHERE collaborateur_id = $1 AND date_fin >= CURRENT_DATE`,
+      [collaborateurId]
+    );
+
+    if (parseInt(bauxResult.rows[0].count) > 0) {
+      await client.query('ROLLBACK');
+      return NextResponse.json(
+        { error: 'Impossible de supprimer ce collaborateur. Il a des baux actifs. Veuillez d\'abord le désassigner.' },
+        { status: 400 }
+      );
+    }
+
+    // Libérer les lits occupés
+    await client.query(
+      'UPDATE lits SET est_occupe = false, collaborateur_id = NULL WHERE collaborateur_id = $1',
+      [collaborateurId]
+    );
+
+    // Supprimer les baux historiques
+    await client.query(
+      'DELETE FROM baux WHERE collaborateur_id = $1',
+      [collaborateurId]
+    );
+
+    // Supprimer le collaborateur
+    await client.query(
+      'DELETE FROM collaborateurs WHERE id = $1',
+      [collaborateurId]
+    );
+
+    await client.query('COMMIT');
+
+    console.log(`✅ Collaborateur ${collaborateur.prenom} ${collaborateur.nom} (ID: ${collaborateurId}) supprimé avec succès`);
+
+    return NextResponse.json(
+      { success: true, message: `${collaborateur.prenom} ${collaborateur.nom} a été supprimé avec succès` },
+      { status: 200 }
+    );
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Erreur DELETE:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la suppression du collaborateur' },
+      { status: 500 }
+    );
+  } finally {
+    client.release();
+  }
+}

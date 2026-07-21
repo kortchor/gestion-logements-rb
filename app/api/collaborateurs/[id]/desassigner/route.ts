@@ -6,8 +6,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ CORRECTION: Attendre la Promise params
     const { id } = await params;
     const collaborateurId = parseInt(id);
+    
+    if (isNaN(collaborateurId)) {
+      return NextResponse.json(
+        { error: 'ID de collaborateur invalide' },
+        { status: 400 }
+      );
+    }
+
     console.log(`🔄 Désassignation du collaborateur ID: ${collaborateurId}`);
 
     // 1. Récupérer le logement du collaborateur
@@ -28,7 +37,14 @@ export async function POST(
       [collaborateurId]
     );
 
-    // 3. Si le logement est vide, redevient mixte
+    // 3. Fermer le bail actif associé
+    const now = new Date().toISOString().split('T')[0];
+    await query(
+      `UPDATE baux SET date_fin = $1 WHERE collaborateur_id = $2 AND date_fin >= CURRENT_DATE`,
+      [now, collaborateurId]
+    );
+
+    // 4. Si le logement est vide, redevient mixte
     if (logementId) {
       const occupantsResult = await query(
         `SELECT COUNT(*) as nb_occupants

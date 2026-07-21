@@ -24,80 +24,110 @@ export default function HomePage() {
   const isSimpleUser = user.role === 'user';
 
   return (
-    <div className="min-h-screen">
-      {/* Header avec logo */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center gap-3">
-          <img 
-            src="/images/les-roches-blanches-logo-gold-5et.png" 
-            alt="Les Roches Blanches Logo" 
-            className="h-10 w-auto"
-          />
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Les Roches Blanches</h1>
-            <p className="text-xs text-gray-500">Gestion des logements</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Hero section avec image de fond */}
-      <div className="relative overflow-hidden">
+    <div className="min-h-screen flex flex-col">
+      {/* Hero section fullscreen avec image de fond */}
+      <div className="relative w-full flex-1 overflow-hidden min-h-[calc(100vh-80px)]">
+        {/* Image de fond fullscreen */}
         <div className="absolute inset-0">
           <img 
             src="/images/page accueil.webp" 
             alt="Les Roches Blanches" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+          {/* Gradient overlay pour améliorer la lisibilité */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-transparent" />
         </div>
-        <div className="relative max-w-7xl mx-auto px-8 py-20">
-          <div className="mb-4">
-            <p className="text-white/90 text-xl">
-              Bienvenue <strong className="text-white text-2xl">{user.prenom} {user.nom}</strong> 👋
+
+        {/* Contenu en overlay */}
+        <div className="relative z-10 flex flex-col justify-center items-start h-full max-w-7xl mx-auto px-8">
+          {/* Titre de bienvenue */}
+          <div className="mb-8">
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-2">
+              Bienvenue, {user.prenom} 👋
+            </h1>
+            <p className="text-xl md:text-2xl text-white/90">
+              Gestion des logements - Les Roches Blanches
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-            <span className="text-sm text-white/90">
+
+          {/* Badge rôle utilisateur */}
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-12">
+            <span className="text-lg text-white font-medium">
               {isSuperAdmin ? '👑 Super Administrateur' : isReadOnly ? '👁️ Administrateur (Lecture)' : isAdmin ? '👤 Administrateur' : '👀 Utilisateur'}
             </span>
           </div>
+
+          {/* Navigation cards en overlay */}
+          {isAdmin && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-4xl">
+              <Link 
+                href="/logements" 
+                className="bg-white/95 hover:bg-white backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 no-underline group"
+              >
+                <span className="text-3xl mb-2 block group-hover:scale-110 transition-transform">🏠</span>
+                <h2 className="text-lg font-semibold text-gray-900">Logements</h2>
+                <p className="text-sm text-gray-600 mt-1">Gérer les logements</p>
+              </Link>
+
+              <Link 
+                href="/collaborateurs" 
+                className="bg-white/95 hover:bg-white backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 no-underline group"
+              >
+                <span className="text-3xl mb-2 block group-hover:scale-110 transition-transform">👥</span>
+                <h2 className="text-lg font-semibold text-gray-900">Collaborateurs</h2>
+                <p className="text-sm text-gray-600 mt-1">Gérer les collaborateurs</p>
+              </Link>
+
+              <Link 
+                href="/dashboard" 
+                className="bg-white/95 hover:bg-white backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 no-underline group"
+              >
+                <span className="text-3xl mb-2 block group-hover:scale-110 transition-transform">📊</span>
+                <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
+                <p className="text-sm text-gray-600 mt-1">Voir les statistiques</p>
+              </Link>
+
+              <Link 
+                href="/admin/modeles" 
+                className="bg-white/95 hover:bg-white backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 no-underline group"
+              >
+                <span className="text-3xl mb-2 block group-hover:scale-110 transition-transform">📄</span>
+                <h2 className="text-lg font-semibold text-gray-900">Modèles</h2>
+                <p className="text-sm text-gray-600 mt-1">Conventions locatives</p>
+              </Link>
+            </div>
+          )}
+
+          {/* Section utilisateur simple */}
+          {isSimpleUser && (
+            <Link 
+              href="/mon-espace"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg shadow-lg hover:shadow-xl transition-all text-lg font-semibold no-underline"
+            >
+              🏠 Consulter mon logement
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* Contenu principal */}
-      <div className="max-w-7xl mx-auto px-8 py-10">
-        {/* ✅ ACCÈS ADMIN - Tous les profils admin voient ces pages */}
-        {isAdmin && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link href="/logements" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
-            <h2 className="text-xl font-semibold">🏠 Logements</h2>
-            <p className="text-gray-600 text-sm">Consulter les logements</p>
-          </Link>
-          <Link href="/collaborateurs" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
-            <h2 className="text-xl font-semibold">👥 Collaborateurs</h2>
-            <p className="text-gray-600 text-sm">Consulter les collaborateurs</p>
-          </Link>
-          <Link href="/dashboard" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
-            <h2 className="text-xl font-semibold">📊 Dashboard</h2>
-            <p className="text-gray-600 text-sm">Voir les statistiques</p>
-          </Link>
-          <Link href="/admin/modeles" className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition no-underline">
-            <h2 className="text-xl font-semibold">📄 Modèles</h2>
-            <p className="text-gray-600 text-sm">Consulter les conventions</p>
-          </Link>
+      {/* Section supplémentaire avec du contenu (optionnel) */}
+      <div className="bg-gray-50 py-12">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">📋 Gestion facile</h3>
+              <p className="text-gray-600">Gérez vos logements et collaborateurs de manière simple et efficace.</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">🔒 Sécurisé</h3>
+              <p className="text-gray-600">Vos données sont sécurisées avec une authentification robuste.</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">📊 Statistiques</h3>
+              <p className="text-gray-600">Visualisez vos statistiques en temps réel sur le dashboard.</p>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* ✅ ACCÈS UTILISATEUR SIMPLE */}
-      {isSimpleUser && (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6 text-center">
-          <h2 className="text-xl font-semibold mb-4">🏠 Mon logement</h2>
-          <p className="text-gray-600 mb-4">Consultez les informations sur votre logement assigné.</p>
-          <Link href="/mon-espace" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors no-underline">
-            Voir mon logement
-          </Link>
-        </div>
-      )}
       </div>
     </div>
   );

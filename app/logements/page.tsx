@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import DeleteLogementButton from '@/app/components/DeleteLogementButton';
+import AddLogementButton from '@/app/components/AddLogementButton';
 import ExportButtons from '@/app/components/ExportButtons';
 import ToggleLogementActifButton from '@/app/components/ToggleLogementActifButton';
 
@@ -87,12 +88,7 @@ export default async function LogementsPage() {
               columns={exportColumns}
               filename="liste_logements"
             />
-            <a
-              href="/logements/nouveau"
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
-            >
-              + Ajouter un logement
-            </a>
+            <AddLogementButton />
           </div>
         </div>
 

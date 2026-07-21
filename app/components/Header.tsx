@@ -21,21 +21,25 @@ export default function Header() {
     <header className="bg-white shadow-md">
       <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <Link href="/" className="no-underline flex items-center gap-3">
-            <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-9 w-auto" />
-            <span className="text-lg font-bold text-blue-600">Gestion Logements</span>
+          <Link href="/" className="no-underline flex items-center gap-2" title="Accueil">
+            <img src="/logo-hotel.svg" alt="Les Roches Blanches Logo" className="h-10 w-auto" />
+            <span className="hidden sm:inline text-sm font-semibold text-gray-700">Gestion Logements</span>
           </Link>
+          
           {/* Liens de navigation pour les utilisateurs connectés */}
-          {user && (
-            <div className="hidden md:flex items-center gap-4">
-              <Link href="/logements" className="text-sm text-gray-600 hover:text-blue-600">
-                Logements
+          {user && isAdmin && (
+            <div className="hidden lg:flex items-center gap-4">
+              <Link href="/logements" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                🏠 Logements
               </Link>
-              <Link href="/collaborateurs" className="text-sm text-gray-600 hover:text-blue-600">
-                Collaborateurs
+              <Link href="/collaborateurs" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                👥 Collaborateurs
               </Link>
-              <Link href="/recherche" className="text-sm text-gray-600 hover:text-blue-600">
-                Recherche
+              <Link href="/dashboard" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                📊 Dashboard
+              </Link>
+              <Link href="/admin/modeles" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                📄 Modèles
               </Link>
             </div>
           )}

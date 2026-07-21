@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'; // ✅ Importer useParam
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '@/app/context/AuthContext';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 import CautionManager from '@/app/components/CautionManager'; // ✅ CORRECTION: Import manquant
 import SendCredentialsButton from '@/app/components/SendCredentialsButton';
@@ -73,13 +74,16 @@ interface LogementDisponible {
 
 export default function CollaborateurPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [collaborateur, setCollaborateur] = useState<Collaborateur | null>(null);
   const [bauxActifs, setBauxActifs] = useState<Bail[]>([]);
   const [bauxHistorique, setBauxHistorique] = useState<Bail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'actif' | 'historique'>('actif');
   const params = useParams(); // ✅ Utiliser le hook
+  const isReadOnly = user?.role === 'admin_readonly';
 
   // États pour la modale d'assignation
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -149,14 +153,25 @@ export default function CollaborateurPage() {
     if (!confirm('Voulez-vous vraiment désassigner ce collaborateur de son logement ?')) return;
 
     try {
+      setError(null);
+      setSuccessMessage(null);
+      
       const response = await fetch(`/api/collaborateurs/${collaborateurId}/desassigner`, {
         method: 'POST',
       });
 
-      if (!response.ok) throw new Error('Erreur lors de la désassignation');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erreur lors de la désassignation');
+      }
 
+      setSuccessMessage('✅ Logement désassigné avec succès');
+      
       // Recharger toutes les données pour refléter le changement
-      await fetchAllData();
+      setTimeout(() => {
+        setSuccessMessage(null);
+        fetchAllData();
+      }, 1500);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la désassignation');
@@ -235,6 +250,17 @@ export default function CollaborateurPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Messages de feedback */}
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md">
+          ❌ {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg max-w-md animate-pulse">
+          {successMessage}
+        </div>
+      )}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -375,23 +401,25 @@ export default function CollaborateurPage() {
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200" >
               <div className="flex justify-between items-start">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">🛏️ Logement actuel</h2>
-                <div className="flex gap-2">
-                  {bauxActifs.length > 0 ? (
-                    <button
-                      onClick={handleDesassigner}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                    >
-                      Désassigner
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setShowAssignModal(true)}
-                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
-                    >
-                      + Assigner
-                    </button>
-                  )}
-                </div>
+                {!isReadOnly && (
+                  <div className="flex gap-2">
+                    {bauxActifs.length > 0 ? (
+                      <button
+                        onClick={handleDesassigner}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                      >
+                        Désassigner
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                      >
+                        + Assigner
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {bauxActifs.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -421,12 +449,14 @@ export default function CollaborateurPage() {
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-gray-800">📄 Baux</h2>
-                <Link
-                  href={`/collaborateurs/${collaborateur.id}/nouveau-bail`}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  + Nouveau bail
-                </Link>
+                {!isReadOnly && (
+                  <Link
+                    href={`/collaborateurs/${collaborateur.id}/nouveau-bail`}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    + Nouveau bail
+                  </Link>
+                )}
               </div>
 
               <div className="px-6 pt-4">

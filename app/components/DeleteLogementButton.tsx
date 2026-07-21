@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface DeleteLogementButtonProps {
   logementId: number;
@@ -8,7 +9,14 @@ interface DeleteLogementButtonProps {
 }
 
 export default function DeleteLogementButton({ logementId, logementAdresse }: DeleteLogementButtonProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const isReadOnly = user?.role === 'admin_readonly';
+
+  // Masquer le bouton si utilisateur est admin_readonly
+  if (isReadOnly) {
+    return null;
+  }
 
   const handleDelete = async () => {
     if (!confirm(`Voulez-vous vraiment supprimer ce logement ?\n${logementAdresse}`)) {
@@ -22,7 +30,6 @@ export default function DeleteLogementButton({ logementId, logementAdresse }: De
       });
 
       if (response.ok) {
-        // ✅ FORCER LE REACTUALISATION COMPLÈTE
         window.location.reload();
       } else {
         const data = await response.json();

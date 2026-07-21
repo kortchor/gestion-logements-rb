@@ -5,7 +5,7 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { generateConventionPDF } from '@/lib/generateConventionPDF';
 import { sendEmail } from '@/lib/email';
-import crypto from 'crypto';
+import youSignClient from '@/lib/yousign-client';
 import fs from 'fs';
 import path from 'path';
 import { isMatch, parseISO } from 'date-fns';
@@ -236,20 +236,69 @@ const assignerHandler = async (
       participationMensuelle: participation_mensuelle,
     });
 
-    // 5. Générer un token de signature unique
-    const signatureToken = crypto.randomBytes(32).toString('hex');
+    // 5. Créer une demande de signature via Yousign (avec le PDF généré)
+    console.log('📋 Intégration Yousign pour la demande de signature...');
+    
+    let yousignRequestId: string | null = null;
+    let signatureLink: string | null = null;
 
-    // Stocker le token dans le bail (avec fallback si colonne manquante)
     try {
-      await client.query(
-        'UPDATE baux SET signature_token = $1 WHERE id = $2',
-        [signatureToken, nouveauBailId]
-      );
+      const yousignResult = await youSignClient.createSignatureRequest({
+        signerEmail: collaborateur.email,
+        signerName: `${collaborateur.prenom} ${collaborateur.nom}`,
+        documentContent: pdfBuffer,
+        documentName: `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
+        message: `Veuillez signer votre convention de logement chez Les Roches Blanches`,
+      });
+
+      if (yousignResult.success && yousignResult.signatureLink) {
+        yousignRequestId = yousignResult.signatureRequestId || null;
+        signatureLink = yousignResult.signatureLink;
+        console.log('✅ Demande Yousign créée avec succès');
+        console.log('🔗 Lien de signature:', signatureLink);
+
+        // Stocker l'ID de la demande Yousign dans la base de données
+        try {
+          await client.query(
+            'UPDATE baux SET yousign_request_id = $1 WHERE id = $2',
+            [yousignRequestId, nouveauBailId]
+          );
+        } catch (err: any) {
+          console.warn('⚠️ Colonne yousign_request_id non disponible, ignorée:', err.message);
+        }
+      } else {
+        console.error('❌ Erreur Yousign:', yousignResult.error);
+        // Fallback: créer un lien interne si Yousign échoue
+        const fallbackToken = require('crypto').randomBytes(32).toString('hex');
+        signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${fallbackToken}`;
+        console.warn('⚠️ Fallback vers lien interne de signature');
+        
+        try {
+          await client.query(
+            'UPDATE baux SET signature_token = $1 WHERE id = $2',
+            [fallbackToken, nouveauBailId]
+          );
+        } catch (err: any) {
+          console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
+        }
+      }
     } catch (err: any) {
-      console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
+      console.error('❌ Erreur lors de la création de la demande Yousign:', err);
+      // Fallback: créer un lien interne
+      const fallbackToken = require('crypto').randomBytes(32).toString('hex');
+      signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${fallbackToken}`;
+      
+      try {
+        await client.query(
+          'UPDATE baux SET signature_token = $1 WHERE id = $2',
+          [fallbackToken, nouveauBailId]
+        );
+      } catch (err: any) {
+        console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
+      }
     }
 
-    // Sauvegarder le PDF
+    // 6. Sauvegarder le PDF (pour archive)
     try {
       const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
       if (!fs.existsSync(pdfDir)) {
@@ -273,12 +322,10 @@ const assignerHandler = async (
       console.warn('⚠️ Impossible de sauvegarder le PDF:', err.message);
     }
 
-    // 6. Envoyer l'email avec le PDF ET le lien de signature
-    const signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${signatureToken}`;
-
+    // 7. Envoyer l'email avec le lien Yousign
     await sendEmail({
       to: collaborateur.email,
-      subject: `📄 Convention de logement - ${collaborateur.prenom} ${collaborateur.nom}`,
+      subject: `📄 Convention de logement à signer - ${collaborateur.prenom} ${collaborateur.nom}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -286,50 +333,54 @@ const assignerHandler = async (
           <style>
             body { font-family: Arial, sans-serif; color: #333; }
             .header { background-color: #1a56db; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; }
+            .content { padding: 20px; max-width: 600px; margin: 0 auto; }
             .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }
-            .info-box { background-color: #dbeafe; border-left: 4px solid #1a56db; padding: 15px; margin: 15px 0; }
-            .btn { background-color: #1a56db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
+            .info-box { background-color: #dbeafe; border-left: 4px solid #1a56db; padding: 15px; margin: 15px 0; border-radius: 4px; }
+            .btn { background-color: #1a56db; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px; }
+            .btn:hover { background-color: #0d47a1; }
+            .security-note { background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 12px; margin: 15px 0; border-radius: 4px; color: #065f46; font-size: 12px; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>🏨 Les Roches Blanches</h1>
-            <p>Convention de logement à signer</p>
+            <p>Convention de logement à signer électroniquement</p>
           </div>
           <div class="content">
             <h2>Bonjour ${collaborateur.prenom} ${collaborateur.nom},</h2>
-            <p>Votre convention de logement a été créée. Veuillez la consulter et la signer électroniquement.</p>
+            <p>Bienvenue chez Les Roches Blanches ! 🎉</p>
+            <p>Votre logement a été assigné avec succès. Pour finaliser votre assignation, veuillez signer votre convention de logement en cliquant sur le bouton ci-dessous.</p>
             
             <div class="info-box">
-              <h3>📍 Informations du logement</h3>
+              <h3>📍 Détails de votre logement</h3>
               <p><strong>Adresse :</strong> ${lit.adresse}</p>
               <p><strong>Ville :</strong> ${lit.ville}</p>
               <p><strong>Date d'arrivée :</strong> ${new Date(dateDebut).toLocaleDateString('fr-FR')}</p>
               <p><strong>Date de départ :</strong> ${new Date(dateFin).toLocaleDateString('fr-FR')}</p>
             </div>
             
-            <p style="margin-top: 20px;">
-              <a href="${signatureLink}" class="btn">✍️ Signer la convention</a>
+            <p style="text-align: center; margin-top: 30px;">
+              <a href="${signatureLink}" class="btn">✍️ Signer ma convention maintenant</a>
             </p>
-            <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
-              🔗 Lien de signature valable 7 jours<br>
-              📎 La convention est également disponible en pièce jointe.
+            
+            <div class="security-note">
+              🔒 <strong>Sécurité :</strong> Ce lien est personnel et sécurisé. Il expirera automatiquement dans 7 jours. Cliquez uniquement si vous êtes ${collaborateur.prenom} ${collaborateur.nom}.
+            </div>
+            
+            <p style="font-size: 13px; color: #6b7280; margin-top: 20px; line-height: 1.6;">
+              <strong>Besoin d'aide ?</strong><br>
+              Si vous n'avez pas cliqué sur ce lien, ou si vous avez des questions, contactez-nous.<br>
+              Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:<br>
+              <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 3px; word-break: break-all;">${signatureLink}</code>
             </p>
           </div>
           <div class="footer">
-            <p>Les Roches Blanches - Gestion des logements saisonniers</p>
-            <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+            <p><strong>Les Roches Blanches</strong> - Gestion des logements saisonniers</p>
+            <p>Cet email est envoyé automatiquement. Merci de ne pas y répondre.</p>
           </div>
         </body>
         </html>
       `,
-      attachments: [
-        {
-          filename: `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
-          path: pdfPath,
-        },
-      ],
     });
 
     // ✅ Valider la transaction
@@ -338,9 +389,10 @@ const assignerHandler = async (
     return NextResponse.json(
       { 
         success: true, 
-        message: 'Lit assigné avec succès. La convention a été envoyée par email avec lien de signature.',
+        message: 'Lit assigné avec succès. La convention a été envoyée par email avec lien de signature sécurisé.',
         bail: {
           id: nouveauBailId,
+          yousignRequestId,
           signatureLink,
           pdfUrl,
         },

@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
+import AddCollaborateurButton from '@/app/components/AddCollaborateurButton';
 import ExportButtons from '@/app/components/ExportButtons';
 
 export const dynamic = 'force-dynamic';
@@ -93,12 +94,7 @@ export default async function CollaborateursPage() {
               columns={exportColumns}
               filename="liste_collaborateurs"
             />
-            <a
-              href="/collaborateurs/nouveau"
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors no-underline"
-            >
-              + Ajouter un collaborateur
-            </a>
+            <AddCollaborateurButton />
           </div>
         </div>
 

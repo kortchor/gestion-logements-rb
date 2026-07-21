@@ -255,7 +255,7 @@ const assignerHandler = async (
         yousignRequestId = yousignResult.signatureRequestId || null;
         signatureLink = yousignResult.signatureLink;
         console.log('✅ Demande Yousign créée avec succès');
-        console.log('🔗 Lien de signature:', signatureLink);
+        console.log('🔗 Lien de signature Yousign:', signatureLink);
 
         // Stocker l'ID de la demande Yousign dans la base de données
         try {
@@ -268,34 +268,17 @@ const assignerHandler = async (
         }
       } else {
         console.error('❌ Erreur Yousign:', yousignResult.error);
-        // Fallback: créer un lien interne si Yousign échoue
-        const fallbackToken = require('crypto').randomBytes(32).toString('hex');
-        signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${fallbackToken}`;
-        console.warn('⚠️ Fallback vers lien interne de signature');
-        
-        try {
-          await client.query(
-            'UPDATE baux SET signature_token = $1 WHERE id = $2',
-            [fallbackToken, nouveauBailId]
-          );
-        } catch (err: any) {
-          console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
-        }
+        // ❌ Ne PAS créer de fallback - si Yousign échoue, le bail ne peut pas être signé
+        throw new Error(`Impossible de créer la demande de signature Yousign: ${yousignResult.error}`);
       }
     } catch (err: any) {
       console.error('❌ Erreur lors de la création de la demande Yousign:', err);
-      // Fallback: créer un lien interne
-      const fallbackToken = require('crypto').randomBytes(32).toString('hex');
-      signatureLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signature/${fallbackToken}`;
-      
-      try {
-        await client.query(
-          'UPDATE baux SET signature_token = $1 WHERE id = $2',
-          [fallbackToken, nouveauBailId]
-        );
-      } catch (err: any) {
-        console.warn('⚠️ Colonne signature_token non disponible, ignorée:', err.message);
-      }
+      // ❌ Rejeter la transaction si Yousign échoue
+      await client.query('ROLLBACK');
+      return NextResponse.json(
+        { error: `Erreur lors de la création de la demande de signature: ${err.message}` },
+        { status: 500 }
+      );
     }
 
     // 6. Sauvegarder le PDF (pour archive)

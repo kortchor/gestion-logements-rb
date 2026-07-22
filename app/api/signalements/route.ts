@@ -45,6 +45,25 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const collaborateur = collaborateurResult.rows[0];
 
+    // Récupérer le logement actuel du collaborateur
+    let logementInfo = 'Non assigné';
+    try {
+      const logementResult = await query(
+        `SELECT DISTINCT l.adresse, l.id
+         FROM logements l
+         INNER JOIN baux b ON l.id = b.logement_id
+         WHERE b.collaborateur_id = $1 
+         AND b.date_fin >= CURRENT_DATE
+         LIMIT 1`,
+        [payload.id]
+      );
+      if (logementResult.rows.length > 0) {
+        logementInfo = logementResult.rows[0].adresse;
+      }
+    } catch (e) {
+      console.warn('⚠️ Erreur récupération logement:', e);
+    }
+
     // Enregistrer le signalement
     const signalementResult = await query(
       `INSERT INTO signalements (collaborateur_id, sujet, message, statut)
@@ -135,6 +154,7 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
             <h3>👤 Informations du collaborateur</h3>
             <p><strong>Nom :</strong> ${collaborateur.prenom} ${collaborateur.nom}</p>
             <p><strong>Email :</strong> ${collaborateur.email}</p>
+            <p><strong>🏠 Logement :</strong> ${logementInfo}</p>
           </div>
           
           <div class="info-box">

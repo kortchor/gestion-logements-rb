@@ -24,12 +24,16 @@ async function setupDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS logements (
         id SERIAL PRIMARY KEY,
+        nom_logement VARCHAR(255),
         adresse TEXT NOT NULL,
+        ville VARCHAR(100),
         prix_loyer DECIMAL(10,2),
         proprietaire VARCHAR(255),
         contact_proprietaire VARCHAR(255),
         fournisseur_edf VARCHAR(255),
         fournisseur_eau VARCHAR(255),
+        centre_analytique VARCHAR(100),
+        est_actif BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -40,6 +44,8 @@ async function setupDatabase() {
         id SERIAL PRIMARY KEY,
         logement_id INTEGER REFERENCES logements(id) ON DELETE CASCADE,
         nom VARCHAR(100) NOT NULL,
+        type_lit VARCHAR(50),
+        nombre_lits INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -50,6 +56,9 @@ async function setupDatabase() {
         id SERIAL PRIMARY KEY,
         chambre_id INTEGER REFERENCES chambres(id) ON DELETE CASCADE,
         numero VARCHAR(50) NOT NULL,
+        type_lit VARCHAR(50),
+        collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE SET NULL,
+        est_occupe BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -67,6 +76,8 @@ async function setupDatabase() {
         chien BOOLEAN DEFAULT false,
         lit_id INTEGER REFERENCES lits(id),
         clefs VARCHAR(50),
+        role VARCHAR(50) DEFAULT 'user',
+        est_actif BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -80,6 +91,8 @@ async function setupDatabase() {
         date_debut DATE NOT NULL,
         date_fin DATE NOT NULL,
         participation_mensuelle DECIMAL(10,2),
+        yousign_request_id VARCHAR(255),
+        signature_link VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -105,6 +118,41 @@ async function setupDatabase() {
         message TEXT NOT NULL,
         statut VARCHAR(50) DEFAULT 'en_attente',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table des paramètres de configuration
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS parametres (
+        id SERIAL PRIMARY KEY,
+        cle VARCHAR(255) UNIQUE NOT NULL,
+        valeur TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table des notifications
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
+        type VARCHAR(100),
+        titre VARCHAR(255),
+        message TEXT,
+        lu BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table des modèles de convention
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS modeles_convention (
+        id SERIAL PRIMARY KEY,
+        nom VARCHAR(255) NOT NULL,
+        contenu TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 

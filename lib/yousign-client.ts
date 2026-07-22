@@ -31,8 +31,8 @@ class YouSignClient {
     const environment = process.env.YOUSIGN_ENVIRONMENT || 'sandbox';
 
     this.baseUrl = environment === 'production'
-      ? 'https://api.yousign.app/api/v3'
-      : 'https://api-sandbox.yousign.app/api/v3';
+      ? 'https://api.yousign.app/v3'
+      : 'https://api-sandbox.yousign.app/v3';
 
     // Vérifier que les clés sont configurées
     this.isEnabled = !!(this.apiKey && this.workspaceId);

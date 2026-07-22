@@ -1,7 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { createSignatureRequestWithDocument } = require('../lib/yousign.js');
 
 async function test() {
   try {
@@ -15,24 +14,26 @@ async function test() {
     }
 
     const pdfBuffer = fs.readFileSync(pdfPath);
-    const pdfBase64 = pdfBuffer.toString('base64');
 
     console.log('📄 PDF chargé, taille :', pdfBuffer.length, 'octets');
-    console.log('🔍 Test de création de signature Yousign...');
+    console.log('🔍 Test de création de signature Yousign V3...');
     
-    const result = await createSignatureRequestWithDocument({
+    // Importer le client Yousign
+    const youSignClient = require('../lib/yousign-client').default;
+    
+    const result = await youSignClient.createSignatureRequest({
       signerEmail: 'test@exemple.com',
-      signerNom: 'Test',
-      signerPrenom: 'Utilisateur',
-      documentContent: pdfBase64,
+      signerName: 'Test Utilisateur',
+      documentContent: pdfBuffer,
       documentName: 'document_test.pdf',
-      message: 'Test de signature',
+      message: 'Test de signature via API V3',
     });
 
     if (result.success) {
       console.log('✅ Demande de signature créée !');
       console.log('📝 ID:', result.signatureRequestId);
-      console.log('🔗 Lien:', result.signerUrl);
+      console.log('🔗 Lien:', result.signatureLink);
+      console.log('👁️ Signer URL:', result.signerUrl);
     } else {
       console.log('❌ Erreur:', result.error);
     }

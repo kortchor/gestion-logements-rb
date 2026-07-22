@@ -64,12 +64,23 @@ class YouSignClient {
 
       // 1️⃣ CRÉER la demande de signature (vide)
       console.log('📋 Étape 1: Création de la demande de signature...');
+      
+      // Date d'expiration au format YYYY-MM-DD
+      const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0];
+
+      const cleanSignerName = signerName.trim();
+
       const createBody = {
-        name: `Convention - ${signerName}`,
+        name: `Convention - ${cleanSignerName}`,
         workspace_id: this.workspaceId,
         delivery_mode: 'email',
-        expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        reminder_settings: { enabled: true, days_before_expiration: 2 },
+        expiration_date: expirationDate,
+        reminder_settings: {
+          interval_in_days: 2,
+          max_occurrences: 2,
+        },
       };
 
       console.log('📎 URL:', `${this.baseUrl}/signature_requests`);
@@ -116,6 +127,9 @@ class YouSignClient {
 
       // 3️⃣ AJOUTER le signataire
       console.log('👤 Étape 3: Ajout du signataire...');
+      const firstName = cleanSignerName.split(' ')[0];
+      const lastName = cleanSignerName.split(' ').slice(1).join(' ') || firstName;
+
       const signerResponse = await fetch(`${this.baseUrl}/signature_requests/${requestId}/signers`, {
         method: 'POST',
         headers: {
@@ -123,7 +137,11 @@ class YouSignClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          info: { first_name: signerName.split(' ')[0], last_name: signerName.split(' ').slice(1).join(' ') || signerName, email: signerEmail },
+          info: { 
+            first_name: firstName, 
+            last_name: lastName, 
+            email: signerEmail.trim() 
+          },
           signature_level: 'electronic_signature',
           signature_authentication_mode: 'no_otp',
           fields: [{ document_id: uploadData.id, type: 'signature', page: 1, x: 400, y: 700, width: 150, height: 50 }],

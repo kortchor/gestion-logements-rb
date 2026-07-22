@@ -50,6 +50,7 @@ export default function ReportIssueButton() {
 
       const response = await fetch('/api/signalements', {
         method: 'POST',
+        credentials: 'include',
         body: formDataToSend,
       });
 

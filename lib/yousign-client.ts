@@ -146,7 +146,7 @@ class YouSignClient {
             first_name: sanitize(firstName), 
             last_name: sanitize(lastName), 
             email: signerEmail.trim(),
-            locale: 'fr_FR',
+            locale: 'fr',
           },
           signature_level: 'electronic_signature',
           signature_authentication_mode: 'no_otp',

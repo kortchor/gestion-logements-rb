@@ -96,6 +96,18 @@ async function setupDatabase() {
       )
     `);
 
+    // Table des signalements (problèmes reportés par les collaborateurs)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS signalements (
+        id SERIAL PRIMARY KEY,
+        collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
+        sujet VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        statut VARCHAR(50) DEFAULT 'en_attente',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ Tables créées avec succès !');
     
     await client.end();

@@ -55,36 +55,61 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const signalementId = signalementResult.rows[0].id;
 
-    // Sauvegarder les fichiers
+    // Sauvegarder les fichiers (optionnel - ne pas bloquer l'envoi si ça échoue)
     const fichiersPaths: string[] = [];
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'signalements', String(signalementId));
-
     if (fichiers.length > 0) {
-      await mkdir(uploadDir, { recursive: true });
+      try {
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'signalements', String(signalementId));
+        await mkdir(uploadDir, { recursive: true });
 
-      for (const file of fichiers) {
-        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-          console.warn(`⚠️ Type de fichier non autorisé uploadé : ${file.type}`);
-          continue; // On ignore le fichier mais on continue le traitement
+        for (const file of fichiers) {
+          try {
+            if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+              console.warn(`⚠️ Type de fichier non autorisé uploadé : ${file.type}`);
+              continue;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+              console.warn(`⚠️ Fichier trop volumineux uploadé : ${file.size}`);
+              continue;
+            }
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const filename = `${Date.now()}-${file.name}`;
+            const filepath = path.join(uploadDir, filename);
+            await writeFile(filepath, buffer);
+            fichiersPaths.push(`/uploads/signalements/${signalementId}/${filename}`);
+          } catch (fileError) {
+            console.warn(`⚠️ Erreur sauvegarde fichier ${file.name}:`, fileError);
+            // Continuer même si un fichier échoue
+          }
         }
-        if (file.size > MAX_FILE_SIZE) {
-          console.warn(`⚠️ Fichier trop volumineux uploadé : ${file.size}`);
-          continue;
-        }
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const filename = `${Date.now()}-${file.name}`;
-        const filepath = path.join(uploadDir, filename);
-        await writeFile(filepath, buffer);
-        fichiersPaths.push(`/uploads/signalements/${signalementId}/${filename}`);
+      } catch (dirError) {
+        console.warn('⚠️ Erreur création répertoire uploads:', dirError);
+        // Continuer sans les fichiers
       }
     }
 
     // Préparer les pièces jointes pour l'email
-    const attachments = fichiersPaths.map((filepath, index) => ({
-      filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
-      path: path.join(process.cwd(), 'public', filepath),
-    }));
+    let attachments: any[] = [];
+    if (fichiersPaths.length > 0) {
+      try {
+        attachments = fichiersPaths
+          .map((filepath, index) => {
+            try {
+              return {
+                filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
+                path: path.join(process.cwd(), 'public', filepath),
+              };
+            } catch (e) {
+              return null;
+            }
+          })
+          .filter(Boolean);
+      } catch (e) {
+        console.warn('⚠️ Erreur préparation attachments:', e);
+        attachments = [];
+      }
+    }
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -140,19 +165,28 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
       </html>
     `;
 
-    await sendEmail({
-      to: techEmail,
-      subject: `🔧 Signalement technique : ${sujet}`,
-      html: emailHtml,
-      attachments,
-    });
+    // Envoyer les emails (ne pas bloquer si ça échoue)
+    try {
+      await sendEmail({
+        to: techEmail,
+        subject: `🔧 Signalement technique : ${sujet}`,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email technicien:', emailError);
+    }
 
-    await sendEmail({
-      to: rhEmail,
-      subject: `🔧 Copie signalement technique : ${sujet}`,
-      html: emailHtml,
-      attachments,
-    });
+    try {
+      await sendEmail({
+        to: rhEmail,
+        subject: `🔧 Copie signalement technique : ${sujet}`,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email RH:', emailError);
+    }
 
     return NextResponse.json({
       success: true,

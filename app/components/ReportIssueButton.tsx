@@ -66,9 +66,11 @@ export default function ReportIssueButton() {
         }, 3000);
       } else {
         setError(data.error || 'Erreur lors de l\'envoi');
+        console.error('Erreur API signalement:', response.status, data);
       }
     } catch (err) {
-      setError('Erreur de connexion');
+      console.error('Erreur signalement:', err);
+      setError(err instanceof Error ? err.message : 'Erreur de connexion');
     } finally {
       setLoading(false);
     }

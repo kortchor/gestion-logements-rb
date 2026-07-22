@@ -65,10 +65,9 @@ class YouSignClient {
       // 1️⃣ UPLOAD du document (retourner un file_id)
       console.log('📤 Étape 1: Upload du document...');
       const uploadFormData = new FormData();
-      uploadFormData.append('file', new Blob([documentContent]), documentName);
-      uploadFormData.append('workspace_id', this.workspaceId);
+      uploadFormData.append('file', new Blob([documentContent], { type: 'application/pdf' }), documentName);
 
-      const uploadResponse = await fetch(`${this.baseUrl}/uploads`, {
+      const uploadResponse = await fetch(`${this.baseUrl}/documents`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,

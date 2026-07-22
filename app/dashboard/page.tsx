@@ -46,8 +46,17 @@ interface CostData {
 
 interface CostByCenter {
   centre_analytique: string;
-  coût_total: number;
-  nombre_logements: number;
+  cout_total: number;
+  nombre_collaborateurs: number;
+}
+
+interface Participation {
+  collaborateur: string;
+  logement: string;
+  ville: string;
+  centre_analytique: string;
+  participation_mensuelle: number;
+  cout_hotel: number;
 }
 
 export default function DashboardPage() {
@@ -55,6 +64,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [costData, setCostData] = useState<CostData | null>(null);
   const [costByCenter, setCostByCenter] = useState<CostByCenter[]>([]);
+  const [participations, setParticipations] = useState<Participation[]>([]);
+  const [coutTotalParticipations, setCoutTotalParticipations] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
   const [costsLoading, setCostsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,7 +76,7 @@ export default function DashboardPage() {
         setStatsLoading(true);
         setError('');
 
-        const [logementsRes, collaborateursRes, bauxRes, costsRes, costsByCenterRes] = await Promise.all([
+        const [logementsRes, collaborateursRes, bauxRes, costsRes, costsByCenterRes, participationsRes] = await Promise.all([
           fetch('/api/logements').catch(err => {
             console.error('Erreur logements:', err);
             return new Response(JSON.stringify([]), { status: 500 });
@@ -84,6 +95,10 @@ export default function DashboardPage() {
           }),
           fetch('/api/dashboard/costs?type=by-center').catch(err => {
             console.error('Erreur coûts par centre:', err);
+            return new Response(JSON.stringify({ success: false }), { status: 500 });
+          }),
+          fetch('/api/dashboard/costs?type=participations').catch(err => {
+            console.error('Erreur participations:', err);
             return new Response(JSON.stringify({ success: false }), { status: 500 });
           }),
         ]);
@@ -135,6 +150,16 @@ export default function DashboardPage() {
           }
         } catch (e) {
           console.error('Erreur parsing coûts par centre:', e);
+        }
+
+        try {
+          const participationsResponse = await participationsRes.json();
+          if (participationsResponse.success && Array.isArray(participationsResponse.data)) {
+            setParticipations(participationsResponse.data);
+            setCoutTotalParticipations(participationsResponse.coutTotal || 0);
+          }
+        } catch (e) {
+          console.error('Erreur parsing participations:', e);
         }
 
         // Calculer les baux en cours
@@ -269,77 +294,123 @@ export default function DashboardPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Coût mensuel total */}
-              {costData && (
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Coût mensuel total</h3>
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-green-600 mb-2">
-                      {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            <div className="space-y-6">
+              {/* Ligne 1 : Total loyer + Coûts par centre */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Loyer total mensuel (payé aux propriétaires) */}
+                {costData && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1">🏠 Loyer total mensuel</h3>
+                    <p className="text-xs text-gray-500 mb-4">Ce que l'hôtel verse aux propriétaires — {costData.mois}</p>
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-green-600">
+                        {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">Somme des loyers des logements actifs</p>
                     </div>
-                    <p className="text-sm text-gray-600">Somme des loyers actuels - {costData.mois}</p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Coûts par centre analytique */}
-              {costByCenter.length > 0 && (
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Coûts par centre analytique</h3>
-                  <div className="space-y-3">
-                    {costByCenter.map((center) => (
-                      <div key={center.centre_analytique} className="flex items-between justify-between p-3 bg-gray-50 rounded">
-                        <div>
-                          <p className="font-medium text-gray-800">{center.centre_analytique}</p>
-                          <p className="text-xs text-gray-600">{center.nombre_logements} logements</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-blue-600">
-                            {center.coût_total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {/* Coûts par centre analytique */}
+                {costByCenter.length > 0 && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1">📊 Coûts par centre analytique</h3>
+                    <p className="text-xs text-gray-500 mb-4">Quote-part hôtel par collaborateur logé (loyer ÷ nb lits)</p>
+                    <div className="space-y-2">
+                      {costByCenter.map((center) => (
+                        <div key={center.centre_analytique} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-800">{center.centre_analytique}</p>
+                            <p className="text-xs text-gray-500">{center.nombre_collaborateurs} collaborateur(s) logé(s)</p>
+                          </div>
+                          <p className="font-bold text-blue-600 text-lg">
+                            {center.cout_total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                           </p>
                         </div>
+                      ))}
+                      <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200 mt-2">
+                        <p className="font-bold text-blue-900">Total logement hôtel</p>
+                        <p className="font-bold text-blue-900 text-lg">
+                          {costByCenter.reduce((s, c) => s + c.cout_total, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </p>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Graphique pie chart - répartition par centre */}
+              {/* Graphique pie */}
               {costByCenter.length > 0 && (
                 <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Répartition des coûts</h3>
-                  <div style={{ position: 'relative', height: '300px' }}>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">🥧 Répartition des coûts par centre</h3>
+                  <div style={{ position: 'relative', height: '280px', maxWidth: '400px', margin: '0 auto' }}>
                     <Pie
                       data={{
                         labels: costByCenter.map((c) => c.centre_analytique),
-                        datasets: [
-                          {
-                            label: 'Coûts par centre',
-                            data: costByCenter.map((c) => c.coût_total),
-                            backgroundColor: [
-                              '#3b82f6',
-                              '#10b981',
-                              '#f59e0b',
-                              '#ef4444',
-                              '#8b5cf6',
-                              '#ec4899',
-                            ],
-                            borderColor: '#fff',
-                            borderWidth: 2,
-                          },
-                        ],
+                        datasets: [{
+                          data: costByCenter.map((c) => c.cout_total),
+                          backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'],
+                          borderColor: '#fff',
+                          borderWidth: 2,
+                        }],
                       }}
                       options={{
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'bottom' as const,
-                          },
-                        },
+                        plugins: { legend: { position: 'bottom' as const } },
                       }}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* Tableau des participations */}
+              {participations.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800">📋 Tableau des participations logement</h3>
+                    <p className="text-xs text-gray-500 mt-1">Baux en cours — coût hôtel = loyer ÷ nb lits du logement</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Collaborateur</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre analytique</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Participation (€)</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Coût hôtel (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {participations.map((p, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{p.collaborateur}</td>
+                            <td className="px-4 py-3 text-gray-600">{p.logement} <span className="text-xs text-gray-400">({p.ville})</span></td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">{p.centre_analytique}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-700">
+                              {p.participation_mensuelle.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-blue-700">
+                              {p.cout_hotel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-300">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-gray-800">Total</td>
+                          <td className="px-4 py-3 text-right text-gray-700">
+                            {participations.reduce((s, p) => s + p.participation_mensuelle, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </td>
+                          <td className="px-4 py-3 text-right text-blue-800">
+                            {coutTotalParticipations.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
                 </div>
               )}

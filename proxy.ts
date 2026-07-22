@@ -135,7 +135,8 @@ export async function proxy(request: NextRequest) {
         // Le Super Admin a accès à tout
         break;
       case 'admin':
-        // L'Admin ne peut pas accéder aux routes Super Admin
+      case 'admin_readonly':
+        // L'Admin (et admin_readonly) ne peut pas accéder aux routes Super Admin
         if (isSuperAdminRoute) {
           console.log('⛔ [Proxy] Accès refusé (Super Admin requis) pour:', pathname);
           const duration = Date.now() - startTime;

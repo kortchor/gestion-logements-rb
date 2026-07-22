@@ -14,19 +14,11 @@ export async function GET(request: Request) {
         c.nom,
         c.prenom,
         c.email,
-        c.telephone,
-        c.genre,
         c.date_arrivee,
         c.date_depart,
-        c.date_debut_contrat,
-        c.date_fin_contrat,
         c.vehicule,
-        c.animal,
-        c.commentaire,
-        c.centre_principal,
-        c.centre_affectation,
-        c.clefs,
-        c.est_actif
+        c.est_actif,
+        c.created_at
       FROM collaborateurs c`;
 
     const queryParams = [];

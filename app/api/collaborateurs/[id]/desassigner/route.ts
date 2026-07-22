@@ -37,11 +37,13 @@ export async function POST(
       [collaborateurId]
     );
 
-    // 3. Fermer le bail actif associé
-    const now = new Date().toISOString().split('T')[0];
+    // 3. Fermer le bail actif associé (date_fin = hier pour qu'il soit immédiatement en historique)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
     await query(
       `UPDATE baux SET date_fin = $1 WHERE collaborateur_id = $2 AND date_fin >= CURRENT_DATE`,
-      [now, collaborateurId]
+      [yesterdayStr, collaborateurId]
     );
 
     // 4. Si le logement est vide, redevient mixte

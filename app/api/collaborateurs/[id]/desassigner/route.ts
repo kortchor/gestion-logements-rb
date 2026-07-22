@@ -38,13 +38,15 @@ export async function POST(
     );
 
     // 3. Fermer le bail actif associé (date_fin = hier pour qu'il soit immédiatement en historique)
+    // On ferme TOUS les baux encore ouverts (date_fin >= hier) pour ce collaborateur
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
-    await query(
-      `UPDATE baux SET date_fin = $1 WHERE collaborateur_id = $2 AND date_fin >= CURRENT_DATE`,
+    const bailUpdate = await query(
+      `UPDATE baux SET date_fin = $1 WHERE collaborateur_id = $2 AND date_fin >= $1`,
       [yesterdayStr, collaborateurId]
     );
+    console.log(`✅ ${bailUpdate.rowCount} bail(s) clôturé(s) pour collaborateur ${collaborateurId}`);
 
     // 4. Si le logement est vide, redevient mixte
     if (logementId) {

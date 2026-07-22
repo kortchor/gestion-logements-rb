@@ -66,10 +66,14 @@ class YouSignClient {
       console.log('📋 Étape 1: Création de la demande de signature...');
       const createBody = {
         name: `Convention - ${signerName}`,
-        delivery_mode: 'none', // On gère l'email nous-mêmes
+        workspace_id: this.workspaceId,
+        delivery_mode: 'email',
         expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         reminder_settings: { enabled: true, days_before_expiration: 2 },
       };
+
+      console.log('📎 URL:', `${this.baseUrl}/signature_requests`);
+      console.log('📎 Body:', JSON.stringify(createBody));
 
       const createResponse = await fetch(`${this.baseUrl}/signature_requests`, {
         method: 'POST',

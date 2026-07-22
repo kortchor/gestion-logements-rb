@@ -127,9 +127,14 @@ class YouSignClient {
 
       // 3️⃣ AJOUTER le signataire
       console.log('👤 Étape 3: Ajout du signataire...');
-      const firstName = cleanSignerName.split(' ')[0];
-      const lastName = cleanSignerName.split(' ').slice(1).join(' ') || firstName;
+      const nameParts = cleanSignerName.split(' ');
+      const firstName = nameParts[0] || 'Signataire';
+      const lastName = nameParts.slice(1).join(' ') || firstName;
 
+      // Nettoyer les noms pour éviter les caractères non valides
+      // Garder uniquement: lettres, espaces, tirets, apostrophes
+      const sanitize = (str: string) => str.replace(/[^a-zA-ZÀ-ÿ\s\-']/g, '').trim() || 'N/A';
+      
       const signerResponse = await fetch(`${this.baseUrl}/signature_requests/${requestId}/signers`, {
         method: 'POST',
         headers: {
@@ -138,9 +143,10 @@ class YouSignClient {
         },
         body: JSON.stringify({
           info: { 
-            first_name: firstName, 
-            last_name: lastName, 
-            email: signerEmail.trim() 
+            first_name: sanitize(firstName), 
+            last_name: sanitize(lastName), 
+            email: signerEmail.trim(),
+            locale: 'fr_FR',
           },
           signature_level: 'electronic_signature',
           signature_authentication_mode: 'no_otp',

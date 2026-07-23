@@ -104,11 +104,55 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
     // Marquer le lit comme occupé
     await query('UPDATE lits SET est_occupe = true WHERE id = $1', [id]);
 
+    // Créer les baux automatiquement (si pas déjà existants)
+    const logement_id = lit.logement_id;
+    const today = new Date().toISOString().split('T')[0];
+    const endDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+
+    // Créer ou mettre à jour le bail pour collaborateur 1
+    const existingBail1 = await query(
+      'SELECT * FROM baux WHERE logement_id = $1 AND collaborateur_id = $2 AND date_fin >= CURRENT_DATE',
+      [logement_id, collaborateur1_id]
+    );
+
+    if (existingBail1.rows.length === 0) {
+      // Récupérer le prix du logement
+      const logInfo = await query('SELECT prix_loyer FROM logements WHERE id = $1', [logement_id]);
+      const prix_loyer = parseFloat(logInfo.rows[0]?.prix_loyer || 0);
+      const participation = collaborateur2_id ? prix_loyer / 2 : prix_loyer;
+
+      await query(
+        `INSERT INTO baux (logement_id, collaborateur_id, date_debut, date_fin, participation_mensuelle)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [logement_id, collaborateur1_id, today, endDate, participation]
+      );
+    }
+
+    // Créer le bail pour collaborateur 2 (si applicable)
+    if (collaborateur2_id) {
+      const existingBail2 = await query(
+        'SELECT * FROM baux WHERE logement_id = $1 AND collaborateur_id = $2 AND date_fin >= CURRENT_DATE',
+        [logement_id, collaborateur2_id]
+      );
+
+      if (existingBail2.rows.length === 0) {
+        const logInfo = await query('SELECT prix_loyer FROM logements WHERE id = $1', [logement_id]);
+        const prix_loyer = parseFloat(logInfo.rows[0]?.prix_loyer || 0);
+        const participation = prix_loyer / 2;
+
+        await query(
+          `INSERT INTO baux (logement_id, collaborateur_id, date_debut, date_fin, participation_mensuelle)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [logement_id, collaborateur2_id, today, endDate, participation]
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: collaborateur2_id 
-        ? 'Couple assigné au lit avec succès' 
-        : 'Collaborateur assigné au lit avec succès',
+        ? 'Couple assigné au lit avec succès et baux créés (50/50)' 
+        : 'Collaborateur assigné au lit avec succès et bail créé',
     });
   } catch (error) {
     console.error('❌ Erreur:', error);

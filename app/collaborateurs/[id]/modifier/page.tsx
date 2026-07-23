@@ -12,6 +12,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
     nom: '',
     prenom: '',
     email: '',
+    civilite: '',
     telephone: '',
     genre: 'F',
     date_arrivee: '',
@@ -42,6 +43,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
             nom: c.nom || '',
             prenom: c.prenom || '',
             email: c.email || '',
+            civilite: c.civilite || '',
             telephone: c.telephone || '',
             genre: c.genre || 'F',
             date_arrivee: c.date_arrivee ? c.date_arrivee.split('T')[0] : '',
@@ -135,6 +137,17 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
             <select name="genre" required value={formData.genre} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md">
               <option value="F">👩 Femme</option>
               <option value="M">👨 Homme</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Civilité</label>
+            <select name="civilite" value={formData.civilite} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <option value="">--- Sélectionner ---</option>
+              <option value="Mme">Mme</option>
+              <option value="M.">M.</option>
+              <option value="Dr">Dr</option>
+              <option value="Me">Me</option>
             </select>
           </div>
 

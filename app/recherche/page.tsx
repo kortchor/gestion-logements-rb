@@ -250,7 +250,7 @@ export default function RecherchePage() {
                     {Object.entries(logement.chambres).map(([chambKey, chambre]) => (
                       <div key={chambKey} className="mb-3 pb-3 border-b last:border-b-0">
                         <p className="font-medium text-gray-700 mb-2">
-                          🚪 Chambre n°{chambre.num_chambre} ({chambre.type_lit})
+                          🚪 {chambre.num_chambre} ({chambre.type_lit})
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {chambre.lits.map((lit) => (

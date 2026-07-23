@@ -33,6 +33,8 @@ async function setupDatabase() {
         fournisseur_edf VARCHAR(255),
         fournisseur_eau VARCHAR(255),
         centre_analytique VARCHAR(100),
+        date_debut_contrat DATE,
+        date_fin_contrat DATE,
         est_actif BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

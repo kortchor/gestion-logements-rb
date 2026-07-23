@@ -11,6 +11,8 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const ville = searchParams.get('ville');
     const type_lit = searchParams.get('type_lit');
     const type_occupation = searchParams.get('type_occupation');
+    const date_debut = searchParams.get('date_debut');
+    const date_fin = searchParams.get('date_fin');
 
     let sql = `
       SELECT 
@@ -24,7 +26,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         log.adresse as logement_adresse,
         log.ville,
         log.mixte_autorise,
-        log.type_occupation_effectif as type_occupation
+        log.type_occupation_effectif as type_occupation,
+        log.date_debut_contrat,
+        log.date_fin_contrat
       FROM lits l
       LEFT JOIN chambres ch ON l.chambre_id = ch.id
       LEFT JOIN logements log ON ch.logement_id = log.id
@@ -55,6 +59,24 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       } else if (type_occupation === 'garçon') {
         sql += ` AND (log.type_occupation_effectif = 'M' OR log.mixte_autorise = true)`;
       }
+    }
+
+    // Filtrer par dates si fournies
+    if (date_debut && date_fin) {
+      sql += `
+        AND (
+          -- Logement disponible toute l'année (pas de date_fin_contrat)
+          log.date_fin_contrat IS NULL
+          -- OU la période demandée est dans la période disponible du logement
+          OR (
+            (log.date_debut_contrat IS NULL OR log.date_debut_contrat <= $${paramIndex}::date)
+            AND (log.date_fin_contrat IS NULL OR log.date_fin_contrat >= $${paramIndex + 1}::date)
+          )
+        )
+      `;
+      params.push(date_debut);
+      params.push(date_fin);
+      paramIndex += 2;
     }
 
     sql += ` ORDER BY log.ville, log.adresse, ch.nom, l.numero`;

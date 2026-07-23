@@ -53,6 +53,8 @@ export default function RecherchePage() {
     ville: '',
     type_lit: '',
     type_occupation: '',
+    date_debut: '',
+    date_fin: '',
   });
 
   // Charger les lits libres
@@ -117,6 +119,8 @@ export default function RecherchePage() {
       if (formData.ville) params.append('ville', formData.ville);
       if (formData.type_lit) params.append('type_lit', formData.type_lit);
       if (formData.type_occupation) params.append('type_occupation', formData.type_occupation);
+      if (formData.date_debut) params.append('date_debut', formData.date_debut);
+      if (formData.date_fin) params.append('date_fin', formData.date_fin);
 
       const response = await fetch(`/api/lits/recherche?${params.toString()}`);
       const data = await response.json();
@@ -326,7 +330,7 @@ export default function RecherchePage() {
           
           {/* Formulaire de recherche */}
           <form onSubmit={handleSearch} className="bg-white p-6 rounded-lg shadow-md mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
                 <select
@@ -369,6 +373,28 @@ export default function RecherchePage() {
                   <option value="fille">👩 Filles</option>
                   <option value="garçon">👨 Garçons</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Disponible du</label>
+                <input
+                  type="date"
+                  name="date_debut"
+                  value={formData.date_debut}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Au</label>
+                <input
+                  type="date"
+                  name="date_fin"
+                  value={formData.date_fin}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
 

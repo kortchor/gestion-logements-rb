@@ -21,7 +21,9 @@ async function migrateDatabase() {
       ADD COLUMN IF NOT EXISTS nom_logement VARCHAR(255),
       ADD COLUMN IF NOT EXISTS ville VARCHAR(100),
       ADD COLUMN IF NOT EXISTS centre_analytique VARCHAR(100),
-      ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+      ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
+      ADD COLUMN IF NOT EXISTS date_fin_contrat DATE
     `);
 
     // Ajouter les colonnes manquantes à la table chambres

@@ -9,6 +9,7 @@ interface LitLibre {
   chambre_id: number;
   num_chambre: string;
   logement_id: number;
+  nom_logement: string;
   adresse: string;
   ville: string;
   prix_loyer: number;
@@ -194,8 +195,9 @@ export default function RecherchePage() {
                 <div key={lit.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-semibold text-lg text-gray-800">{lit.adresse}</h3>
-                      <p className="text-sm text-gray-600">{lit.ville}</p>
+                      <h3 className="font-semibold text-lg text-gray-800">{lit.nom_logement || lit.adresse}</h3>
+                      <p className="text-sm text-gray-600">{lit.adresse}</p>
+                      <p className="text-xs text-gray-500">{lit.ville}</p>
                     </div>
                     <span className="text-2xl">🛏️</span>
                   </div>

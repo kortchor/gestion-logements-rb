@@ -9,20 +9,21 @@ export const GET = withAuth(async (request: NextRequest, payload: TokenPayload) 
     const result = await query(`
       SELECT 
         l.id,
-        l.num_lit,
-        l.type_lit,
-        c.id as chambre_id,
-        c.num_chambre,
-        lo.id as logement_id,
-        lo.adresse,
-        lo.ville,
-        lo.prix_loyer
+        l.numero as num_lit,
+        ch.type_lit,
+        ch.id as chambre_id,
+        ch.nom as num_chambre,
+        log.id as logement_id,
+        log.nom_logement,
+        log.adresse,
+        log.ville,
+        log.prix_loyer
       FROM lits l
-      JOIN chambres c ON l.chambre_id = c.id
-      JOIN logements lo ON c.logement_id = lo.id
-      WHERE l.collaborateur_id IS NULL
-        AND lo.est_actif = true
-      ORDER BY lo.adresse, c.num_chambre, l.num_lit
+      JOIN chambres ch ON l.chambre_id = ch.id
+      JOIN logements log ON ch.logement_id = log.id
+      WHERE l.est_occupe = false
+        AND log.est_actif = true
+      ORDER BY log.adresse, ch.nom, l.numero
     `);
 
     return NextResponse.json({ success: true, data: result.rows });

@@ -48,7 +48,8 @@ async function migrateDatabase() {
     await client.query(`
       ALTER TABLE collaborateurs
       ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user',
-      ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+      ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS civilite VARCHAR(10)
     `);
 
     // Ajouter les colonnes manquantes à la table baux
@@ -115,6 +116,21 @@ async function migrateDatabase() {
         collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(lit_id, collaborateur_id)
+      )
+    `);
+
+    console.log('  → audit_trail...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_trail (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES collaborateurs(id) ON DELETE SET NULL,
+        user_email VARCHAR(255),
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(100),
+        entity_id INTEGER,
+        changes JSONB,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 

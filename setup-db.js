@@ -72,6 +72,7 @@ async function setupDatabase() {
         nom VARCHAR(100) NOT NULL,
         prenom VARCHAR(100) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
+        civilite VARCHAR(10),
         date_arrivee DATE,
         date_depart DATE,
         vehicule BOOLEAN DEFAULT false,
@@ -143,6 +144,21 @@ async function setupDatabase() {
         titre VARCHAR(255),
         message TEXT,
         lu BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table d'audit trail pour tracer les actions
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_trail (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES collaborateurs(id) ON DELETE SET NULL,
+        user_email VARCHAR(255),
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(100),
+        entity_id INTEGER,
+        changes JSONB,
+        ip_address VARCHAR(45),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

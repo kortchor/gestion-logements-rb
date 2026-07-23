@@ -17,7 +17,7 @@ D'une part,
 
 Et
 
-{{PRENOM}} {{NOM}}
+{{CIVILITE}} {{PRENOM}} {{NOM}}
 {{#if CENTRE_PRINCIPAL}}Centre principal : {{CENTRE_PRINCIPAL}}{{/if}}
 {{#if CENTRE_AFFECTATION}}Centre affectation : {{CENTRE_AFFECTATION}}{{/if}}
 Email : {{EMAIL}}
@@ -28,7 +28,7 @@ D'autre part
 IL EST CONVENU CE QUI SUIT
 
 Article 1er -- Logement mis à disposition de l'Occupant
-L'Employeur concède à {{PRENOM}} {{NOM}} en considération de sa qualité de salarié à son service et comme accessoire du contrat de travail liant les deux parties, la jouissance d'une partie du Logement suivant dont il est locataire à l'adresse suivante :
+L'Employeur concède à {{CIVILITE}} {{PRENOM}} {{NOM}} en considération de sa qualité de salarié à son service et comme accessoire du contrat de travail liant les deux parties, la jouissance d'une partie du Logement suivant dont il est locataire à l'adresse suivante :
 Adresse du Logement : {{ADRESSE}}, {{VILLE}}
 
 Description du Logement mis à disposition de l'Occupant
@@ -53,6 +53,7 @@ export async function generateConventionPDF({
   nom,
   prenom,
   email,
+  civilite = '',
   adresseLogement,
   villeLogement,
   dateDebut,
@@ -67,6 +68,7 @@ export async function generateConventionPDF({
   nom: string;
   prenom: string;
   email: string;
+  civilite?: string;
   adresseLogement: string;
   villeLogement: string;
   dateDebut: string;
@@ -89,6 +91,7 @@ export async function generateConventionPDF({
 
   // Préparer les variables
   const variables = {
+    CIVILITE: civilite,
     NOM: nom.toUpperCase(),
     PRENOM: prenom,
     EMAIL: email || '',

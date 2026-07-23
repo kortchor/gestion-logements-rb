@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
       await client.query(`
         ALTER TABLE collaborateurs
         ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user',
-        ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+        ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS civilite VARCHAR(10)
       `);
       console.log('  ✓ collaborateurs');
 
@@ -128,6 +129,21 @@ export async function POST(request: NextRequest) {
         )
       `);
       console.log('  ✓ lit_occupants');
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS audit_trail (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES collaborateurs(id) ON DELETE SET NULL,
+          user_email VARCHAR(255),
+          action VARCHAR(100) NOT NULL,
+          entity_type VARCHAR(100),
+          entity_id INTEGER,
+          changes JSONB,
+          ip_address VARCHAR(45),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('  ✓ audit_trail');
 
       return NextResponse.json({
         success: true,

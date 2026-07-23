@@ -116,6 +116,17 @@ export async function POST(request: NextRequest) {
       `);
       console.log('  ✓ signalements');
 
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS lit_occupants (
+          id SERIAL PRIMARY KEY,
+          lit_id INTEGER REFERENCES lits(id) ON DELETE CASCADE,
+          collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(lit_id, collaborateur_id)
+        )
+      `);
+      console.log('  ✓ lit_occupants');
+
       return NextResponse.json({
         success: true,
         message: 'Migrations exécutées avec succès',

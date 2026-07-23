@@ -156,6 +156,18 @@ async function setupDatabase() {
       )
     `);
 
+    // Table pour gérer les occupants des lits (many-to-many)
+    // Permet à un lit d'avoir plusieurs collaborateurs (ex: couples)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lit_occupants (
+        id SERIAL PRIMARY KEY,
+        lit_id INTEGER REFERENCES lits(id) ON DELETE CASCADE,
+        collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(lit_id, collaborateur_id)
+      )
+    `);
+
     console.log('✅ Tables créées avec succès !');
     
     await client.end();

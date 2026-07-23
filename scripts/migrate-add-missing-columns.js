@@ -105,6 +105,17 @@ async function migrateDatabase() {
       )
     `);
 
+    console.log('  → lit_occupants...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lit_occupants (
+        id SERIAL PRIMARY KEY,
+        lit_id INTEGER REFERENCES lits(id) ON DELETE CASCADE,
+        collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(lit_id, collaborateur_id)
+      )
+    `);
+
     console.log('✅ Migration complétée avec succès !');
     process.exit(0);
   } catch (error) {

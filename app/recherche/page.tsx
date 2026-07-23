@@ -147,6 +147,42 @@ export default function RecherchePage() {
     return colors[ville] || 'bg-gray-100 text-gray-800';
   };
 
+  // Grouper les lits par logement/chambre
+  const groupLitsByLogement = () => {
+    const grouped: { [key: string]: typeof litsLibres[0] & { 
+      lits: Array<{id: number, num_lit: string}>,
+      chambres: { [key: string]: {num_chambre: string, type_lit: string, lits: Array<{id: number, num_lit: string}>}}
+    } } = {};
+
+    litsLibres.forEach((lit) => {
+      const logKey = `${lit.logement_id}`;
+      const chambKey = `${lit.chambre_id}`;
+      
+      if (!grouped[logKey]) {
+        grouped[logKey] = {
+          ...lit,
+          lits: [],
+          chambres: {}
+        };
+      }
+
+      if (!grouped[logKey].chambres[chambKey]) {
+        grouped[logKey].chambres[chambKey] = {
+          num_chambre: lit.num_chambre,
+          type_lit: lit.type_lit,
+          lits: []
+        };
+      }
+
+      grouped[logKey].chambres[chambKey].lits.push({
+        id: lit.id,
+        num_lit: lit.num_lit
+      });
+    });
+
+    return Object.values(grouped);
+  };
+
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-6">🔍 Recherche & Analyse</h1>
@@ -190,21 +226,44 @@ export default function RecherchePage() {
         <div>
           <h2 className="text-2xl font-bold mb-4">Lits disponibles</h2>
           {litsLibres.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {litsLibres.map((lit) => (
-                <div key={lit.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-semibold text-lg text-gray-800">{lit.nom_logement || lit.adresse}</h3>
-                      <p className="text-sm text-gray-600">{lit.adresse}</p>
-                      <p className="text-xs text-gray-500">{lit.ville}</p>
+            <div className="space-y-4">
+              {groupLitsByLogement().map((logement) => (
+                <div key={logement.logement_id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-gray-800">{logement.nom_logement || logement.adresse}</h3>
+                      <p className="text-sm text-gray-600">{logement.adresse}</p>
+                      <div className="mt-2 flex gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVilleColor(logement.ville)}`}>
+                          {logement.ville}
+                        </span>
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          Loyer: {logement.prix_loyer?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </span>
+                      </div>
                     </div>
                     <span className="text-2xl">🛏️</span>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Chambre:</strong> n°{lit.num_chambre}</p>
-                    <p><strong>Lit:</strong> {lit.num_lit} ({lit.type_lit})</p>
-                    <p><strong>Loyer:</strong> {lit.prix_loyer?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</p>
+
+                  {/* Chambres et lits */}
+                  <div className="border-t pt-4">
+                    {Object.entries(logement.chambres).map(([chambKey, chambre]) => (
+                      <div key={chambKey} className="mb-3 pb-3 border-b last:border-b-0">
+                        <p className="font-medium text-gray-700 mb-2">
+                          🚪 Chambre n°{chambre.num_chambre} ({chambre.type_lit})
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {chambre.lits.map((lit) => (
+                            <span 
+                              key={lit.id} 
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                            >
+                              Lit {lit.num_lit}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

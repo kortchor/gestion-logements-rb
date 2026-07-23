@@ -100,6 +100,7 @@ export const createCollaborateurSchema = {
         nom: data.nom.trim(),
         prenom: data.prenom.trim(),
         email: data.email.toLowerCase().trim(),
+        civilite: data.civilite?.trim() || null,
         telephone: data.telephone?.trim() || null,
         genre: data.genre || null,
         date_arrivee: data.date_arrivee || null,

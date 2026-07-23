@@ -14,6 +14,7 @@ export async function GET(request: Request) {
         c.nom,
         c.prenom,
         c.email,
+        c.civilite,
         c.date_arrivee,
         c.date_depart,
         c.vehicule,
@@ -80,15 +81,16 @@ export async function POST(request: Request) {
     // Créer le collaborateur (SANS mot de passe)
     const result = await client.query(
       `INSERT INTO collaborateurs 
-       (nom, prenom, email, telephone, genre, date_arrivee, date_depart, 
+       (nom, prenom, email, civilite, telephone, genre, date_arrivee, date_depart, 
         date_debut_contrat, date_fin_contrat, vehicule, animal, commentaire,
         centre_principal, centre_affectation, est_actif, role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, 'user')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, true, 'user')
        RETURNING id`,
       [
         validatedData.nom,
         validatedData.prenom,
         validatedData.email,
+        validatedData.civilite,
         validatedData.telephone,
         validatedData.genre,
         validatedData.date_arrivee,

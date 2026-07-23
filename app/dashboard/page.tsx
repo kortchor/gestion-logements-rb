@@ -432,9 +432,9 @@ export default function DashboardPage() {
               <p className="text-lg font-semibold text-purple-900">📄</p>
               <p className="text-sm text-purple-700 mt-2">Modèles de convention</p>
             </Link>
-            <Link href="/" className="bg-gray-50 hover:bg-gray-100 p-4 rounded-lg border border-gray-200 transition-colors no-underline">
-              <p className="text-lg font-semibold text-gray-900">📊</p>
-              <p className="text-sm text-gray-700 mt-2">Retour à l'accueil</p>
+            <Link href="/admin/lits/gerer-couples" className="bg-pink-50 hover:bg-pink-100 p-4 rounded-lg border border-pink-200 transition-colors no-underline">
+              <p className="text-lg font-semibold text-pink-900">👫</p>
+              <p className="text-sm text-pink-700 mt-2">Gérer les couples</p>
             </Link>
           </div>
         </div>

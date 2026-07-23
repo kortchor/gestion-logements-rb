@@ -29,20 +29,34 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 };
 
-// Coût par centre analytique = SUM(prix_loyer / nb_lits_total_logement) pour chaque bail actif
+// Coût par centre analytique = SUM(prix_loyer / nb_occupants_du_lit) pour chaque bail actif
 const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     const result = await query(`
       SELECT
         COALESCE(log.centre_analytique, 'Non assigné') as centre_analytique,
-        SUM(log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 0)) as cout_centre,
-        COUNT(b.id) as nb_collaborateurs
+        SUM(
+          CASE 
+            WHEN li.id IS NOT NULL THEN 
+              log.prix_loyer::numeric / NULLIF(occupant_counts.nb_occupants, 1)
+            ELSE 
+              log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 1)
+          END
+        ) as cout_centre,
+        COUNT(DISTINCT b.id) as nb_collaborateurs
       FROM baux b
       JOIN logements log ON b.logement_id = log.id
-      JOIN (
-        SELECT ch.logement_id, COUNT(li.id) as nb_lits
-        FROM lits li
-        JOIN chambres ch ON li.chambre_id = ch.id
+      LEFT JOIN lit_occupants lo ON lo.collaborateur_id = b.collaborateur_id
+      LEFT JOIN lits li ON lo.lit_id = li.id
+      LEFT JOIN (
+        SELECT lit_id, COUNT(*) as nb_occupants
+        FROM lit_occupants
+        GROUP BY lit_id
+      ) occupant_counts ON li.id = occupant_counts.lit_id
+      LEFT JOIN (
+        SELECT ch.logement_id, COUNT(l.id) as nb_lits
+        FROM lits l
+        JOIN chambres ch ON l.chambre_id = ch.id
         GROUP BY ch.logement_id
       ) lits_count ON lits_count.logement_id = log.id
       WHERE b.date_fin >= CURRENT_DATE
@@ -75,16 +89,29 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
         log.ville,
         COALESCE(log.centre_analytique, 'Non assigné') as centre_analytique,
         b.participation_mensuelle,
-        log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 0) as cout_hotel_par_collaborateur,
+        -- Calculer le coût hôtel en fonction du nombre d'occupants du lit
+        CASE 
+          WHEN li.id IS NOT NULL THEN 
+            log.prix_loyer::numeric / NULLIF(occupant_counts.nb_occupants, 1)
+          ELSE 
+            log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 1)
+        END as cout_hotel_par_collaborateur,
         b.date_debut,
         b.date_fin
       FROM baux b
       JOIN collaborateurs c ON b.collaborateur_id = c.id
       JOIN logements log ON b.logement_id = log.id
-      JOIN (
-        SELECT ch.logement_id, COUNT(li.id) as nb_lits
-        FROM lits li
-        JOIN chambres ch ON li.chambre_id = ch.id
+      LEFT JOIN lit_occupants lo ON lo.collaborateur_id = c.id
+      LEFT JOIN lits li ON lo.lit_id = li.id
+      LEFT JOIN (
+        SELECT lit_id, COUNT(*) as nb_occupants
+        FROM lit_occupants
+        GROUP BY lit_id
+      ) occupant_counts ON li.id = occupant_counts.lit_id
+      LEFT JOIN (
+        SELECT ch.logement_id, COUNT(l.id) as nb_lits
+        FROM lits l
+        JOIN chambres ch ON l.chambre_id = ch.id
         GROUP BY ch.logement_id
       ) lits_count ON lits_count.logement_id = log.id
       WHERE b.date_fin >= CURRENT_DATE

@@ -31,6 +31,7 @@ interface LitDisponible {
   chambre_nom: string;
   chambre_id: number;
   logement_id: number;
+  nom_logement: string;
   logement_adresse: string;
   ville: string;
   type_lit: string;
@@ -46,6 +47,7 @@ export default function RecherchePage() {
   const [collaborateursSans, setCollaborateursSans] = useState<CollaborateurSansLogement[]>([]);
   const [resultats, setResultats] = useState<LitDisponible[]>([]);
   const [villes, setVilles] = useState<string[]>([]);
+  const [searchEffected, setSearchEffected] = useState(false);
   const [formData, setFormData] = useState({
     ville: '',
     type_lit: '',
@@ -107,6 +109,7 @@ export default function RecherchePage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSearchEffected(true);
 
     try {
       const params = new URLSearchParams();
@@ -318,57 +321,80 @@ export default function RecherchePage() {
           </form>
 
           {/* Résultats */}
-          {resultats.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 bg-gray-50 border-b">
-                <p className="text-sm text-gray-600">
-                  {resultats.length} lit(s) disponible(s) trouvé(s)
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {resultats.map((lit) => (
-                      <tr key={lit.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVilleColor(lit.ville)}`}>
-                            {lit.ville}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">{lit.logement_adresse}</td>
-                        <td className="px-6 py-4">
-                          {lit.type_lit === 'simple' ? '🛏️ Simple' : '🛏️🛏️ Double'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            lit.type_occupation === 'fille' ? 'bg-pink-200 text-pink-800' :
-                            lit.type_occupation === 'garçon' ? 'bg-blue-200 text-blue-800' :
-                            'bg-gray-200 text-gray-800'
-                          }`}>
-                            {lit.type_occupation === 'mixte' ? 'Mixte' :
-                             lit.type_occupation === 'fille' ? '👩 Filles' : '👨 Garçons'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {searchEffected ? (
+            <>
+              {resultats.length > 0 && (
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="px-6 py-4 bg-gray-50 border-b">
+                    <p className="text-sm text-gray-600">
+                      {resultats.length} lit(s) disponible(s) trouvé(s)
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {resultats.map((lit) => (
+                          <tr key={lit.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 font-medium text-gray-800">
+                              {lit.nom_logement || lit.logement_adresse}
+                            </td>
+                            <td className="px-6 py-4">{lit.logement_adresse}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVilleColor(lit.ville)}`}>
+                                {lit.ville}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {lit.type_lit === 'simple' ? '🛏️ Simple' : '🛏️🛏️ Double'}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                lit.type_occupation === 'fille' ? 'bg-pink-200 text-pink-800' :
+                                lit.type_occupation === 'garçon' ? 'bg-blue-200 text-blue-800' :
+                                'bg-gray-200 text-gray-800'
+                              }`}>
+                                {lit.type_occupation === 'mixte' ? 'Mixte' :
+                                 lit.type_occupation === 'fille' ? '👩 Filles' : '👨 Garçons'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-          {resultats.length === 0 && (formData.ville || formData.type_lit) && (
-            <div className="text-center text-gray-500 py-8">
-              <p className="text-lg">Aucun lit disponible pour ces critères</p>
-              <p className="text-sm">Modifiez vos critères de recherche</p>
+              {resultats.length === 0 && (formData.ville || formData.type_lit || formData.type_occupation) && (
+                <div className="text-center text-gray-500 py-8">
+                  <p className="text-lg">Aucun lit disponible pour ces critères</p>
+                  <p className="text-sm">Modifiez vos critères de recherche</p>
+                </div>
+              )}
+
+              {resultats.length === 0 && !formData.ville && !formData.type_lit && !formData.type_occupation && (
+                <div className="text-center text-gray-500 py-8">
+                  <p className="text-lg">Cliquez sur 🔍 Rechercher pour afficher tous les lits disponibles</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+              <p className="text-blue-900 text-lg font-medium">
+                Utilisez les filtres ci-dessus pour trouver des lits disponibles
+              </p>
+              <p className="text-blue-700 text-sm mt-2">
+                Laissez les champs vides pour voir tous les lits disponibles
+              </p>
             </div>
           )}
         </>

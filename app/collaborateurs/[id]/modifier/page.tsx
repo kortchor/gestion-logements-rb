@@ -33,10 +33,10 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
         // ✅ DÉBALLER LA PROMESSE AVEC await
         const { id } = await params;
         
-        const response = await fetch(`/api/collaborateurs?id=${id}`);
+        const response = await fetch(`/api/collaborateurs/${id}`);
         const data = await response.json();
         if (data.success) {
-          const c = data.data;
+          const c = data.data || data;
           setCollab(c);
           setFormData({
             nom: c.nom || '',
@@ -58,6 +58,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           setError('Collaborateur non trouvé');
         }
       } catch (err) {
+        console.error('Erreur:', err);
         setError('Erreur de chargement');
       }
     }

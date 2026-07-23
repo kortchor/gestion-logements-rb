@@ -79,11 +79,10 @@ export async function generateConventionPDF({
 }): Promise<Buffer> {
   const finalTemplate = template && template.trim().length > 0 ? template : DEFAULT_CONVENTION_TEMPLATE;
   const pdfDoc = await PDFDocument.create();
-  // Note: la gestion de plusieurs pages et le contenu plus complexe du PDF par défaut
-  // nécessiteraient une logique de rendu plus avancée que ce simple remplacement.
-  // L'exemple ci-dessous est simplifié pour illustrer le concept de template.
-  const page = pdfDoc.addPage([595.28, 841.89]);
-  const { width, height } = page.getSize();
+  
+  let currentPage = pdfDoc.addPage([595.28, 841.89]);
+  const pageWidth = currentPage.getWidth();
+  const pageHeight = currentPage.getHeight();
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -124,7 +123,7 @@ export async function generateConventionPDF({
   const lines = texte.split('\n');
   const fontSize = 11;
   const lineHeight = 18;
-  let y = height - 50;
+  let y = pageHeight - 50;
 
   for (const line of lines) {
     if (line.trim() === '') {
@@ -146,7 +145,13 @@ export async function generateConventionPDF({
       drawSize = fontSize + 1;
     }
     
-    page.drawText(line, {
+    // Créer une nouvelle page si nécessaire AVANT de dessiner
+    if (y < 50) {
+      currentPage = pdfDoc.addPage([595.28, 841.89]);
+      y = pageHeight - 50;
+    }
+
+    currentPage.drawText(line, {
       x: 50,
       y: y,
       size: drawSize,
@@ -154,11 +159,6 @@ export async function generateConventionPDF({
       color: rgb(0, 0, 0),
     });
     y -= lineHeight;
-
-    if (y < 50) {
-      const newPage = pdfDoc.addPage([595.28, 841.89]);
-      y = height - 50;
-    }
   }
 
   const pdfBytes = await pdfDoc.save();

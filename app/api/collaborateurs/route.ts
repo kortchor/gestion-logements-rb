@@ -125,10 +125,16 @@ export async function POST(request: Request) {
     await client.query('COMMIT');
     return NextResponse.json({ success: true, id: collaborateurId }, { status: 201 });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (e) {
+      // Ignore rollback errors
+    }
     console.error('❌ Erreur POST:', error);
+    // Log detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: 'Erreur lors de la création' },
+      { error: 'Erreur lors de la création', details: errorMessage },
       { status: 500 }
     );
   } finally {

@@ -1,23 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-// ✅ Définir une interface pour la structure des lits disponibles
-interface LitDisponible {
-  id: number;
-  ville: string;
-  logement_adresse: string;
-  chambre_nom: string;
-  numero: string | number;
-}
 
 export default function NouveauCollaborateur() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [litsDisponibles, setLitsDisponibles] = useState<LitDisponible[]>([]); // ✅ Typer l'état
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -34,35 +24,7 @@ export default function NouveauCollaborateur() {
     commentaire: '',
     centre_principal: '',
     centre_affectation: '',
-    lit_id: '',
   });
-
-  useEffect(() => {
-    async function fetchLits() {
-      try {
-        // ✅ Utiliser la bonne route API
-        const response = await fetch('/api/logements/disponibles');
-        if (!response.ok) {
-          throw new Error('Erreur serveur lors de la récupération des lits');
-        }
-        const logementsData = await response.json();
-        
-        // ✅ AMÉLIORATION : Utiliser la structure de données hiérarchique de l'API
-        const lits = logementsData.flatMap((logement: any) => 
-          (logement.chambres || []).flatMap((chambre: any) => 
-            (chambre.lits || []).map((lit: any) => ({ 
-              ...lit, 
-              logement_adresse: logement.adresse, ville: logement.ville, chambre_nom: chambre.nom 
-            }))
-          )
-        );
-        setLitsDisponibles(lits.filter((lit: any) => !lit.est_occupe));
-      } catch (error) {
-        console.error('Erreur:', error);
-      }
-    }
-    fetchLits();
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;

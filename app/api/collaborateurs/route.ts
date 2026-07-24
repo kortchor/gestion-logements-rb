@@ -52,7 +52,6 @@ export async function POST(request: Request) {
     // ✅ Validation des entrées
     const validation = createCollaborateurSchema.validate(body);
     if (!validation.success) {
-      await client.release();
       return NextResponse.json(
         { error: 'Données invalides', errors: validation.errors },
         { status: 400 }
@@ -71,7 +70,6 @@ export async function POST(request: Request) {
 
     if (checkResult.rows.length > 0) {
       await client.query('ROLLBACK');
-      await client.release();
       return NextResponse.json(
         { error: 'Un collaborateur avec cet email existe déjà' },
         { status: 400 }
@@ -138,7 +136,11 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    client.release();
+    try {
+      client.release();
+    } catch (e) {
+      // Client already released or error, ignore
+    }
   }
 }
 
@@ -230,6 +232,10 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   } finally {
-    client.release();
+    try {
+      client.release();
+    } catch (e) {
+      // Client already released or error, ignore
+    }
   }
 }

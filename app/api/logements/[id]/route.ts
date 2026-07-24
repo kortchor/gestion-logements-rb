@@ -76,6 +76,8 @@ export async function PUT(
       etat_lieux_pdf,
       etat_lieux_nom,
       etat_lieux_photos,
+      date_debut_contrat,
+      date_fin_contrat,
       est_visible,
       mixte_autorise,
       description_detaillee,
@@ -91,8 +93,9 @@ export async function PUT(
            nom_assureur = $11, assurance = $12, assurance_pdf = $13, assurance_nom = $14,
            bail_pdf = $15, bail_nom = $16,
            etat_lieux_pdf = $17, etat_lieux_nom = $18, etat_lieux_photos = $19,
-           est_visible = $20, mixte_autorise = $21, description_detaillee = $22
-       WHERE id = $23`,
+           date_debut_contrat = $20, date_fin_contrat = $21,
+           est_visible = $22, mixte_autorise = $23, description_detaillee = $24
+       WHERE id = $25`,
       [
         nom_logement || null,
         adresse,
@@ -113,6 +116,8 @@ export async function PUT(
         etat_lieux_pdf || null,
         etat_lieux_nom || null,
         etat_lieux_photos || null,
+        date_debut_contrat || null,
+        date_fin_contrat || null,
         est_visible !== undefined ? est_visible : true,
         mixte_autorise || false,
         description_detaillee || null,

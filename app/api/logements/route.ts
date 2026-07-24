@@ -76,6 +76,8 @@ export async function POST(request: Request) {
       etat_lieux_pdf,
       etat_lieux_nom,
       etat_lieux_photos,
+      date_debut_contrat,
+      date_fin_contrat,
       est_visible,
       mixte_autorise,
       description_detaillee,
@@ -91,8 +93,9 @@ export async function POST(request: Request) {
         nom_assureur, assurance, assurance_pdf, assurance_nom,
         bail_pdf, bail_nom,
         etat_lieux_pdf, etat_lieux_nom, etat_lieux_photos,
+        date_debut_contrat, date_fin_contrat,
         est_visible, mixte_autorise, description_detaillee
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
       RETURNING id`,
       [
         nom_logement || null,
@@ -114,6 +117,8 @@ export async function POST(request: Request) {
         etat_lieux_pdf || null,
         etat_lieux_nom || null,
         etat_lieux_photos || null,
+        date_debut_contrat || null,
+        date_fin_contrat || null,
         est_visible !== undefined ? est_visible : true,
         mixte_autorise || false,
         description_detaillee || null,

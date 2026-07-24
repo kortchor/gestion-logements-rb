@@ -39,31 +39,21 @@ export async function GET(request: NextRequest) {
         adresse,
         ville,
         prix_loyer,
-        date_debut_contrat,
-        date_fin_contrat,
-        CASE 
-          WHEN date_debut_contrat <= $1 AND (date_fin_contrat IS NULL OR date_fin_contrat >= $2) THEN prix_loyer
-          WHEN date_debut_contrat <= $2 AND date_fin_contrat >= $1 AND date_fin_contrat IS NOT NULL THEN 
-            CASE
-              WHEN date_debut_contrat <= $1 AND date_fin_contrat >= $2 THEN prix_loyer
-              WHEN date_debut_contrat > $1 AND date_fin_contrat < $2 THEN prix_loyer * (EXTRACT(DAY FROM date_fin_contrat) - EXTRACT(DAY FROM date_debut_contrat) + 1) / EXTRACT(DAY FROM ($2::DATE))
-              WHEN date_debut_contrat > $1 THEN prix_loyer * (EXTRACT(DAY FROM $2::DATE) - EXTRACT(DAY FROM date_debut_contrat) + 1) / EXTRACT(DAY FROM ($2::DATE))
-              ELSE prix_loyer * (EXTRACT(DAY FROM date_fin_contrat) - EXTRACT(DAY FROM $1::DATE) + 1) / EXTRACT(DAY FROM ($2::DATE))
-            END
-          ELSE 0
-        END as cout_loyer_mois
+        COALESCE(date_debut_contrat, $1::DATE) as date_debut_contrat,
+        COALESCE(date_fin_contrat, ($2::DATE + INTERVAL '10 years')) as date_fin_contrat,
+        prix_loyer as cout_loyer_mois
       FROM logements
       WHERE est_actif = true
       AND prix_loyer > 0
-      AND (
-        (date_debut_contrat <= $2 AND (date_fin_contrat IS NULL OR date_fin_contrat >= $1))
-      )
       ORDER BY ville, nom_logement`,
       [startDate, endDate]
     );
 
-    const logements = result.rows;
-    const totalCout = logements.reduce((sum: number, log: any) => sum + (log.cout_loyer_mois || 0), 0);
+    const logements = result.rows.map((log: any) => ({
+      ...log,
+      cout_loyer_mois: parseFloat(log.cout_loyer_mois) || 0
+    }));
+    const totalCout = logements.reduce((sum: number, log: any) => sum + (parseFloat(log.cout_loyer_mois) || 0), 0);
 
     // Grouper par ville
     const byVille = logements.reduce((acc: any, log: any) => {

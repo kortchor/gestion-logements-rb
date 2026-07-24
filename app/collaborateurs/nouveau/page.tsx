@@ -273,29 +273,6 @@ export default function NouveauCollaborateur() {
             />
           </div>
 
-          {/* Lit assigné */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assigner un lit (optionnel)
-            </label>
-            <select
-              name="lit_id"
-              value={formData.lit_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Non assigné</option>
-              {litsDisponibles.map((lit) => ( // ✅ Plus besoin de 'any'
-                <option key={lit.id} value={lit.id}>
-                  {lit.logement_adresse}, {lit.ville} (Chambre: {lit.chambre_nom} - Lit n°{lit.numero})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Seuls les lits disponibles sont affichés
-            </p>
-          </div>
-
           {/* Options */}
           <div className="col-span-2 flex gap-6">
             <label className="flex items-center">

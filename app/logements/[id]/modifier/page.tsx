@@ -29,6 +29,8 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     etat_lieux_pdf: '',
     etat_lieux_nom: '',
     etat_lieux_photos: '',
+    date_debut_contrat: '',
+    date_fin_contrat: '',
     est_visible: true,
     mixte_autorise: false,
     description_detaillee: '',
@@ -72,6 +74,8 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
             etat_lieux_pdf: data.data.etat_lieux_pdf || '',
             etat_lieux_nom: data.data.etat_lieux_nom || '',
             etat_lieux_photos: data.data.etat_lieux_photos || '',
+            date_debut_contrat: data.data.date_debut_contrat ? data.data.date_debut_contrat.split('T')[0] : '',
+            date_fin_contrat: data.data.date_fin_contrat ? data.data.date_fin_contrat.split('T')[0] : '',
             est_visible: data.data.est_visible !== undefined ? data.data.est_visible : true,
             mixte_autorise: data.data.mixte_autorise || false,
             description_detaillee: data.data.description_detaillee || '',
@@ -316,6 +320,28 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Prix loyer mensuel (€)</label>
             <input type="number" name="prix_loyer" step="0.01" value={formData.prix_loyer} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📅 Début du contrat</label>
+            <input
+              type="date"
+              name="date_debut_contrat"
+              value={formData.date_debut_contrat}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📅 Fin du contrat</label>
+            <input
+              type="date"
+              name="date_fin_contrat"
+              value={formData.date_fin_contrat}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <div className="col-span-2">

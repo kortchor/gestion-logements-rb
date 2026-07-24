@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 import AddCollaborateurButton from '@/app/components/AddCollaborateurButton';
 import ExportButtons from '@/app/components/ExportButtons';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,8 @@ export default async function CollaborateursPage() {
         l.id as lit_id,
         l.numero as lit_numero,
         ch.nom as chambre_nom,
+        log.id as logement_id,
+        log.nom_logement,
         log.adresse as logement_adresse,
         log.ville as logement_ville,
         log.type_occupation_effectif as logement_type_occupation,
@@ -77,8 +80,10 @@ export default async function CollaborateursPage() {
       { key: 'centre_affectation', label: 'Centre affectation' },
       { key: 'date_debut_contrat', label: 'Début contrat' },
       { key: 'date_fin_contrat', label: 'Fin contrat' },
-      { key: 'logement_adresse', label: 'Logement' },
+      { key: 'nom_logement', label: 'Logement' },
+      { key: 'logement_adresse', label: 'Adresse logement' },
       { key: 'logement_ville', label: 'Ville' },
+      { key: 'participation_mensuelle', label: 'Participation logement' },
       { key: 'vehicule', label: 'Véhicule' },
       { key: 'animal', label: 'Animal' },
     ];
@@ -94,6 +99,9 @@ export default async function CollaborateursPage() {
               columns={exportColumns}
               filename="liste_collaborateurs"
             />
+            <Link href="/admin/collaborateurs-import" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors inline-block">
+              📥 Importer
+            </Link>
             <AddCollaborateurButton />
           </div>
         </div>

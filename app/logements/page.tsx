@@ -74,6 +74,8 @@ export default async function LogementsPage() {
       { key: 'total_lits', label: 'Lits' },
       { key: 'prix_loyer', label: 'Loyer (€)' },
       { key: 'proprietaire', label: 'Propriétaire' },
+      { key: 'date_debut_contrat', label: 'Début contrat' },
+      { key: 'date_fin_contrat', label: 'Fin contrat' },
       { key: 'mixte_autorise', label: 'Mixte autorisé' },
     ];
 

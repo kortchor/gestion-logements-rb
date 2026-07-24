@@ -432,9 +432,9 @@ export default function DashboardPage() {
               <p className="text-lg font-semibold text-purple-900">📄</p>
               <p className="text-sm text-purple-700 mt-2">Modèles de convention</p>
             </Link>
-            <Link href="/admin/lits/gerer-couples" className="bg-pink-50 hover:bg-pink-100 p-4 rounded-lg border border-pink-200 transition-colors no-underline">
-              <p className="text-lg font-semibold text-pink-900">👫</p>
-              <p className="text-sm text-pink-700 mt-2">Gérer les couples</p>
+            <Link href="/logements/monthly-cost" className="bg-yellow-50 hover:bg-yellow-100 p-4 rounded-lg border border-yellow-200 transition-colors no-underline">
+              <p className="text-lg font-semibold text-yellow-900">💰</p>
+              <p className="text-sm text-yellow-700 mt-2">Coût mensuel des loyers</p>
             </Link>
             <Link href="/admin/logements-tableau" className="bg-orange-50 hover:bg-orange-100 p-4 rounded-lg border border-orange-200 transition-colors no-underline">
               <p className="text-lg font-semibold text-orange-900">📊</p>

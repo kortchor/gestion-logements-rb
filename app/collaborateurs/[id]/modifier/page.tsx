@@ -143,11 +143,9 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Civilité</label>
             <select name="civilite" value={formData.civilite} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <option value="">--- Sélectionner ---</option>
+              <option value="">Non précisé</option>
               <option value="Mme">Mme</option>
               <option value="M.">M.</option>
-              <option value="Dr">Dr</option>
-              <option value="Me">Me</option>
             </select>
           </div>
 

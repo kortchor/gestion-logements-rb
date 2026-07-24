@@ -122,14 +122,28 @@ export async function POST(request: Request) {
 
     const logementId = result.rows[0].id;
 
-    // Insérer les chambres
+    // Insérer les chambres ET créer les lits automatiquement
     if (chambres && chambres.length > 0) {
       for (const chambre of chambres) {
-        await query(
+        // Créer la chambre
+        const chambreResult = await query(
           `INSERT INTO chambres (logement_id, nom, type_lit, nombre_lits)
-           VALUES ($1, $2, $3, $4)`,
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
           [logementId, chambre.nom, chambre.type_lit, chambre.nombre_lits || 1]
         );
+
+        const chambreId = chambreResult.rows[0].id;
+
+        // Créer les lits automatiquement
+        const nombreLits = chambre.nombre_lits || 1;
+        for (let i = 1; i <= nombreLits; i++) {
+          await query(
+            `INSERT INTO lits (chambre_id, numero, type_lit)
+             VALUES ($1, $2, $3)`,
+            [chambreId, `${chambre.nom}-L${i}`, chambre.type_lit]
+          );
+        }
       }
     }
 

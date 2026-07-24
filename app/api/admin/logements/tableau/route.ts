@@ -44,7 +44,7 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         log.ville,
         log.est_actif,
         COUNT(DISTINCT l.id) as nombre_lits,
-        COUNT(DISTINCT CASE WHEN lo.collaborateur_id IS NULL THEN l.id END) as lits_libres
+        COUNT(DISTINCT CASE WHEN l.collaborateur_id IS NULL AND lo.collaborateur_id IS NULL THEN l.id END) as lits_libres
       FROM logements log
       LEFT JOIN chambres c ON log.id = c.logement_id
       LEFT JOIN lits l ON c.id = l.chambre_id
@@ -64,18 +64,23 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         .map((_, i) => `$${i + 1}`)
         .join(',');
 
+      // Récupérer les occupants (directement via lits.collaborateur_id et via lit_occupants)
       const occupantsResult = await query(
-        `SELECT 
-          l.id as lit_id,
+        `SELECT DISTINCT
           c.logement_id,
+          col.id,
           col.prenom,
-          col.nom
-        FROM lits l
-        JOIN chambres c ON l.chambre_id = c.id
-        LEFT JOIN lit_occupants lo ON l.id = lo.lit_id
-        LEFT JOIN collaborateurs col ON lo.collaborateur_id = col.id
+          col.nom,
+          COALESCE(b.participation_mensuelle, 0) as participation
+        FROM chambres c
+        LEFT JOIN lits l ON c.id = l.chambre_id
+        LEFT JOIN collaborateurs col ON (l.collaborateur_id = col.id OR col.id IN (
+          SELECT collaborateur_id FROM lit_occupants WHERE lit_id = l.id
+        ))
+        LEFT JOIN baux b ON col.id = b.collaborateur_id AND c.logement_id = b.logement_id AND CURRENT_DATE BETWEEN b.date_debut AND b.date_fin
         WHERE c.logement_id IN (${placeholders})
-        AND lo.collaborateur_id IS NOT NULL`,
+        AND col.id IS NOT NULL
+        ORDER BY c.logement_id, col.nom, col.prenom`,
         logementIds
       );
 
@@ -86,10 +91,13 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const grouped = logements.rows.reduce((acc: any, log: any) => {
       const villeGroup = acc.find((g: any) => g.ville === log.ville);
       
-      // Récupérer les occupants pour ce logement
+      // Récupérer les occupants pour ce logement avec leurs contributions
       const logOccupants = occupants
         .filter((o: any) => o.logement_id === log.id)
-        .map((o: any) => `${o.prenom} ${o.nom}`);
+        .map((o: any) => ({
+          nom: `${o.prenom} ${o.nom}`,
+          contribution: o.participation ? parseFloat(o.participation) : 0
+        }));
 
       const logementData = {
         id: log.id,

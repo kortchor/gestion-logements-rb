@@ -11,7 +11,7 @@ interface LogementGrouped {
     nom_logement: string;
     adresse: string;
     est_actif: boolean;
-    occupants: string[];
+    occupants: Array<{ nom: string; contribution: number }>;
     nombre_occupants: number;
     nombre_lits: number;
     lits_libres: number;
@@ -58,11 +58,18 @@ export default function LogementsTableauPage() {
       const csvContent = data
         .map((group) => {
           let csv = `\n${group.ville.toUpperCase()}\n`;
-          csv += 'Logement,Adresse,Occupants,Lits,Libres,Statut\n';
+          csv += 'Logement,Adresse,Occupants,Contributions,Lits,Libres,Statut\n';
           csv += group.logements
-            .map((log) =>
-              `"${log.nom_logement}","${log.adresse}","${log.occupants.join(', ') || 'Libre'}",${log.nombre_lits},${log.lits_libres},"${log.est_actif ? 'Actif' : 'Inactif'}"`
-            )
+            .map((log) => {
+              const occupantsStr = log.occupants
+                .map(o => o.nom)
+                .join('; ');
+              const contributionsStr = log.occupants
+                .map(o => o.contribution > 0 ? o.contribution.toFixed(2) : '')
+                .filter(c => c)
+                .join('; ');
+              return `"${log.nom_logement}","${log.adresse}","${occupantsStr || 'Libre'}","${contributionsStr}",${log.nombre_lits},${log.lits_libres},"${log.est_actif ? 'Actif' : 'Inactif'}"`;
+            })
             .join('\n');
           return csv;
         })
@@ -229,14 +236,14 @@ export default function LogementsTableauPage() {
                           </td>
                           <td className="px-6 py-4 text-sm">
                             {logement.occupants.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex flex-wrap gap-2">
                                 {logement.occupants.map((occ, i) => (
-                                  <span
-                                    key={i}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                  >
-                                    {occ}
-                                  </span>
+                                  <div key={i} className="bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                                    <div className="text-blue-900 font-medium text-xs">{occ.nom}</div>
+                                    {occ.contribution > 0 && (
+                                      <div className="text-blue-600 text-xs">💰 {occ.contribution.toFixed(2)}€</div>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             ) : (

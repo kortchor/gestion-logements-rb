@@ -4,6 +4,22 @@ import { createCollaborateurSchema } from '@/lib/validation';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import logger, { logError } from '@/lib/logger';
 
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value == null ? null : String(value);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toNullableDate(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value == null ? null : String(value);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 // ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
 export async function GET(request: Request) {
   try {
@@ -70,6 +86,8 @@ export async function POST(request: Request) {
     }
 
     const validatedData = validation.data;
+    const dateDepart = toNullableDate(validatedData.date_depart);
+    const dateFinContrat = toNullableDate(validatedData.date_fin_contrat);
 
     await client.query('BEGIN');
 
@@ -96,21 +114,21 @@ export async function POST(request: Request) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, true, 'user')
        RETURNING id`,
       [
-        validatedData.nom,
-        validatedData.prenom,
-        validatedData.email,
-        validatedData.civilite,
-        validatedData.telephone,
+        toNullableString(validatedData.nom),
+        toNullableString(validatedData.prenom),
+        toNullableString(validatedData.email),
+        toNullableString(validatedData.civilite),
+        toNullableString(validatedData.telephone),
         validatedData.genre,
-        validatedData.date_arrivee,
-        validatedData.date_depart,
-        validatedData.date_debut_contrat,
-        validatedData.date_fin_contrat,
+        toNullableDate(validatedData.date_arrivee),
+        dateDepart,
+        toNullableDate(validatedData.date_debut_contrat),
+        dateFinContrat,
         validatedData.vehicule,
         validatedData.animal,
-        validatedData.commentaire,
-        validatedData.centre_principal,
-        validatedData.centre_affectation,
+        toNullableString(validatedData.commentaire),
+        toNullableString(validatedData.centre_principal),
+        toNullableString(validatedData.centre_affectation),
       ]
     );
 

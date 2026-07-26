@@ -22,6 +22,7 @@ export default function AjouterLogement() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          nom_logement: adresse,
           adresse,
           ville,
           type: 'Appartement',
@@ -36,7 +37,7 @@ export default function AjouterLogement() {
         const data = await response.json()
         setError(data.error || 'Erreur lors de la création')
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion')
     } finally {
       setLoading(false)

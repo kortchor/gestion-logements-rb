@@ -78,18 +78,43 @@ export function verifyCsrfMiddleware(request: Request): boolean {
     return verifyCSRFToken(token);
   }
 
-  // Fallback défensif: vérifier l'origine/referer pour les requêtes navigateur.
+  // Fallback défensif: vérifier l'origine/referer/sec-fetch-site pour les requêtes navigateur.
   // Cela évite de casser les appels existants tout en bloquant les CSRF cross-site.
   try {
-    const expectedOrigin = new URL(request.url).origin;
+    const expectedOrigins = new Set<string>();
+    expectedOrigins.add(new URL(request.url).origin);
+
+    const appUrl = process.env.NEXTAUTH_URL;
+    if (appUrl) {
+      try {
+        expectedOrigins.add(new URL(appUrl).origin);
+      } catch {
+        // Ignore invalid NEXTAUTH_URL format
+      }
+    }
+
     const origin = request.headers.get('origin');
     if (origin) {
-      return origin === expectedOrigin;
+      return expectedOrigins.has(origin);
     }
 
     const referer = request.headers.get('referer');
     if (referer) {
-      return referer.startsWith(expectedOrigin);
+      try {
+        const refererOrigin = new URL(referer).origin;
+        if (expectedOrigins.has(refererOrigin)) {
+          return true;
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    // Certains navigateurs/proxys n'envoient pas toujours Origin/Referer.
+    // Si la requête est explicitement same-origin ou same-site, on l'accepte.
+    const fetchSite = request.headers.get('sec-fetch-site');
+    if (fetchSite === 'same-origin' || fetchSite === 'same-site' || fetchSite === 'none') {
+      return true;
     }
   } catch {
     return false;

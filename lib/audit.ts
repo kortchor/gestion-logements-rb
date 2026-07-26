@@ -1,5 +1,29 @@
 import { query } from '@/lib/db';
 
+let auditTrailSchemaChecked = false;
+
+async function ensureAuditTrailTable(): Promise<void> {
+  if (auditTrailSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS audit_trail (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      user_email VARCHAR(255),
+      action VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(100) NOT NULL,
+      entity_id INTEGER,
+      changes JSONB,
+      ip_address VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  auditTrailSchemaChecked = true;
+}
+
 export interface AuditLog {
   userId?: number;
   userEmail?: string;
@@ -15,6 +39,7 @@ export interface AuditLog {
  */
 export async function logAudit(auditLog: AuditLog): Promise<void> {
   try {
+    await ensureAuditTrailTable();
     await query(
       `INSERT INTO audit_trail (user_id, user_email, action, entity_type, entity_id, changes, ip_address)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -43,6 +68,7 @@ export async function getAuditTrail(
   userId?: number
 ) {
   try {
+    await ensureAuditTrailTable();
     let whereClause = '';
     const params: unknown[] = [];
 
@@ -84,6 +110,7 @@ export async function getAuditTrail(
  */
 export async function countAuditTrail(userId?: number): Promise<number> {
   try {
+    await ensureAuditTrailTable();
     let whereClause = '';
     const params: unknown[] = [];
 

@@ -4,6 +4,32 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
 
+let logementsTableauSchemaChecked = false;
+
+async function ensureLogementsTableauSchema() {
+  if (logementsTableauSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE logements
+    ADD COLUMN IF NOT EXISTS nom_logement VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS lit_occupants (
+      id SERIAL PRIMARY KEY,
+      lit_id INTEGER NOT NULL REFERENCES lits(id) ON DELETE CASCADE,
+      collaborateur_id INTEGER NOT NULL REFERENCES collaborateurs(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(lit_id, collaborateur_id)
+    )
+  `);
+
+  logementsTableauSchemaChecked = true;
+}
+
 interface LogementRow {
   id: number;
   nom_logement: string | null;
@@ -20,6 +46,8 @@ interface OccupantRow {
   prenom: string;
   nom: string;
   participation: string | number | null;
+  date_debut: string | null;
+  date_fin: string | null;
 }
 
 interface GroupedVille {
@@ -29,7 +57,7 @@ interface GroupedVille {
     nom_logement: string | null;
     adresse: string;
     est_actif: boolean;
-    occupants: Array<{ nom: string; contribution: number }>;
+    occupants: Array<{ nom: string; contribution: number; date_debut: string | null; date_fin: string | null }>;
     nombre_occupants: number;
     nombre_lits: number;
     lits_libres: number;
@@ -42,6 +70,8 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 
   try {
+    await ensureLogementsTableauSchema();
+
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville');
     const actif = searchParams.get('actif');
@@ -70,10 +100,10 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const logementsResult = await query(
       `SELECT
         log.id,
-        log.nom_logement,
+        COALESCE(NULLIF(TRIM(log.nom_logement), ''), log.adresse) as nom_logement,
         log.adresse,
-        log.ville,
-        log.est_actif,
+        COALESCE(log.ville, 'Non renseignée') as ville,
+        COALESCE(log.est_actif, true) as est_actif,
         COUNT(DISTINCT l.id) as nombre_lits,
         COUNT(DISTINCT CASE WHEN l.collaborateur_id IS NULL AND lo.collaborateur_id IS NULL THEN l.id END) as lits_libres
       FROM logements log
@@ -98,13 +128,18 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
           col.id,
           col.prenom,
           col.nom,
-          COALESCE(b.participation_mensuelle, 0) as participation
+          COALESCE(b.participation_mensuelle, 0) as participation,
+          b.date_debut,
+          b.date_fin
         FROM chambres c
         LEFT JOIN lits l ON c.id = l.chambre_id
         LEFT JOIN collaborateurs col ON (l.collaborateur_id = col.id OR col.id IN (
           SELECT collaborateur_id FROM lit_occupants WHERE lit_id = l.id
         ))
-        LEFT JOIN baux b ON col.id = b.collaborateur_id AND c.logement_id = b.logement_id AND CURRENT_DATE BETWEEN b.date_debut AND b.date_fin
+        LEFT JOIN baux b ON col.id = b.collaborateur_id
+          AND c.logement_id = b.logement_id
+          AND b.date_debut <= CURRENT_DATE
+          AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
         WHERE c.logement_id IN (${placeholders})
         AND col.id IS NOT NULL
         ORDER BY c.logement_id, col.nom, col.prenom`,
@@ -120,6 +155,8 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         .map((o) => ({
           nom: `${o.prenom} ${o.nom}`,
           contribution: o.participation ? parseFloat(String(o.participation)) : 0,
+          date_debut: o.date_debut,
+          date_fin: o.date_fin,
         }));
 
       const logementData = {

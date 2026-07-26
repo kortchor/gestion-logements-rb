@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TokenPayload, verifyToken } from './auth';
+import { logAudit } from './audit';
 
 type Params = { [key: string]: string | string[] | undefined };
 
@@ -8,6 +9,42 @@ type ApiHandler = (
   payload: TokenPayload,
   context: { params: Params }
 ) => Promise<NextResponse>;
+
+function isWriteMethod(method: string): boolean {
+  return method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+}
+
+function actionFromMethod(method: string): string {
+  if (method === 'POST') return 'create';
+  if (method === 'PUT' || method === 'PATCH') return 'update';
+  if (method === 'DELETE') return 'delete';
+  return 'unknown';
+}
+
+function inferEntityType(pathname: string): string {
+  const segments = pathname.split('/').filter(Boolean);
+  const apiIdx = segments.indexOf('api');
+  if (apiIdx === -1 || !segments[apiIdx + 1]) {
+    return 'unknown';
+  }
+
+  if (segments[apiIdx + 1] === 'admin') {
+    return segments[apiIdx + 2] || 'admin';
+  }
+
+  return segments[apiIdx + 1];
+}
+
+function inferEntityId(pathname: string): number | undefined {
+  const segments = pathname.split('/').filter(Boolean);
+  for (const segment of segments) {
+    const parsed = parseInt(segment, 10);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
 
 /**
  * @description Protège une route API par authentification et vérification des rôles.
@@ -46,7 +83,27 @@ export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
       }
 
       const resolvedParams = await context.params;
-      return handler(request, payload, { params: resolvedParams });
+      const response = await handler(request, payload, { params: resolvedParams });
+
+      if (isWriteMethod(request.method) && response.status < 400) {
+        const pathname = request.nextUrl.pathname;
+        const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+
+        await logAudit({
+          userId: payload.id,
+          userEmail: payload.email,
+          action: actionFromMethod(request.method),
+          entityType: inferEntityType(pathname),
+          entityId: inferEntityId(pathname),
+          changes: {
+            method: request.method,
+            path: pathname,
+          },
+          ipAddress,
+        });
+      }
+
+      return response;
     } catch (error) {
       console.error('Erreur withAuth:', error);
       if (error instanceof Error && (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError')) {

@@ -1,6 +1,8 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { withReadAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 
 interface LogementCostRow {
   id: number;
@@ -19,8 +21,29 @@ interface GroupedVille {
   sousTotal: number;
 }
 
-export async function GET(request: NextRequest) {
+let logementsMonthlySchemaChecked = false;
+
+async function ensureMonthlyCostSchema() {
+  if (logementsMonthlySchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE logements
+    ADD COLUMN IF NOT EXISTS nom_logement VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true,
+    ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
+    ADD COLUMN IF NOT EXISTS date_fin_contrat DATE
+  `);
+
+  logementsMonthlySchemaChecked = true;
+}
+
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
+    await ensureMonthlyCostSchema();
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
     const month = searchParams.get('month');
@@ -53,16 +76,18 @@ export async function GET(request: NextRequest) {
     const result = await query(
       `SELECT 
         id,
-        nom_logement,
+        COALESCE(NULLIF(TRIM(nom_logement), ''), adresse) as nom_logement,
         adresse,
-        ville,
+        COALESCE(ville, 'Non renseignée') as ville,
         prix_loyer,
         COALESCE(date_debut_contrat, $1::DATE) as date_debut_contrat,
         COALESCE(date_fin_contrat, ($2::DATE + INTERVAL '10 years')) as date_fin_contrat,
         prix_loyer as cout_loyer_mois
       FROM logements
-      WHERE est_actif = true
-      AND prix_loyer > 0
+      WHERE COALESCE(est_actif, true) = true
+      AND COALESCE(prix_loyer, 0) > 0
+      AND COALESCE(date_debut_contrat, $1::DATE) <= $2::DATE
+      AND COALESCE(date_fin_contrat, ($2::DATE + INTERVAL '10 years')::DATE) >= $1::DATE
       ORDER BY ville, nom_logement`,
       [startDate, endDate]
     );
@@ -115,4 +140,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withReadAuth(getHandler);

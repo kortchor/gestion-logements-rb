@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
 
@@ -11,7 +11,7 @@ interface LogementGrouped {
     nom_logement: string;
     adresse: string;
     est_actif: boolean;
-    occupants: Array<{ nom: string; contribution: number }>;
+    occupants: Array<{ nom: string; contribution: number; date_debut: string | null; date_fin: string | null }>;
     nombre_occupants: number;
     nombre_lits: number;
     lits_libres: number;
@@ -26,11 +26,7 @@ export default function LogementsTableauPage() {
     actif: true,
   });
 
-  useEffect(() => {
-    fetchLogements();
-  }, [filter]);
-
-  const fetchLogements = async () => {
+  const fetchLogements = useCallback(async () => {
     try {
       setPageLoading(true);
       const params = new URLSearchParams();
@@ -51,14 +47,18 @@ export default function LogementsTableauPage() {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    fetchLogements();
+  }, [fetchLogements]);
 
   const handleExport = async () => {
     try {
       const csvContent = data
         .map((group) => {
           let csv = `\n${group.ville.toUpperCase()}\n`;
-          csv += 'Logement,Adresse,Occupants,Contributions,Lits,Libres,Statut\n';
+          csv += 'Logement,Adresse,Occupants,Contributions,Dates baux,Lits,Libres,Statut\n';
           csv += group.logements
             .map((log) => {
               const occupantsStr = log.occupants
@@ -68,7 +68,14 @@ export default function LogementsTableauPage() {
                 .map(o => o.contribution > 0 ? o.contribution.toFixed(2) : '')
                 .filter(c => c)
                 .join('; ');
-              return `"${log.nom_logement}","${log.adresse}","${occupantsStr || 'Libre'}","${contributionsStr}",${log.nombre_lits},${log.lits_libres},"${log.est_actif ? 'Actif' : 'Inactif'}"`;
+              const bailDatesStr = log.occupants
+                .map(o => {
+                  const debut = o.date_debut ? o.date_debut.split('T')[0] : 'N/A';
+                  const fin = o.date_fin ? o.date_fin.split('T')[0] : 'Indetermine';
+                  return `${debut} -> ${fin}`;
+                })
+                .join('; ');
+              return `"${log.nom_logement}","${log.adresse}","${occupantsStr || 'Libre'}","${contributionsStr}","${bailDatesStr}",${log.nombre_lits},${log.lits_libres},"${log.est_actif ? 'Actif' : 'Inactif'}"`;
             })
             .join('\n');
           return csv;
@@ -206,6 +213,9 @@ export default function LogementsTableauPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Occupants
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Baux
+                        </th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
                           Lits
                         </th>
@@ -240,9 +250,7 @@ export default function LogementsTableauPage() {
                                 {logement.occupants.map((occ, i) => (
                                   <div key={i} className="bg-blue-50 border border-blue-200 rounded px-2 py-1">
                                     <div className="text-blue-900 font-medium text-xs">{occ.nom}</div>
-                                    {occ.contribution > 0 && (
-                                      <div className="text-blue-600 text-xs">💰 {occ.contribution.toFixed(2)}€</div>
-                                    )}
+                                    <div className="text-blue-600 text-xs">💰 {occ.contribution.toFixed(2)}€</div>
                                   </div>
                                 ))}
                               </div>
@@ -250,6 +258,23 @@ export default function LogementsTableauPage() {
                               <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">
                                 🟢 Libre
                               </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {logement.occupants.length > 0 ? (
+                              <div className="space-y-1">
+                                {logement.occupants.map((occ, i) => {
+                                  const debut = occ.date_debut ? occ.date_debut.split('T')[0] : 'N/A';
+                                  const fin = occ.date_fin ? occ.date_fin.split('T')[0] : 'Indéterminé';
+                                  return (
+                                    <div key={i} className="text-xs">
+                                      {debut} → {fin}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">Aucun bail actif</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-center text-sm font-medium">

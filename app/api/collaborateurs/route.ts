@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createCollaborateurSchema } from '@/lib/validation';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import logger, { logError } from '@/lib/logger';
+import { logAudit } from '@/lib/audit';
 
 let collaborateursSchemaChecked = false;
 
@@ -175,6 +176,19 @@ export async function POST(request: Request) {
     }
 
     await client.query('COMMIT');
+
+    await logAudit({
+      action: 'create',
+      entityType: 'collaborateur',
+      entityId: collaborateurId,
+      changes: {
+        email: validatedData.email,
+        nom: validatedData.nom,
+        prenom: validatedData.prenom,
+      },
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+    });
+
     return NextResponse.json({ success: true, id: collaborateurId }, { status: 201 });
   } catch (error) {
     try {
@@ -278,6 +292,17 @@ export async function DELETE(request: Request) {
     );
 
     await client.query('COMMIT');
+
+    await logAudit({
+      action: 'delete',
+      entityType: 'collaborateur',
+      entityId: collaborateurId,
+      changes: {
+        nom: collaborateur.nom,
+        prenom: collaborateur.prenom,
+      },
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+    });
 
     logger.info(
       { route: '/api/collaborateurs', method: 'DELETE', collaborateurId },

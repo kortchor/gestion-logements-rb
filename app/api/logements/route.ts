@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import { logAudit } from '@/lib/audit';
 
 let logementsSchemaChecked = false;
 
@@ -192,6 +193,18 @@ export async function POST(request: Request) {
       }
     }
 
+    await logAudit({
+      action: 'create',
+      entityType: 'logement',
+      entityId: logementId,
+      changes: {
+        nom_logement: nom_logement || null,
+        adresse,
+        ville,
+      },
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+    });
+
     return NextResponse.json(
       { success: true, id: logementId },
       { status: 201 }
@@ -244,6 +257,13 @@ export async function DELETE(request: Request) {
     // Supprimer les chambres (CASCADE gère les lits)
     await query('DELETE FROM chambres WHERE logement_id = $1', [logementId]);
     await query('DELETE FROM logements WHERE id = $1', [logementId]);
+
+    await logAudit({
+      action: 'delete',
+      entityType: 'logement',
+      entityId: logementId,
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+    });
 
     return NextResponse.json(
       { success: true, message: 'Logement supprimé' },

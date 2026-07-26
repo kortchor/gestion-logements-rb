@@ -93,9 +93,26 @@ export function verifyCsrfMiddleware(request: Request): boolean {
       }
     }
 
-    const origin = request.headers.get('origin');
-    if (origin) {
+    const vercelUrl = process.env.VERCEL_URL;
+    if (vercelUrl) {
+      try {
+        const normalizedVercelUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+        expectedOrigins.add(new URL(normalizedVercelUrl).origin);
+      } catch {
+        // Ignore invalid VERCEL_URL format
+      }
+    }
+
+    const allowedByOrigin = (() => {
+      const origin = request.headers.get('origin');
+      if (!origin) {
+        return false;
+      }
       return expectedOrigins.has(origin);
+    })();
+
+    if (allowedByOrigin) {
+      return true;
     }
 
     const referer = request.headers.get('referer');

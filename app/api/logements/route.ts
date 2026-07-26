@@ -3,6 +3,33 @@ import { NextResponse } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
+let logementsSchemaChecked = false;
+
+async function ensureLogementsSchema() {
+  if (logementsSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE logements
+    ADD COLUMN IF NOT EXISTS nom_logement VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS fournisseur_gaz VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS nom_assureur VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS bail_pdf TEXT,
+    ADD COLUMN IF NOT EXISTS bail_nom VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS etat_lieux_pdf TEXT,
+    ADD COLUMN IF NOT EXISTS etat_lieux_nom VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS etat_lieux_photos TEXT,
+    ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
+    ADD COLUMN IF NOT EXISTS date_fin_contrat DATE,
+    ADD COLUMN IF NOT EXISTS mixte_autorise BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS description_detaillee TEXT,
+    ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+  `);
+
+  logementsSchemaChecked = true;
+}
+
 // ✅ GET - Récupérer tous les logements ou un seul avec ?id=
 export async function GET(request: Request) {
   try {
@@ -64,6 +91,8 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
+
+    await ensureLogementsSchema();
 
     const body = await request.json();
 

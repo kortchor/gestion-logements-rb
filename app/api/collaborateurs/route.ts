@@ -4,6 +4,30 @@ import { createCollaborateurSchema } from '@/lib/validation';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import logger, { logError } from '@/lib/logger';
 
+let collaborateursSchemaChecked = false;
+
+async function ensureCollaborateursSchema(client: Awaited<ReturnType<typeof pool.connect>>) {
+  if (collaborateursSchemaChecked) {
+    return;
+  }
+
+  await client.query(`
+    ALTER TABLE collaborateurs
+    ADD COLUMN IF NOT EXISTS civilite VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS telephone VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS genre VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
+    ADD COLUMN IF NOT EXISTS date_fin_contrat DATE,
+    ADD COLUMN IF NOT EXISTS commentaire TEXT,
+    ADD COLUMN IF NOT EXISTS centre_principal VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS centre_affectation VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user',
+    ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true
+  `);
+
+  collaborateursSchemaChecked = true;
+}
+
 function toNullableString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return value == null ? null : String(value);
@@ -89,6 +113,7 @@ export async function POST(request: Request) {
     const dateDepart = toNullableDate(validatedData.date_depart);
     const dateFinContrat = toNullableDate(validatedData.date_fin_contrat);
 
+    await ensureCollaborateursSchema(client);
     await client.query('BEGIN');
 
     // Vérifier si l'email existe déjà

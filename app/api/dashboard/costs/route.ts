@@ -4,16 +4,33 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
 
+let dashboardCostsSchemaChecked = false;
+
+async function ensureDashboardCostsSchema() {
+  if (dashboardCostsSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE logements
+    ADD COLUMN IF NOT EXISTS centre_analytique VARCHAR(255)
+  `);
+
+  dashboardCostsSchemaChecked = true;
+}
+
 // Loyer total = ce que l'hôtel paye aux propriétaires chaque mois
 const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
   void request;
   void payload;
   try {
+    await ensureDashboardCostsSchema();
+
     const result = await query(`
       SELECT 
         COALESCE(SUM(l.prix_loyer), 0) as total_loyer
       FROM logements l
-      WHERE l.est_actif = true
+      WHERE COALESCE(l.est_actif, true) = true
         AND l.prix_loyer IS NOT NULL
     `);
 
@@ -39,36 +56,33 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
   void request;
   void payload;
   try {
+    await ensureDashboardCostsSchema();
+
     const result = await query(`
+      WITH active_baux AS (
+        SELECT b.collaborateur_id, b.logement_id
+        FROM baux b
+        WHERE b.date_debut <= CURRENT_DATE
+          AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
+      ),
+      occupants_per_logement AS (
+        SELECT logement_id, COUNT(DISTINCT collaborateur_id) as nb_occupants
+        FROM active_baux
+        GROUP BY logement_id
+      )
       SELECT
-        COALESCE(log.centre_analytique, 'Non assigné') as centre_analytique,
+        COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
         SUM(
-          CASE 
-            WHEN li.id IS NOT NULL THEN 
-              log.prix_loyer::numeric / NULLIF(occupant_counts.nb_occupants, 1)
-            ELSE 
-              log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 1)
-          END
+          COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1)
         ) as cout_centre,
-        COUNT(DISTINCT b.id) as nb_collaborateurs
-      FROM baux b
-      JOIN logements log ON b.logement_id = log.id
-      LEFT JOIN lit_occupants lo ON lo.collaborateur_id = b.collaborateur_id
-      LEFT JOIN lits li ON lo.lit_id = li.id
-      LEFT JOIN (
-        SELECT lit_id, COUNT(*) as nb_occupants
-        FROM lit_occupants
-        GROUP BY lit_id
-      ) occupant_counts ON li.id = occupant_counts.lit_id
-      LEFT JOIN (
-        SELECT ch.logement_id, COUNT(l.id) as nb_lits
-        FROM lits l
-        JOIN chambres ch ON l.chambre_id = ch.id
-        GROUP BY ch.logement_id
-      ) lits_count ON lits_count.logement_id = log.id
-      WHERE b.date_fin >= CURRENT_DATE
-        AND log.est_actif = true
-      GROUP BY log.centre_analytique
+        COUNT(DISTINCT ab.collaborateur_id) as nb_collaborateurs
+      FROM active_baux ab
+      JOIN logements log ON ab.logement_id = log.id
+      JOIN collaborateurs c ON ab.collaborateur_id = c.id
+      LEFT JOIN occupants_per_logement opl ON opl.logement_id = log.id
+      WHERE COALESCE(log.est_actif, true) = true
+        AND COALESCE(log.prix_loyer, 0) > 0
+      GROUP BY 1
       ORDER BY cout_centre DESC
     `);
 
@@ -92,42 +106,37 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
   void request;
   void payload;
   try {
+    await ensureDashboardCostsSchema();
+
     const result = await query(`
+      WITH active_baux AS (
+        SELECT b.collaborateur_id, b.logement_id, b.participation_mensuelle, b.date_debut, b.date_fin
+        FROM baux b
+        WHERE b.date_debut <= CURRENT_DATE
+          AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
+      ),
+      occupants_per_logement AS (
+        SELECT logement_id, COUNT(DISTINCT collaborateur_id) as nb_occupants
+        FROM active_baux
+        GROUP BY logement_id
+      )
       SELECT
         c.prenom || ' ' || c.nom as collaborateur,
         log.nom_logement as logement,
         log.adresse,
         log.ville,
-        COALESCE(log.centre_analytique, 'Non assigné') as centre_analytique,
-        b.participation_mensuelle,
-        -- Calculer le coût hôtel en fonction du nombre d'occupants du lit
-        CASE 
-          WHEN li.id IS NOT NULL THEN 
-            log.prix_loyer::numeric / NULLIF(occupant_counts.nb_occupants, 1)
-          ELSE 
-            log.prix_loyer::numeric / NULLIF(lits_count.nb_lits, 1)
-        END as cout_hotel_par_collaborateur,
-        b.date_debut,
-        b.date_fin
-      FROM baux b
-      JOIN collaborateurs c ON b.collaborateur_id = c.id
-      JOIN logements log ON b.logement_id = log.id
-      LEFT JOIN lit_occupants lo ON lo.collaborateur_id = c.id
-      LEFT JOIN lits li ON lo.lit_id = li.id
-      LEFT JOIN (
-        SELECT lit_id, COUNT(*) as nb_occupants
-        FROM lit_occupants
-        GROUP BY lit_id
-      ) occupant_counts ON li.id = occupant_counts.lit_id
-      LEFT JOIN (
-        SELECT ch.logement_id, COUNT(l.id) as nb_lits
-        FROM lits l
-        JOIN chambres ch ON l.chambre_id = ch.id
-        GROUP BY ch.logement_id
-      ) lits_count ON lits_count.logement_id = log.id
-      WHERE b.date_fin >= CURRENT_DATE
-        AND log.est_actif = true
-      ORDER BY log.centre_analytique, c.nom, c.prenom
+        COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
+        ab.participation_mensuelle,
+        COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1) as cout_hotel_par_collaborateur,
+        ab.date_debut,
+        ab.date_fin
+      FROM active_baux ab
+      JOIN collaborateurs c ON ab.collaborateur_id = c.id
+      JOIN logements log ON ab.logement_id = log.id
+      LEFT JOIN occupants_per_logement opl ON opl.logement_id = log.id
+      WHERE COALESCE(log.est_actif, true) = true
+        AND COALESCE(log.prix_loyer, 0) > 0
+      ORDER BY centre_analytique, c.nom, c.prenom
     `);
 
     const data = result.rows.map(row => ({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
 
@@ -33,14 +33,16 @@ export default function MonthlyCostPage() {
   const { user, loading } = useAuth();
   const [data, setData] = useState<MonthlyCostData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  const fetchCoutMensuel = async () => {
+  const fetchCoutMensuel = useCallback(async () => {
     try {
       setPageLoading(true);
+      setError('');
       const [year, month] = selectedDate.split('-');
       const response = await fetch(
         `/api/logements/monthly-cost?year=${year}&month=${month}`,
@@ -48,19 +50,24 @@ export default function MonthlyCostPage() {
       );
       const result = await response.json();
 
-      if (result.success) {
+      if (result.success && result.data) {
         setData(result.data);
+      } else {
+        setData(null);
+        setError(result.error || 'Erreur lors du chargement des coûts mensuels.');
       }
     } catch (error) {
       console.error('Erreur:', error);
+      setData(null);
+      setError('Erreur lors du chargement de la page.');
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [selectedDate]);
 
   useEffect(() => {
     fetchCoutMensuel();
-  }, [selectedDate]);
+  }, [fetchCoutMensuel]);
 
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
@@ -84,6 +91,12 @@ export default function MonthlyCostPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-8 py-8">
+        {error && (
+          <div className="bg-red-100 border border-red-300 text-red-700 rounded-lg px-4 py-3 mb-6">
+            ❌ {error}
+          </div>
+        )}
+
         {/* Sélecteur de mois */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -125,7 +138,7 @@ export default function MonthlyCostPage() {
             </div>
 
             {/* Détails par ville */}
-            {data.groupedByVille.map((groupe) => (
+            {(Array.isArray(data.groupedByVille) ? data.groupedByVille : []).map((groupe) => (
               <div key={groupe.ville} className="mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-blue-500">
                   📍 {groupe.ville}

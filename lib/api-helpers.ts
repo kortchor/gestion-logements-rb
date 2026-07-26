@@ -51,7 +51,7 @@ function inferEntityId(pathname: string): number | undefined {
  * Les rôles autorisés peuvent être 'admin', 'super_admin', 'user', 'admin_readonly'.
  */
 export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
-  return async (request: NextRequest, context: { params: Promise<Params> }) => {
+  return async (request: NextRequest, context?: { params?: Promise<Params> }) => {
     try {
       // Lire le token depuis le cookie OU depuis le header Authorization (fallback)
       let token = request.cookies.get('token')?.value;
@@ -82,7 +82,7 @@ export function withAuth(handler: ApiHandler, allowedRoles?: string[]) {
         return NextResponse.json({ success: false, error: 'Accès refusé. Ce profil est en lecture seule.' }, { status: 403 });
       }
 
-      const resolvedParams = await context.params;
+      const resolvedParams = context?.params ? await context.params : {};
       const response = await handler(request, payload, { params: resolvedParams });
 
       if (isWriteMethod(request.method) && response.status < 400) {

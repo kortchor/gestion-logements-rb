@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!verifyCsrfMiddleware(request)) {
+    return NextResponse.json(
+      { error: 'CSRF token invalide' },
+      { status: 403 }
+    );
+  }
+
   const response = NextResponse.json({ success: true });
   
   // ✅ Supprimer le cookie

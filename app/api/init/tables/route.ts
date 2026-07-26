@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import logger, { logError } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect();
 
     try {
-      console.log('📋 Vérification et création des tables manquantes...');
+      logger.info({ route: '/api/init/tables' }, 'Verification et creation des tables manquantes');
 
       // Créer la table signalements si elle n'existe pas
       await client.query(`
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
         )
       `);
 
-      console.log('✅ Table signalements vérifiée/créée');
+      logger.info({ route: '/api/init/tables', table: 'signalements' }, 'Table signalements verifiee ou creee');
 
       return NextResponse.json({
         success: true,
@@ -47,7 +48,9 @@ export async function POST(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('❌ Erreur initialisation tables:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/init/tables', method: 'POST' });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur inconnue' },
       { status: 500 }

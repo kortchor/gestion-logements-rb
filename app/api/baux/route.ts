@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 // ✅ GET - Récupérer tous les baux
 export async function GET(request: Request) {
@@ -45,7 +46,9 @@ export async function GET(request: Request) {
       baux: result.rows 
     });
   } catch (error) {
-    console.error('❌ Erreur GET baux:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/baux', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }

@@ -2,11 +2,14 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Récupérer les notifications
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
     const { searchParams } = new URL(request.url);
     const uniquementNonLues = searchParams.get('non_lues') === 'true';
@@ -39,7 +42,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur notifications:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/notifications', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des notifications' },
       { status: 500 }
@@ -49,7 +54,12 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
 // PUT - Marquer une notification comme lue
 const putHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { id } = body;
 
@@ -67,7 +77,9 @@ const putHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/notifications', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la mise à jour' },
       { status: 500 }
@@ -77,7 +89,12 @@ const putHandler = async (request: NextRequest, payload: TokenPayload) => {
 
 // DELETE - Supprimer une notification
 const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -92,7 +109,9 @@ const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/notifications', method: 'DELETE' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la suppression' },
       { status: 500 }

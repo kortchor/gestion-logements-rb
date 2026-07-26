@@ -1,8 +1,10 @@
-import { query, pool } from '@/lib/db';
+import { pool } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 import * as XLSX from 'xlsx';
 
 const postHandler = async (
@@ -19,6 +21,10 @@ const postHandler = async (
 
   const client = await pool.connect();
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -84,9 +90,6 @@ const postHandler = async (
         const centre_affectation = row['Centre affectation']?.trim() || null;
         const date_arrivee = row['Début contrat'] ? new Date(row['Début contrat']).toISOString().split('T')[0] : null;
         const date_fin_contrat = row['Fin contrat'] ? new Date(row['Fin contrat']).toISOString().split('T')[0] : null;
-        const participation_logement = row['Participation logement']
-          ? parseFloat(row['Participation logement'].toString()) || null
-          : null;
         const logement_nom = row['Logement']?.trim() || null;
 
         // Valider les données requises
@@ -211,7 +214,9 @@ const postHandler = async (
           created++;
         }
       } catch (error) {
-        console.error(`Erreur ligne ${i + 2}:`, error);
+        if (error instanceof Error) {
+          logError(error, { route: '/api/admin/collaborateurs/import', row: i + 2 });
+        }
         errors.push({
           row: i + 2,
           error: error instanceof Error ? error.message : 'Erreur inconnue',
@@ -248,8 +253,14 @@ const postHandler = async (
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Erreur import collaborateurs:', error);
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors
+    }
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/collaborateurs/import', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'import' },
       { status: 500 }

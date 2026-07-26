@@ -71,13 +71,29 @@ export function verifyCsrfMiddleware(request: Request): boolean {
     return true;
   }
 
-  // Vérifier le token dans le header uniquement.
-  // Le body d'une Request est un stream et n'est pas lisible de manière synchrone ici.
+  // Vérifier d'abord le token CSRF explicite si fourni.
   const token = request.headers.get('x-csrf-token');
 
-  if (!token) {
+  if (token) {
+    return verifyCSRFToken(token);
+  }
+
+  // Fallback défensif: vérifier l'origine/referer pour les requêtes navigateur.
+  // Cela évite de casser les appels existants tout en bloquant les CSRF cross-site.
+  try {
+    const expectedOrigin = new URL(request.url).origin;
+    const origin = request.headers.get('origin');
+    if (origin) {
+      return origin === expectedOrigin;
+    }
+
+    const referer = request.headers.get('referer');
+    if (referer) {
+      return referer.startsWith(expectedOrigin);
+    }
+  } catch {
     return false;
   }
 
-  return verifyCSRFToken(token);
+  return false;
 }

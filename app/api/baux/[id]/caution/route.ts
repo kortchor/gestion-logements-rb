@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -37,7 +39,9 @@ export async function GET(
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Erreur GET caution:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/baux/[id]/caution', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération de la caution' },
       { status: 500 }
@@ -50,6 +54,10 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const params = await context.params;
     const bailId = parseInt(params.id);
 
@@ -124,7 +132,9 @@ export async function PUT(
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Erreur PUT caution:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/baux/[id]/caution', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la mise à jour de la caution' },
       { status: 500 }

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
+
+const ALLOWED_FOLDER_PATTERN = /^[a-zA-Z0-9/_-]+$/;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -9,6 +13,13 @@ cloudinary.config({
 
 export async function POST(request: NextRequest) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const folder = formData.get('folder') as string || 'cautions';
@@ -16,6 +27,13 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { error: 'Aucun fichier fourni' },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_FOLDER_PATTERN.test(folder)) {
+      return NextResponse.json(
+        { error: 'Nom de dossier invalide' },
         { status: 400 }
       );
     }
@@ -45,7 +63,9 @@ export async function POST(request: NextRequest) {
       public_id: (result as any).public_id,
     });
   } catch (error) {
-    console.error('Erreur upload:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/upload', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'upload du fichier' },
       { status: 500 }

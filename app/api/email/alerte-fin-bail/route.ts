@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { getFinBailEmailTemplate } from '@/lib/emailTemplates';
+import { logError } from '@/lib/logger';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -113,7 +114,9 @@ export async function GET(request: Request) {
       jours_alerte: joursAlerte,
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/email/alerte-fin-bail', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'envoi des emails' },
       { status: 500 }

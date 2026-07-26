@@ -1,13 +1,22 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
+import logger, { logError } from '@/lib/logger';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
-export async function POST(
+const postHandler = async (
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  payload: TokenPayload,
+  { params }: { params: { id: string } }
+) => {
+  void payload;
   try {
-    // ✅ CORRECTION: Attendre la Promise params
-    const { id } = await params;
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
+    const { id } = params;
     const collaborateurId = parseInt(id);
     
     if (isNaN(collaborateurId)) {
@@ -17,7 +26,7 @@ export async function POST(
       );
     }
 
-    console.log(`🔄 Désassignation du collaborateur ID: ${collaborateurId}`);
+    logger.info({ route: '/api/collaborateurs/[id]/desassigner', collaborateurId }, 'Debut desassignation collaborateur');
 
     // 1. Récupérer le logement du collaborateur
     const logementResult = await query(
@@ -29,7 +38,7 @@ export async function POST(
     );
 
     const logementId = logementResult.rows[0]?.logement_id;
-    console.log(`📦 Logement ID: ${logementId}`);
+    logger.info({ route: '/api/collaborateurs/[id]/desassigner', collaborateurId, logementId }, 'Logement associe recupere');
 
     // 2. Désassigner le lit
     await query(
@@ -46,7 +55,10 @@ export async function POST(
       `UPDATE baux SET date_fin = $1 WHERE collaborateur_id = $2 AND date_fin >= $1`,
       [yesterdayStr, collaborateurId]
     );
-    console.log(`✅ ${bailUpdate.rowCount} bail(s) clôturé(s) pour collaborateur ${collaborateurId}`);
+    logger.info(
+      { route: '/api/collaborateurs/[id]/desassigner', collaborateurId, closedLeases: bailUpdate.rowCount },
+      'Baux clotures pour collaborateur'
+    );
 
     // 4. Si le logement est vide, redevient mixte
     if (logementId) {
@@ -59,7 +71,10 @@ export async function POST(
       );
 
       const nbOccupants = parseInt(occupantsResult.rows[0]?.nb_occupants || '0');
-      console.log(`👥 Nombre d'occupants restants: ${nbOccupants}`);
+      logger.info(
+        { route: '/api/collaborateurs/[id]/desassigner', collaborateurId, logementId, nbOccupants },
+        'Nombre d occupants restants dans le logement'
+      );
 
       if (nbOccupants === 0) {
         const mixteResult = await query(
@@ -73,21 +88,28 @@ export async function POST(
             'UPDATE logements SET type_occupation_effectif = $1 WHERE id = $2',
             ['mixte', logementId]
           );
-          console.log(`✅ Logement ${logementId} redevient mixte`);
+          logger.info(
+            { route: '/api/collaborateurs/[id]/desassigner', logementId },
+            'Logement remis en mode mixte'
+          );
         }
       }
     }
 
-    console.log(`✅ Collaborateur ${collaborateurId} désassigné avec succès`);
+    logger.info({ route: '/api/collaborateurs/[id]/desassigner', collaborateurId }, 'Collaborateur desassigne avec succes');
     return NextResponse.json(
       { success: true, message: 'Collaborateur désassigné avec succès' },
       { status: 200 }
     );
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/[id]/desassigner', method: 'POST' });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur lors de la désassignation' },
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withAuth(postHandler, ['admin', 'super_admin']);

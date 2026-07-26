@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import logger, { logError } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect();
 
     try {
-      console.log('📋 Exécution des migrations...');
+      logger.info({ route: '/api/init/migrate' }, 'Execution des migrations');
 
       // Ajouter les colonnes manquantes à logements
       await client.query(`
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
         ADD COLUMN IF NOT EXISTS date_fin_contrat DATE
       `);
-      console.log('  ✓ logements');
+      logger.info({ route: '/api/init/migrate', step: 'logements' }, 'Migration logements terminee');
 
       // Ajouter les colonnes manquantes à chambres
       await client.query(`
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         ADD COLUMN IF NOT EXISTS type_lit VARCHAR(50),
         ADD COLUMN IF NOT EXISTS nombre_lits INTEGER DEFAULT 1
       `);
-      console.log('  ✓ chambres');
+      logger.info({ route: '/api/init/migrate', step: 'chambres' }, 'Migration chambres terminee');
 
       // Ajouter les colonnes manquantes à lits
       await client.query(`
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         ADD COLUMN IF NOT EXISTS collaborateur_id INTEGER REFERENCES collaborateurs(id) ON DELETE SET NULL,
         ADD COLUMN IF NOT EXISTS est_occupe BOOLEAN DEFAULT false
       `);
-      console.log('  ✓ lits');
+      logger.info({ route: '/api/init/migrate', step: 'lits' }, 'Migration lits terminee');
 
       // Ajouter les colonnes manquantes à collaborateurs
       await client.query(`
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
         ADD COLUMN IF NOT EXISTS est_actif BOOLEAN DEFAULT true,
         ADD COLUMN IF NOT EXISTS civilite VARCHAR(10)
       `);
-      console.log('  ✓ collaborateurs');
+      logger.info({ route: '/api/init/migrate', step: 'collaborateurs' }, 'Migration collaborateurs terminee');
 
       // Ajouter les colonnes manquantes à baux
       await client.query(`
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         ADD COLUMN IF NOT EXISTS yousign_request_id VARCHAR(255),
         ADD COLUMN IF NOT EXISTS signature_link VARCHAR(500)
       `);
-      console.log('  ✓ baux');
+      logger.info({ route: '/api/init/migrate', step: 'baux' }, 'Migration baux terminee');
 
       // Créer les tables manquantes
       await client.query(`
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  ✓ parametres');
+      logger.info({ route: '/api/init/migrate', step: 'parametres' }, 'Table parametres verifiee');
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS notifications (
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  ✓ notifications');
+      logger.info({ route: '/api/init/migrate', step: 'notifications' }, 'Table notifications verifiee');
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS modeles_convention (
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  ✓ modeles_convention');
+      logger.info({ route: '/api/init/migrate', step: 'modeles_convention' }, 'Table modeles_convention verifiee');
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS signalements (
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  ✓ signalements');
+      logger.info({ route: '/api/init/migrate', step: 'signalements' }, 'Table signalements verifiee');
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS lit_occupants (
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
           UNIQUE(lit_id, collaborateur_id)
         )
       `);
-      console.log('  ✓ lit_occupants');
+      logger.info({ route: '/api/init/migrate', step: 'lit_occupants' }, 'Table lit_occupants verifiee');
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS audit_trail (
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  ✓ audit_trail');
+      logger.info({ route: '/api/init/migrate', step: 'audit_trail' }, 'Table audit_trail verifiee');
 
       return NextResponse.json({
         success: true,
@@ -153,7 +154,9 @@ export async function POST(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('❌ Erreur migration:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/init/migrate', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur interne lors de la migration' },
       { status: 500 }

@@ -2,9 +2,15 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { email } = body;
 
@@ -98,7 +104,9 @@ export async function POST(request: Request) {
       message: 'Email de réinitialisation envoyé',
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/auth/forgot-password', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'envoi' },
       { status: 500 }

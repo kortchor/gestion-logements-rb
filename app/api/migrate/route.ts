@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { withSuperAdminAuth } from '@/lib/api-helpers';
+import { logError } from '@/lib/logger';
 
 /**
  * API de migration à appeler UNE FOIS après le déploiement sur Vercel.
@@ -49,9 +50,12 @@ const migrateHandler = async () => {
     logs.push('✅ Migration terminée avec succès');
     return NextResponse.json({ success: true, logs });
 
-  } catch (error: any) {
-    logs.push(`❌ Erreur: ${error.message}`);
-    return NextResponse.json({ success: false, error: error.message, logs }, { status: 500 });
+  } catch (error) {
+    if (error instanceof Error) {
+      logs.push(`Erreur: ${error.message}`);
+      logError(error, { route: '/api/migrate', method: 'GET' });
+    }
+    return NextResponse.json({ success: false, error: 'Erreur lors de la migration', logs }, { status: 500 });
 
   } finally {
     client.release();

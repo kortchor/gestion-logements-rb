@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 interface LogementCostRow {
   id: number;
@@ -106,7 +107,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('❌ Erreur calcul coût mensuel:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements/monthly-cost', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors du calcul du coût mensuel' },
       { status: 500 }

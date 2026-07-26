@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import logger, { logError } from '@/lib/logger';
 
 // GET - Récupérer les infos du bail à signer
 export async function GET(
@@ -72,7 +73,9 @@ export async function GET(
       }
     });
   } catch (error) {
-    console.error('❌ Erreur GET signature:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/signature/[token]', method: 'GET' });
+    }
     return NextResponse.json({ success: false, error: 'Erreur serveur' }, { status: 500 });
   }
 }
@@ -111,14 +114,16 @@ export async function POST(
       [bail.id]
     );
 
-    console.log(`✅ Bail ${bail.id} signé avec succès`);
+    logger.info({ route: '/api/signature/[token]', bailId: bail.id }, 'Bail signe avec succes');
 
     return NextResponse.json({
       success: true,
       message: 'Convention signée avec succès !',
     });
   } catch (error) {
-    console.error('❌ Erreur POST signature:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/signature/[token]', method: 'POST' });
+    }
     return NextResponse.json({ success: false, error: 'Erreur lors de la signature' }, { status: 500 });
   }
 }

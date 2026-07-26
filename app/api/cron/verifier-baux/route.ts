@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import logger, { logError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,19 +36,19 @@ export async function GET(request: NextRequest) {
     const results = [];
 
     // 1. Alerte 1 mois avant (30 jours)
-    console.log('📧 Envoi des alertes 1 mois avant...');
+    logger.info({ route: '/api/cron/verifier-baux', step: '30_days' }, 'Envoi des alertes 1 mois avant');
     results.push(await callAlertEndpoint(baseUrl, 30, 'premiere', '1 mois (30j)'));
 
     // 2. Alerte 2 semaines avant (14 jours)
-    console.log('📧 Envoi des alertes 2 semaines avant...');
+    logger.info({ route: '/api/cron/verifier-baux', step: '14_days' }, 'Envoi des alertes 2 semaines avant');
     results.push(await callAlertEndpoint(baseUrl, 14, 'relance', '2 semaines (14j)'));
 
     // 3. Alerte 1 semaine avant (7 jours)
-    console.log('📧 Envoi des alertes 1 semaine avant...');
+    logger.info({ route: '/api/cron/verifier-baux', step: '7_days' }, 'Envoi des alertes 1 semaine avant');
     results.push(await callAlertEndpoint(baseUrl, 7, 'derniere', '1 semaine (7j)'));
 
     // 4. Alerte quotidienne (1 jour avant)
-    console.log('📧 Envoi des alertes quotidiennes...');
+    logger.info({ route: '/api/cron/verifier-baux', step: '1_day' }, 'Envoi des alertes quotidiennes');
     results.push(await callAlertEndpoint(baseUrl, 1, 'quotidienne', '1 jour (1j)'));
 
     return NextResponse.json({
@@ -56,7 +57,9 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('❌ Erreur cron:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/cron/verifier-baux' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'exécution du cron' },
       { status: 500 }

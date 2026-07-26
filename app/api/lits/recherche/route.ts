@@ -2,10 +2,12 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withReadAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville');
@@ -84,7 +86,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const result = await query(sql, params);
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/recherche', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la recherche' },
       { status: 500 }

@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   // Vérifier que l'utilisateur est super_admin
@@ -80,7 +81,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       pageSize,
     });
   } catch (error) {
-    console.error('❌ Erreur audit trail:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/audit-trail', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération de l\'audit trail' },
       { status: 500 }

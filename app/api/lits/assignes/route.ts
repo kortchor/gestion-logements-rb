@@ -1,7 +1,7 @@
 import { query } from '@/lib/db';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withReadAuth } from '@/lib/api-helpers';
-import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/lits/assignes
  * Récupère tous les lits assignés avec leurs occupants
  */
-const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+const getHandler = async () => {
   try {
     const result = await query(`
       SELECT 
@@ -51,7 +51,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       data
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/assignes', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }

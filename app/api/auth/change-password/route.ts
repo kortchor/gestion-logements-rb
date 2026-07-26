@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcryptjs from 'bcryptjs';
-import { logAuth, logSecurityEvent } from '@/lib/logger';
+import { logAuth, logError, logSecurityEvent } from '@/lib/logger';
 import { verifyToken } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
 function getClientIp(request: NextRequest): string {
   const forwardedFor = request.headers.get('x-forwarded-for');
@@ -20,6 +21,13 @@ function getClientIp(request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const clientIp = getClientIp(request);
 
     // Vérifier l'authentification
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: 'Format de requête invalide' },
         { status: 400 }
@@ -145,7 +153,9 @@ export async function POST(request: NextRequest) {
       message: 'Mot de passe changé avec succès',
     });
   } catch (error) {
-    console.error('❌ Erreur change-password:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/auth/change-password' });
+    }
     // Ne pas révéler les détails de l'erreur au client pour des raisons de sécurité
     return NextResponse.json(
       { error: 'Une erreur serveur est survenue. Veuillez réessayer plus tard.' },

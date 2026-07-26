@@ -1,6 +1,8 @@
 import { query, pool } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { createCollaborateurSchema } from '@/lib/validation';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import logger, { logError } from '@/lib/logger';
 
 // ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
 export async function GET(request: Request) {
@@ -35,7 +37,9 @@ export async function GET(request: Request) {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur GET:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
@@ -47,9 +51,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const client = await pool.connect();
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
-    // ✅ Validation des entrées
+    // Vérifier si l'email existe déjà
     const validation = createCollaborateurSchema.validate(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -125,20 +136,20 @@ export async function POST(request: Request) {
   } catch (error) {
     try {
       await client.query('ROLLBACK');
-    } catch (e) {
+    } catch {
       // Ignore rollback errors
     }
-    console.error('❌ Erreur POST:', error);
-    // Log detailed error for debugging
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs', method: 'POST' });
+    }
     return NextResponse.json(
-      { error: 'Erreur lors de la création', details: errorMessage },
+      { error: 'Erreur lors de la création' },
       { status: 500 }
     );
   } finally {
     try {
       client.release();
-    } catch (e) {
+    } catch {
       // Client already released or error, ignore
     }
   }
@@ -148,6 +159,13 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const client = await pool.connect();
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -218,15 +236,24 @@ export async function DELETE(request: Request) {
 
     await client.query('COMMIT');
 
-    console.log(`✅ Collaborateur ${collaborateur.prenom} ${collaborateur.nom} (ID: ${collaborateurId}) supprimé avec succès`);
+    logger.info(
+      { route: '/api/collaborateurs', method: 'DELETE', collaborateurId },
+      'Collaborateur supprime avec succes'
+    );
 
     return NextResponse.json(
       { success: true, message: `${collaborateur.prenom} ${collaborateur.nom} a été supprimé avec succès` },
       { status: 200 }
     );
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Erreur DELETE:', error);
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors
+    }
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs', method: 'DELETE' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la suppression du collaborateur' },
       { status: 500 }
@@ -234,7 +261,7 @@ export async function DELETE(request: Request) {
   } finally {
     try {
       client.release();
-    } catch (e) {
+    } catch {
       // Client already released or error, ignore
     }
   }

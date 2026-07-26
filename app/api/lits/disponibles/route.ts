@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,7 +52,9 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/disponibles', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des lits' },
       { status: 500 }

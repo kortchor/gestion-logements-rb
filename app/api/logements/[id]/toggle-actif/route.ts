@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withWriteAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 const toggleHandler = async (
   request: NextRequest,
   payload: TokenPayload,
   { params }: { params: { id: string } }
 ) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ success: false, error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const logementId = parseInt(params.id);
     if (isNaN(logementId)) {
       return NextResponse.json({ success: false, error: 'ID invalide' }, { status: 400 });
@@ -30,7 +37,9 @@ const toggleHandler = async (
       data: logement,
     });
   } catch (error) {
-    console.error('❌ Erreur toggle logement:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements/[id]/toggle-actif', method: 'POST' });
+    }
     return NextResponse.json({ success: false, error: 'Erreur serveur' }, { status: 500 });
   }
 };

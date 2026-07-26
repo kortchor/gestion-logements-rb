@@ -2,6 +2,8 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 /**
  * POST /api/lits/[id]/retirer-occupant
@@ -9,7 +11,12 @@ import { TokenPayload } from '@/lib/auth';
  * Body: { collaborateur_id }
  */
 export const POST = withAuth(async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { id } = request.nextUrl.pathname.split('/').reduce((acc, segment, idx, arr) => {
       if (segment === 'lits') acc.id = arr[idx + 1];
       return acc;
@@ -94,7 +101,9 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
       message: 'Occupant retiré avec succès',
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/[id]/retirer-occupant', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors du retrait de l\'occupant' },
       { status: 500 }

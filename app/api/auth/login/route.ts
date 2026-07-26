@@ -4,10 +4,18 @@ import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
 import { loginSchema } from '@/lib/validation';
 import { checkRateLimit, LOGIN_RATE_LIMIT } from '@/lib/rate-limit';
-import { logAuth, logSecurityEvent } from '@/lib/logger';
+import { logAuth, logError, logSecurityEvent } from '@/lib/logger';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
 export async function POST(request: Request) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     // 🔐 Rate limiting
@@ -116,7 +124,9 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     logSecurityEvent('login_error', { error: error instanceof Error ? error.message : 'unknown' });
-    console.error('❌ Erreur login:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/auth/login' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la connexion' },
       { status: 500 }

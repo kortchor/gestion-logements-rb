@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 interface LogementRow {
   id: number;
@@ -145,7 +146,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true, data: grouped });
   } catch (error) {
-    console.error('❌ Erreur tableau logements:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/logements/tableau', method: 'GET' });
+    }
     return NextResponse.json({ error: 'Erreur lors de la récupération du tableau' }, { status: 500 });
   }
 };

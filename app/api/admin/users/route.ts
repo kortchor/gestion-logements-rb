@@ -6,9 +6,11 @@ import { TokenPayload } from '@/lib/auth';
 import { generatePassword } from '@/lib/password-utils';
 import { sendEmail } from '@/lib/email';
 import { getAdminCredentialsEmailTemplate } from '@/lib/emailTemplates';
+import logger, { logError } from '@/lib/logger';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
 // ✅ GET - Récupérer tous les utilisateurs (Super Admin uniquement)
-const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+const getHandler = async () => {
   try {
     const result = await query(`
       SELECT 
@@ -25,7 +27,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/users', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
@@ -34,8 +38,12 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 };
 
 // ✅ POST - Créer un utilisateur avec mot de passe généré automatiquement
-const postHandler = async (request: NextRequest, payload: TokenPayload) => {
+const postHandler = async (request: NextRequest) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { nom, prenom, email, role, est_actif } = body;
 
@@ -94,16 +102,20 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
         text: emailTemplate.text,
       });
 
-      console.log(`✅ Email de credentials envoyé à ${email}`);
+      logger.info({ route: '/api/admin/users', action: 'send-credentials-email' }, 'Email de credentials envoye');
     } catch (emailError) {
-      console.error('⚠️ Erreur lors de l\'envoi de l\'email:', emailError);
+      if (emailError instanceof Error) {
+        logError(emailError, { route: '/api/admin/users', action: 'send-credentials-email', targetEmail: email });
+      }
       // L'utilisateur est créé même si l'email échoue
       // Le super admin peut renvoyer les credentials manuellement
     }
 
     return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/users', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la création' },
       { status: 500 }
@@ -112,8 +124,12 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
 };
 
 // ✅ PUT - Modifier un utilisateur
-const putHandler = async (request: NextRequest, payload: TokenPayload) => {
+const putHandler = async (request: NextRequest) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -153,7 +169,9 @@ const putHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/users', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la modification' },
       { status: 500 }
@@ -164,6 +182,10 @@ const putHandler = async (request: NextRequest, payload: TokenPayload) => {
 // ✅ DELETE - Supprimer un utilisateur
 const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -186,7 +208,9 @@ const deleteHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/users', method: 'DELETE' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la suppression' },
       { status: 500 }

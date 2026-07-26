@@ -4,7 +4,8 @@ import { sendEmail } from '@/lib/email'; // sendEmail est utilisé, on le garde
 import bcrypt from 'bcryptjs'; // Correction: bcryptjs est utilisé, donc on le garde
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
-import { CollaborateurDb } from '@/types/db';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 // ✅ Déplacer la constante en dehors de la fonction pour une meilleure performance
 const PASSWORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
@@ -14,7 +15,15 @@ export const POST = withAuth(async (
   payload: TokenPayload,
   { params }: { params: { id: string } }
 ) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     // ✅ Vérification robuste de l'ID
     if (!params.id) {
       return NextResponse.json(
@@ -119,7 +128,9 @@ export const POST = withAuth(async (
       mot_de_passe_genere: !!motDePasseGenere,
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/[id]/send-credentials', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'envoi' },
       { status: 500 }

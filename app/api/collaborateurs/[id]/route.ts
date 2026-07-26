@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 const getCollaborateurHandler = async (
   request: NextRequest,
@@ -28,7 +30,9 @@ const getCollaborateurHandler = async (
     return NextResponse.json({ success: true, data: result.rows[0] });
 
   } catch (error) {
-    console.error('Erreur GET /api/collaborateurs/[id]:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/[id]', method: 'GET' });
+    }
     return NextResponse.json({ success: false, error: 'Erreur serveur' }, { status: 500 });
   }
 };
@@ -39,6 +43,10 @@ const putCollaborateurHandler = async (
   { params }: { params: { id: string } }
 ) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ success: false, error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const collaborateurId = parseInt(params.id, 10);
 
     if (isNaN(collaborateurId)) {
@@ -127,7 +135,9 @@ const putCollaborateurHandler = async (
 
     return NextResponse.json({ success: true, data: updateResult.rows[0] });
   } catch (error) {
-    console.error('Erreur PUT /api/collaborateurs/[id]:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/[id]', method: 'PUT' });
+    }
     return NextResponse.json({ success: false, error: 'Erreur serveur' }, { status: 500 });
   }
 };

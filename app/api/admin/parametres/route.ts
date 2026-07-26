@@ -1,11 +1,13 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+import { NextRequest, NextResponse } from 'next/server';
+import { withSuperAdminAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 // GET - Récupérer un paramètre
-export async function GET(request: Request) {
+const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
     const { searchParams } = new URL(request.url);
     const cle = searchParams.get('cle');
@@ -31,42 +33,22 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/parametres', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
     );
   }
-}
+};
 
 // PUT - Mettre à jour un paramètre (Super Admin uniquement)
-export async function PUT(request: Request) {
+const putHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
-    // Vérifier le token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Non autorisé' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(' ')[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return NextResponse.json(
-        { error: 'Token invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Accès refusé. Super Admin uniquement.' },
-        { status: 403 }
-      );
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -89,10 +71,15 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/parametres', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la mise à jour' },
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withSuperAdminAuth(getHandler);
+export const PUT = withSuperAdminAuth(putHandler);

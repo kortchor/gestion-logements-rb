@@ -1,5 +1,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 // ✅ GET - Récupérer tous les logements ou un seul avec ?id=
 export async function GET(request: Request) {
@@ -43,7 +45,9 @@ export async function GET(request: Request) {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur GET:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
@@ -54,6 +58,13 @@ export async function GET(request: Request) {
 // ✅ POST - Créer un logement avec ses chambres
 export async function POST(request: Request) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const {
@@ -157,7 +168,9 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('❌ Erreur POST:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la création' },
       { status: 500 }
@@ -168,6 +181,13 @@ export async function POST(request: Request) {
 // ✅ DELETE - Supprimer un logement
 export async function DELETE(request: Request) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -201,7 +221,9 @@ export async function DELETE(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('❌ Erreur DELETE:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements', method: 'DELETE' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la suppression' },
       { status: 500 }

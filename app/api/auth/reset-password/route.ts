@@ -1,10 +1,16 @@
-import { query, pool } from '@/lib/db';
+import { pool } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const client = await pool.connect();
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ success: false, error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { token, mot_de_passe } = body;
 
@@ -60,8 +66,14 @@ export async function POST(request: Request) {
       message: 'Mot de passe modifié avec succès',
     });
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Erreur:', error);
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors
+    }
+    if (error instanceof Error) {
+      logError(error, { route: '/api/auth/reset-password', method: 'POST' });
+    }
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la réinitialisation' },
       { status: 500 }

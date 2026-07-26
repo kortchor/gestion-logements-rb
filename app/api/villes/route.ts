@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logError } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -12,7 +13,9 @@ export async function GET() {
     const villes = result.rows.map((row: any) => row.ville);
     return NextResponse.json({ success: true, data: villes });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/villes', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des villes' },
       { status: 500 }

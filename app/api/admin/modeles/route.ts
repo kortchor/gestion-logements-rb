@@ -1,8 +1,11 @@
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withSuperAdminAuth } from '@/lib/api-helpers';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 // GET - Récupérer tous les modèles
-export async function GET() {
+const getHandler = async () => {
   try {
     const result = await query(`
       SELECT * FROM modeles_convention
@@ -11,17 +14,23 @@ export async function GET() {
     `);
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/modeles', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
     );
   }
-}
+};
 
 // POST - Créer un modèle
-export async function POST(request: Request) {
+const postHandler = async (request: NextRequest) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { nom, description, contenu } = body;
 
@@ -41,17 +50,23 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, id: result.rows[0].id }, { status: 201 });
   } catch (error) {
-    console.error('Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/modeles', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la création' },
       { status: 500 }
     );
   }
-}
+};
 
 // PUT - Modifier un modèle
-export async function PUT(request: Request) {
+const putHandler = async (request: NextRequest) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const body = await request.json();
@@ -80,17 +95,23 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/modeles', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la mise à jour' },
       { status: 500 }
     );
   }
-}
+};
 
 // DELETE - Supprimer un modèle (désactivation)
-export async function DELETE(request: Request) {
+const deleteHandler = async (request: NextRequest) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -108,10 +129,17 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/modeles', method: 'DELETE' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la suppression' },
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withSuperAdminAuth(getHandler);
+export const POST = withSuperAdminAuth(postHandler);
+export const PUT = withSuperAdminAuth(putHandler);
+export const DELETE = withSuperAdminAuth(deleteHandler);

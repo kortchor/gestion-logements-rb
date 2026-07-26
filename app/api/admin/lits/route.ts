@@ -1,7 +1,9 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { withReadAuth } from '@/lib/api-helpers';
+import { logError } from '@/lib/logger';
 
-export async function GET() {
+const getHandler = async () => {
   try {
     const result = await query(`
       SELECT 
@@ -22,10 +24,14 @@ export async function GET() {
     
     return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/admin/lits', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withReadAuth(getHandler);

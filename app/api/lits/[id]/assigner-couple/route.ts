@@ -2,6 +2,8 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 /**
  * POST /api/lits/[id]/assigner-couple
@@ -9,7 +11,12 @@ import { TokenPayload } from '@/lib/auth';
  * Body: { collaborateur1_id, collaborateur2_id }
  */
 export const POST = withAuth(async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const { id } = request.nextUrl.pathname.split('/').reduce((acc, segment, idx, arr) => {
       if (segment === 'lits') acc.id = arr[idx + 1];
       return acc;
@@ -155,7 +162,9 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
         : 'Collaborateur assigné au lit avec succès et bail créé',
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/[id]/assigner-couple', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'assignation' },
       { status: 500 }

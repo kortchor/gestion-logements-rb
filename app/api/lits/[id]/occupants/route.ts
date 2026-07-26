@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withReadAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic';
  * Récupère les occupants d'un lit
  */
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void payload;
   try {
     const { id } = request.nextUrl.pathname.split('/').reduce((acc, segment, idx, arr) => {
       if (segment === 'lits') acc.id = arr[idx + 1];
@@ -35,7 +37,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       count: result.rows.length
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/lits/[id]/occupants', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des occupants' },
       { status: 500 }

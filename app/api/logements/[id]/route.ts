@@ -1,5 +1,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { logError } from '@/lib/logger';
 
 // ✅ GET - Récupérer un logement avec ses chambres
 export async function GET(
@@ -31,7 +33,9 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('❌ Erreur GET:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements/[id]', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération' },
       { status: 500 }
@@ -45,6 +49,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const logementId = parseInt(id);
 
@@ -154,7 +165,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true, message: 'Logement mis à jour' });
   } catch (error) {
-    console.error('❌ Erreur PUT:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements/[id]', method: 'PUT' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la mise à jour' },
       { status: 500 }

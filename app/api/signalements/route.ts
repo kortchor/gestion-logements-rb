@@ -5,12 +5,18 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
+import logger, { logError } from '@/lib/logger';
 
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const postHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     // Traiter le FormData
     const formData = await request.formData();
     const sujet = formData.get('sujet') as string;
@@ -61,7 +67,9 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
         logementInfo = logementResult.rows[0].adresse;
       }
     } catch (e) {
-      console.warn('⚠️ Erreur récupération logement:', e);
+      if (e instanceof Error) {
+        logError(e, { route: '/api/signalements', action: 'fetch-logement-info' });
+      }
     }
 
     // Enregistrer le signalement
@@ -84,11 +92,17 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
         for (const file of fichiers) {
           try {
             if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-              console.warn(`⚠️ Type de fichier non autorisé uploadé : ${file.type}`);
+              logger.warn(
+                { route: '/api/signalements', action: 'file-validation', fileType: file.type },
+                'Type de fichier non autorise'
+              );
               continue;
             }
             if (file.size > MAX_FILE_SIZE) {
-              console.warn(`⚠️ Fichier trop volumineux uploadé : ${file.size}`);
+              logger.warn(
+                { route: '/api/signalements', action: 'file-validation', fileSize: file.size },
+                'Fichier trop volumineux'
+              );
               continue;
             }
             const bytes = await file.arrayBuffer();
@@ -98,12 +112,16 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
             await writeFile(filepath, buffer);
             fichiersPaths.push(`/uploads/signalements/${signalementId}/${filename}`);
           } catch (fileError) {
-            console.warn(`⚠️ Erreur sauvegarde fichier ${file.name}:`, fileError);
+            if (fileError instanceof Error) {
+              logError(fileError, { route: '/api/signalements', action: 'save-file', fileName: file.name });
+            }
             // Continuer même si un fichier échoue
           }
         }
       } catch (dirError) {
-        console.warn('⚠️ Erreur création répertoire uploads:', dirError);
+        if (dirError instanceof Error) {
+          logError(dirError, { route: '/api/signalements', action: 'create-upload-directory' });
+        }
         // Continuer sans les fichiers
       }
     }
@@ -119,13 +137,15 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
                 filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
                 path: path.join(process.cwd(), 'public', filepath),
               };
-            } catch (e) {
+            } catch {
               return null;
             }
           })
           .filter(Boolean);
       } catch (e) {
-        console.warn('⚠️ Erreur préparation attachments:', e);
+        if (e instanceof Error) {
+          logError(e, { route: '/api/signalements', action: 'prepare-attachments' });
+        }
         attachments = [];
       }
     }
@@ -194,7 +214,9 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
         attachments: attachments.length > 0 ? attachments : undefined,
       });
     } catch (emailError) {
-      console.error('❌ Erreur envoi email technicien:', emailError);
+      if (emailError instanceof Error) {
+        logError(emailError, { route: '/api/signalements', action: 'send-email-technicien' });
+      }
     }
 
     try {
@@ -205,7 +227,9 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
         attachments: attachments.length > 0 ? attachments : undefined,
       });
     } catch (emailError) {
-      console.error('❌ Erreur envoi email RH:', emailError);
+      if (emailError instanceof Error) {
+        logError(emailError, { route: '/api/signalements', action: 'send-email-rh' });
+      }
     }
 
     return NextResponse.json({
@@ -214,7 +238,9 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
       fichiers: fichiersPaths.length,
     });
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/signalements', method: 'POST' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de l\'envoi du signalement' },
       { status: 500 }

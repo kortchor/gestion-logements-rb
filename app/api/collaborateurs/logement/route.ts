@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
-const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+const getHandler = async (_request: NextRequest, payload: TokenPayload) => {
   try {
     const collaborateurId = payload.id;
 
@@ -32,7 +33,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('Erreur lors de la récupération du logement du collaborateur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/logement', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

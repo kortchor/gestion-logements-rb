@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import logger, { logError } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log('🟢 API /api/logements/disponibles appelée');
+    logger.debug({ route: '/api/logements/disponibles' }, 'API /api/logements/disponibles appelee');
 
     // ✅ AMÉLIORATION : Requête unique et performante utilisant l'agrégation JSON
     const result = await query(`
@@ -28,10 +29,15 @@ export async function GET(request: NextRequest) {
       ORDER BY l.ville, l.adresse;
     `);
 
-    console.log('🟢 Résultat:', result.rows.length, 'logements trouvés');
+    logger.debug(
+      { route: '/api/logements/disponibles', count: result.rows.length },
+      'Resultat logements disponibles'
+    );
     return NextResponse.json(result.rows);
   } catch (error) {
-    console.error('❌ Erreur API logements disponibles:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/logements/disponibles', method: 'GET' });
+    }
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des logements' },
       { status: 500 }

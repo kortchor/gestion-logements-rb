@@ -2,9 +2,12 @@ import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 // Loyer total = ce que l'hôtel paye aux propriétaires chaque mois
 const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void request;
+  void payload;
   try {
     const result = await query(`
       SELECT 
@@ -24,13 +27,17 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
       }
     });
   } catch (error) {
-    console.error('❌ Erreur coûts mensuels:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/dashboard/costs', section: 'monthly' });
+    }
     return NextResponse.json({ error: 'Erreur lors du calcul' }, { status: 500 });
   }
 };
 
 // Coût par centre analytique = SUM(prix_loyer / nb_occupants_du_lit) pour chaque bail actif
 const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void request;
+  void payload;
   try {
     const result = await query(`
       SELECT
@@ -73,13 +80,17 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('❌ Erreur coûts par centre:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/dashboard/costs', section: 'by-center' });
+    }
     return NextResponse.json({ error: 'Erreur lors du calcul' }, { status: 500 });
   }
 };
 
 // Tableau des participations : chaque collaborateur avec sa participation et le coût hôtel
 const participationsHandler = async (request: NextRequest, payload: TokenPayload) => {
+  void request;
+  void payload;
   try {
     const result = await query(`
       SELECT
@@ -135,13 +146,15 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
 
     return NextResponse.json({ success: true, data, coutTotal });
   } catch (error) {
-    console.error('❌ Erreur participations:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/dashboard/costs', section: 'participations' });
+    }
     return NextResponse.json({ error: 'Erreur lors du calcul' }, { status: 500 });
   }
 };
 
 // Route dispatcher
-export async function GET(request: NextRequest, context: any) {
+export async function GET(request: NextRequest, context: { params: Promise<Record<string, never>> }) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
 

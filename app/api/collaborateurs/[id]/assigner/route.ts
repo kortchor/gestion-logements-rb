@@ -1,4 +1,4 @@
-import { query, pool } from '@/lib/db';
+import { pool } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { PoolClient } from 'pg';
 import { withAuth } from '@/lib/api-helpers';
@@ -9,6 +9,8 @@ import youSignClient from '@/lib/yousign-client';
 import fs from 'fs';
 import path from 'path';
 import { isMatch, parseISO } from 'date-fns';
+import logger, { logError } from '@/lib/logger';
+import { verifyCsrfMiddleware } from '@/lib/csrf';
 
 /**
  * @interface AssignmentBody
@@ -152,11 +154,16 @@ const assignerHandler = async (
   payload: TokenPayload,
   context: { params: { id: string } } // ✅ CORRECTION: Accepter le contexte complet
 ) => {
+  void payload;
   // ✅ Utiliser un client unique pour la transaction
   const client = await pool.connect();
   let pdfPath = ''; // Déclaré ici pour la portée
   let pdfUrl = '';
   try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
+    }
+
     const collaborateurId = parseInt(context.params.id); // ✅ CORRECTION: Utiliser context.params.id
     const body: AssignmentBody = await request.json();
     const participation_mensuelle = body.participation_mensuelle;
@@ -172,7 +179,7 @@ const assignerHandler = async (
       return validationResult.error;
     }
 
-    const { litsAAssigner, collaborateur, lit, modeleContenu, modele_convention_id } = validationResult.data;
+    const { litsAAssigner, collaborateur, lit, modeleContenu } = validationResult.data;
 
     // 2. Mettre fin à l'ancien bail actif et libérer le(s) lit(s) associé(s)
     const dateHier = new Date();
@@ -195,7 +202,10 @@ const assignerHandler = async (
         "UPDATE baux SET date_fin = $2 WHERE collaborateur_id = $1 AND date_fin >= $3::date",
         [collaborateurId, dateHierISO, aujourdhui]
       );
-      console.log(`✅ Ancien bail du collaborateur ${collaborateurId} clôturé à la date d'hier et lit(s) libéré(s).`);
+      logger.info(
+        { route: '/api/collaborateurs/[id]/assigner', collaborateurId, action: 'close-previous-bail' },
+        'Ancien bail cloture et lit(s) libere(s)'
+      );
     }
 
     // 3. Assigner le(s) nouveau(x) lit(s)
@@ -237,7 +247,7 @@ const assignerHandler = async (
     });
 
     // 5. Créer une demande de signature via Yousign (avec le PDF généré)
-    console.log('📋 Intégration Yousign pour la demande de signature...');
+    logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-init' }, 'Integration Yousign pour la demande de signature');
     
     let yousignRequestId: string | null = null;
     let signatureLink: string | null = null;
@@ -254,8 +264,8 @@ const assignerHandler = async (
       if (yousignResult.success && yousignResult.signatureLink) {
         yousignRequestId = yousignResult.signatureRequestId || null;
         signatureLink = yousignResult.signatureLink;
-        console.log('✅ Demande Yousign créée avec succès');
-        console.log('🔗 Lien de signature Yousign:', signatureLink);
+        logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-created' }, 'Demande Yousign creee avec succes');
+        logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-link-generated' }, 'Lien de signature Yousign genere');
 
         // Stocker l'ID de la demande Yousign dans la base de données
         try {
@@ -265,16 +275,21 @@ const assignerHandler = async (
           );
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Erreur inconnue';
-          console.warn('⚠️ Colonne yousign_request_id non disponible, ignorée:', message);
+          logger.warn(
+            { route: '/api/collaborateurs/[id]/assigner', action: 'persist-yousign-request-id', message },
+            'Colonne yousign_request_id non disponible, ignoree'
+          );
         }
       } else {
-        console.error('❌ Erreur Yousign:', yousignResult.error);
+        logger.error({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create', error: yousignResult.error }, 'Erreur Yousign');
         // ❌ Ne PAS créer de fallback - si Yousign échoue, le bail ne peut pas être signé
         throw new Error(`Impossible de créer la demande de signature Yousign: ${yousignResult.error}`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      console.error('❌ Erreur lors de la création de la demande Yousign:', err);
+      if (err instanceof Error) {
+        logError(err, { route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create' });
+      }
       // ❌ Rejeter la transaction si Yousign échoue
       await client.query('ROLLBACK');
       return NextResponse.json(
@@ -302,11 +317,17 @@ const assignerHandler = async (
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
-        console.warn('⚠️ Colonne pdf_convention_url non disponible, ignorée:', message);
+        logger.warn(
+          { route: '/api/collaborateurs/[id]/assigner', action: 'persist-pdf-url', message },
+          'Colonne pdf_convention_url non disponible, ignoree'
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      console.warn('⚠️ Impossible de sauvegarder le PDF:', message);
+      logger.warn(
+        { route: '/api/collaborateurs/[id]/assigner', action: 'save-pdf', message },
+        'Impossible de sauvegarder le PDF'
+      );
     }
 
     // 7. Envoyer l'email avec le lien Yousign
@@ -389,7 +410,9 @@ const assignerHandler = async (
   } catch (error) {
     // ✅ Annuler la transaction en cas d'erreur
     await client.query('ROLLBACK');
-    console.error('Erreur:', error);
+    if (error instanceof Error) {
+      logError(error, { route: '/api/collaborateurs/[id]/assigner', action: 'assign' });
+    }
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Erreur lors de l\'assignation' },
       { status: 500 }

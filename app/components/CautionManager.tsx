@@ -48,11 +48,6 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
     motif_retenue: '',
   });
 
-  // Charger les données de la caution
-  useEffect(() => {
-    fetchCaution();
-  }, [bailId]);
-
   const fetchCaution = async () => {
     try {
       setLoading(true);
@@ -74,6 +69,11 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       setLoading(false);
     }
   };
+
+  // Charger les données de la caution
+  useEffect(() => {
+    fetchCaution();
+  }, [bailId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

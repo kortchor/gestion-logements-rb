@@ -19,11 +19,46 @@ interface SignatureResponse {
   error?: string;
 }
 
+interface YousignCreateRequestResponse {
+  id: string;
+}
+
+interface YousignUploadResponse {
+  id: string;
+}
+
+interface YousignSignerResponse {
+  id: string;
+}
+
+interface YousignActivateResponse {
+  signers?: Array<{ signature_link?: string }>;
+}
+
+interface YousignStatusResponse {
+  status?: string;
+}
+
 class YouSignClient {
   private apiKey: string;
   private baseUrl: string;
   private workspaceId: string;
   private isEnabled: boolean;
+
+  private async fetchWithTimeout(
+    input: string,
+    init: RequestInit,
+    timeoutMs = 15000
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
   constructor() {
     this.apiKey = process.env.YOUSIGN_API_KEY || '';
@@ -56,10 +91,10 @@ class YouSignClient {
     }
 
     try {
-      const { signerEmail, signerName, documentContent, documentName, message } = options;
+      const { signerEmail, signerName, documentContent, documentName } = options;
 
       console.log('📝 Création de demande Yousign...');
-      console.log(`👤 Signataire: ${signerName} (${signerEmail})`);
+      console.log(`👤 Signataire: ${signerName}`);
       console.log(`📄 Document: ${documentName}`);
 
       // 1️⃣ CRÉER la demande de signature (vide)
@@ -83,10 +118,7 @@ class YouSignClient {
         },
       };
 
-      console.log('📎 URL:', `${this.baseUrl}/signature_requests`);
-      console.log('📎 Body:', JSON.stringify(createBody));
-
-      const createResponse = await fetch(`${this.baseUrl}/signature_requests`, {
+      const createResponse = await this.fetchWithTimeout(`${this.baseUrl}/signature_requests`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -101,17 +133,18 @@ class YouSignClient {
         throw new Error(`Création demande échouée: ${createResponse.status} - ${errorText}`);
       }
 
-      const createData = await createResponse.json() as any;
+      const createData = await createResponse.json() as YousignCreateRequestResponse;
       const requestId = createData.id;
       console.log('✅ Demande créée:', requestId);
 
       // 2️⃣ UPLOADER le document vers la demande
       console.log('📤 Étape 2: Upload du document...');
       const uploadFormData = new FormData();
-      uploadFormData.append('file', new Blob([documentContent], { type: 'application/pdf' }), documentName);
+      const documentBytes = new Uint8Array(documentContent);
+      uploadFormData.append('file', new Blob([documentBytes], { type: 'application/pdf' }), documentName);
       uploadFormData.append('nature', 'signable_document');
 
-      const uploadResponse = await fetch(`${this.baseUrl}/signature_requests/${requestId}/documents`, {
+      const uploadResponse = await this.fetchWithTimeout(`${this.baseUrl}/signature_requests/${requestId}/documents`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${this.apiKey}` },
         body: uploadFormData,
@@ -122,7 +155,7 @@ class YouSignClient {
         console.error('❌ Upload échoué:', uploadResponse.status, errorText);
         throw new Error(`Upload échoué: ${uploadResponse.status} - ${errorText}`);
       }
-      const uploadData = await uploadResponse.json() as any;
+      const uploadData = await uploadResponse.json() as YousignUploadResponse;
       console.log('✅ Document uploadé:', uploadData.id);
 
       // 3️⃣ AJOUTER le signataire
@@ -135,7 +168,7 @@ class YouSignClient {
       // Garder uniquement: lettres, espaces, tirets, apostrophes
       const sanitize = (str: string) => str.replace(/[^a-zA-ZÀ-ÿ\s\-']/g, '').trim() || 'N/A';
       
-      const signerResponse = await fetch(`${this.baseUrl}/signature_requests/${requestId}/signers`, {
+      const signerResponse = await this.fetchWithTimeout(`${this.baseUrl}/signature_requests/${requestId}/signers`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -159,12 +192,12 @@ class YouSignClient {
         console.error('❌ Ajout signataire échoué:', signerResponse.status, errorText);
         throw new Error(`Ajout signataire échoué: ${signerResponse.status} - ${errorText}`);
       }
-      const signerData = await signerResponse.json() as any;
+      const signerData = await signerResponse.json() as YousignSignerResponse;
       console.log('✅ Signataire ajouté:', signerData.id);
 
       // 4️⃣ ACTIVER la demande
       console.log('🚀 Étape 4: Activation de la demande...');
-      const activateResponse = await fetch(`${this.baseUrl}/signature_requests/${requestId}/activate`, {
+      const activateResponse = await this.fetchWithTimeout(`${this.baseUrl}/signature_requests/${requestId}/activate`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${this.apiKey}` },
       });
@@ -174,7 +207,7 @@ class YouSignClient {
         console.error('❌ Activation échouée:', activateResponse.status, errorText);
         throw new Error(`Activation échouée: ${activateResponse.status} - ${errorText}`);
       }
-      const activateData = await activateResponse.json() as any;
+      const activateData = await activateResponse.json() as YousignActivateResponse;
       const signerUrl = activateData.signers?.[0]?.signature_link;
 
       if (!signerUrl) {
@@ -216,7 +249,7 @@ class YouSignClient {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/signature_requests/${requestId}`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/signature_requests/${requestId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -227,7 +260,7 @@ class YouSignClient {
         throw new Error(`Vérification échouée: ${response.status}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as YousignStatusResponse;
       const status = data.status;
       const completed = status === 'completed' || status === 'done';
 
@@ -246,4 +279,6 @@ class YouSignClient {
   }
 }
 
-export default new YouSignClient();
+const youSignClient = new YouSignClient();
+
+export default youSignClient;

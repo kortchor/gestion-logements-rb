@@ -11,13 +11,13 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // 🔐 Rate limiting
-    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const clientIp = forwardedFor?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
     const email = body?.email?.toLowerCase().trim() || '';
     const rateLimitKey = `login:${email || clientIp}`;
 
     if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT)) {
       logSecurityEvent('rate_limit_exceeded', { email, ip: clientIp });
-      console.warn(`⛔ Rate limit dépassé pour: ${email || clientIp}`);
       return NextResponse.json(
         { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
         { status: 429 }
@@ -62,11 +62,14 @@ export async function POST(request: Request) {
     // 🔐 Vérifier le mot de passe
     let isPasswordValid = false;
     const devPassword = process.env.DEV_PASSWORD || '';
+    const devBypassEnabled =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.DEV_ALLOW_LOGIN_BYPASS === 'true' &&
+      devPassword.length > 0;
     
-    if (process.env.NODE_ENV !== 'production' && devPassword && mot_de_passe === devPassword) {
+    if (devBypassEnabled && mot_de_passe === devPassword) {
       isPasswordValid = true;
       logSecurityEvent('login_dev_password_used', { email: validEmail });
-      console.warn('🔓 [Login] Connexion avec le mot de passe de test pour:', validEmail);
     } else if (user.mot_de_passe) {
       isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     }

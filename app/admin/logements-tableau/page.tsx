@@ -125,7 +125,7 @@ export default function LogementsTableauPage() {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-8 py-6">
           <h1 className="text-3xl font-bold">🏘️ Tableau Logements</h1>
-          <p className="text-gray-600 mt-2">Vue d'ensemble de tous les logements par ville</p>
+          <p className="text-gray-600 mt-2">Vue d&apos;ensemble de tous les logements par ville</p>
         </div>
       </div>
 

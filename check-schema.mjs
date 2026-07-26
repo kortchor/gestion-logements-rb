@@ -1,7 +1,11 @@
 import { Pool } from 'pg';
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL est requis pour exécuter check-schema.mjs');
+}
+
 const pool = new Pool({
-  connectionString: 'postgresql://postgres:111876354@localhost:5432/gestion_logements',
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function checkSchema() {

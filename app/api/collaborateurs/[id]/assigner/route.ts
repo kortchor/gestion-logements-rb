@@ -263,20 +263,22 @@ const assignerHandler = async (
             'UPDATE baux SET yousign_request_id = $1 WHERE id = $2',
             [yousignRequestId, nouveauBailId]
           );
-        } catch (err: any) {
-          console.warn('⚠️ Colonne yousign_request_id non disponible, ignorée:', err.message);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Erreur inconnue';
+          console.warn('⚠️ Colonne yousign_request_id non disponible, ignorée:', message);
         }
       } else {
         console.error('❌ Erreur Yousign:', yousignResult.error);
         // ❌ Ne PAS créer de fallback - si Yousign échoue, le bail ne peut pas être signé
         throw new Error(`Impossible de créer la demande de signature Yousign: ${yousignResult.error}`);
       }
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
       console.error('❌ Erreur lors de la création de la demande Yousign:', err);
       // ❌ Rejeter la transaction si Yousign échoue
       await client.query('ROLLBACK');
       return NextResponse.json(
-        { error: `Erreur lors de la création de la demande de signature: ${err.message}` },
+        { error: `Erreur lors de la création de la demande de signature: ${message}` },
         { status: 500 }
       );
     }
@@ -298,11 +300,13 @@ const assignerHandler = async (
           'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
           [pdfUrl, nouveauBailId]
         );
-      } catch (err: any) {
-        console.warn('⚠️ Colonne pdf_convention_url non disponible, ignorée:', err.message);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.warn('⚠️ Colonne pdf_convention_url non disponible, ignorée:', message);
       }
-    } catch (err: any) {
-      console.warn('⚠️ Impossible de sauvegarder le PDF:', err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      console.warn('⚠️ Impossible de sauvegarder le PDF:', message);
     }
 
     // 7. Envoyer l'email avec le lien Yousign

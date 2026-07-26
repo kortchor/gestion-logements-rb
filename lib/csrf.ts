@@ -71,10 +71,9 @@ export function verifyCsrfMiddleware(request: Request): boolean {
     return true;
   }
 
-  // Vérifier le token dans le header ou le body
-  const token = 
-    request.headers.get('x-csrf-token') ||
-    (request instanceof Request && request.body ? (request.body as any)?.csrf_token : null);
+  // Vérifier le token dans le header uniquement.
+  // Le body d'une Request est un stream et n'est pas lisible de manière synchrone ici.
+  const token = request.headers.get('x-csrf-token');
 
   if (!token) {
     return false;

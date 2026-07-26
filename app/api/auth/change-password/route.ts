@@ -4,6 +4,15 @@ import bcryptjs from 'bcryptjs';
 import { logAuth, logSecurityEvent } from '@/lib/logger';
 import { verifyToken } from '@/lib/auth';
 
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0]?.trim() || 'unknown';
+  }
+
+  return request.headers.get('x-real-ip') || 'unknown';
+}
+
 /**
  * POST /api/auth/change-password
  * Change le mot de passe de l'utilisateur authentifié
@@ -11,11 +20,13 @@ import { verifyToken } from '@/lib/auth';
  */
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request);
+
     // Vérifier l'authentification
     const token = request.cookies.get('token')?.value;
     if (!token) {
       logSecurityEvent('change_password_unauthorized', {
-        ip: request.ip || 'unknown',
+        ip: clientIp,
         timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
@@ -28,7 +39,7 @@ export async function POST(request: NextRequest) {
     const payload = await verifyToken(token);
     if (!payload) {
       logSecurityEvent('change_password_invalid_token', {
-        ip: request.ip || 'unknown',
+        ip: clientIp,
         timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
@@ -58,7 +69,7 @@ export async function POST(request: NextRequest) {
       logSecurityEvent('change_password_missing_fields', {
         userId,
         email,
-        ip: request.ip || 'unknown',
+        ip: clientIp,
       });
       return NextResponse.json(
         { error: 'Les anciens et nouveaux mots de passe sont requis' },
@@ -70,7 +81,7 @@ export async function POST(request: NextRequest) {
       logSecurityEvent('change_password_weak_password', {
         userId,
         email,
-        ip: request.ip || 'unknown',
+        ip: clientIp,
       });
       return NextResponse.json(
         { error: 'Le nouveau mot de passe doit contenir au moins 4 caractères' },
@@ -104,7 +115,7 @@ export async function POST(request: NextRequest) {
       logSecurityEvent('change_password_invalid_old_password', {
         userId,
         email,
-        ip: request.ip || 'unknown',
+        ip: clientIp,
       });
       logAuth(userId, email, 'change_password', false);
       return NextResponse.json(

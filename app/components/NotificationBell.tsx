@@ -21,12 +21,6 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchNotifications = async () => {
     try {
       const response = await fetch('/api/notifications?non_lues=true&limit=20');
@@ -42,6 +36,12 @@ export default function NotificationBell() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const marquerCommeLue = async (id: number) => {
     try {

@@ -83,7 +83,6 @@ export async function generateConventionPDF({
   const pdfDoc = await PDFDocument.create();
   
   let currentPage = pdfDoc.addPage([595.28, 841.89]);
-  const pageWidth = currentPage.getWidth();
   const pageHeight = currentPage.getHeight();
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -120,7 +119,7 @@ export async function generateConventionPDF({
   };
 
   // Remplacer les variables
-  let texte = remplacerVariables(finalTemplate, variables);
+  const texte = remplacerVariables(finalTemplate, variables);
 
   // Diviser en lignes
   const lines = texte.split('\n');

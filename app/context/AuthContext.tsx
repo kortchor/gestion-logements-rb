@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { TokenPayload } from '@/lib/auth';
-import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: TokenPayload | null;

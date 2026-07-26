@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+interface ChambreForm {
+  nom: string;
+  type_lit: string;
+  nombre_lits: number;
+}
 
 // ✅ NOUVEAU : Composant réutilisable pour l'upload de fichier
 interface FileInputProps {
@@ -49,7 +56,7 @@ export default function NouveauLogement() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const [chambres, setChambres] = useState([
+  const [chambres, setChambres] = useState<ChambreForm[]>([
     { nom: 'Chambre 1', type_lit: 'simple', nombre_lits: 1 }
   ]);
 
@@ -88,7 +95,7 @@ export default function NouveauLogement() {
     });
   };
 
-  const handleChambreChange = (index: number, field: string, value: any) => {
+  const handleChambreChange = (index: number, field: keyof ChambreForm, value: string | number) => {
     const newChambres = [...chambres];
     newChambres[index] = { ...newChambres[index], [field]: value };
     setChambres(newChambres);
@@ -426,7 +433,7 @@ export default function NouveauLogement() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'assureur</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l&apos;assureur</label>
             <input
               type="text"
               name="nom_assureur"
@@ -438,7 +445,7 @@ export default function NouveauLogement() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Numéro d'assurance</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Numéro d&apos;assurance</label>
             <input
               type="text"
               name="assurance"
@@ -450,11 +457,11 @@ export default function NouveauLogement() {
           </div>
 
           <FileInput
-            label="📄 Contrat d'assurance (PDF)"
+            label="📄 Contrat d&apos;assurance (PDF)"
             name="assurance_pdf"
             fileName={formData.assurance_nom}
             onFileChange={handleFileChange}
-            placeholder="Uploader le contrat d'assurance au format PDF (max 10 Mo)"
+            placeholder="Uploader le contrat d&apos;assurance au format PDF (max 10 Mo)"
           />
 
           {/* ============================================================ */}
@@ -483,7 +490,7 @@ export default function NouveauLogement() {
 
           {/* Photos */}
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l'état des lieux</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l&apos;état des lieux</label>
             {formData.etat_lieux_photos ? (
               <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
                 <span className="text-sm text-gray-700">
@@ -511,7 +518,7 @@ export default function NouveauLogement() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             )}
-            <p className="text-xs text-gray-500 mt-1">Uploader les photos de l'état des lieux (JPG, PNG, GIF)</p>
+            <p className="text-xs text-gray-500 mt-1">Uploader les photos de l&apos;état des lieux (JPG, PNG, GIF)</p>
           </div>
 
           {/* ============================================================ */}
@@ -619,12 +626,12 @@ export default function NouveauLogement() {
           >
             {loading ? 'Création...' : '➕ Créer le logement'}
           </button>
-          <a
+          <Link
             href="/logements"
             className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors no-underline"
           >
             Annuler
-          </a>
+          </Link>
         </div>
       </form>
     </div>

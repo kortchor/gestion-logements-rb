@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function ModifierCollaborateur({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [collab, setCollab] = useState<any>(null);
+  const [collab, setCollab] = useState<Record<string, unknown> | null>(null);
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -127,7 +128,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
     <div className="container mx-auto p-8 max-w-2xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">✏️ Modifier le collaborateur</h1>
-        <a href="/collaborateurs" className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 no-underline">← Retour</a>
+        <Link href="/collaborateurs" className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 no-underline">← Retour</Link>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
@@ -180,7 +181,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'arrivée (logement) *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date d&apos;arrivée (logement) *</label>
             <input type="date" name="date_arrivee" required value={formData.date_arrivee} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
 
@@ -220,7 +221,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           <button type="submit" disabled={loading} className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
             {loading ? 'Modification...' : '💾 Enregistrer'}
           </button>
-          <a href="/collaborateurs" className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Annuler</a>
+          <Link href="/collaborateurs" className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Annuler</Link>
         </div>
       </form>
     </div>

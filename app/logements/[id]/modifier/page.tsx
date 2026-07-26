@@ -1,14 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+interface ChambreForm {
+  nom: string;
+  type_lit: string;
+  nombre_lits: number;
+}
 
 export default function ModifierLogement({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [logement, setLogement] = useState<any>(null);
-  const [chambres, setChambres] = useState<any[]>([]);
+  const [logement, setLogement] = useState<Record<string, unknown> | null>(null);
   const [formData, setFormData] = useState({
     nom_logement: '',
     adresse: '',
@@ -36,7 +42,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     description_detaillee: '',
   });
 
-  const [newChambres, setNewChambres] = useState([
+  const [newChambres, setNewChambres] = useState<ChambreForm[]>([
     { nom: 'Chambre 1', type_lit: 'simple', nombre_lits: 1 }
   ]);
 
@@ -104,7 +110,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     });
   };
 
-  const handleChambreChange = (index: number, field: string, value: any) => {
+  const handleChambreChange = (index: number, field: keyof ChambreForm, value: string | number) => {
     const newChambresCopy = [...newChambres];
     newChambresCopy[index] = { ...newChambresCopy[index], [field]: value };
     setNewChambres(newChambresCopy);
@@ -266,9 +272,9 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     <div className="container mx-auto p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">✏️ Modifier le logement</h1>
-        <a href="/logements" className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 no-underline">
+        <Link href="/logements" className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 no-underline">
           ← Retour
-        </a>
+        </Link>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
@@ -390,8 +396,8 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
             <hr className="mb-4" />
           </div>
 
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'assureur</label><input type="text" name="nom_assureur" value={formData.nom_assureur} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Numéro d'assurance</label><input type="text" name="assurance" value={formData.assurance} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Nom de l&apos;assureur</label><input type="text" name="nom_assureur" value={formData.nom_assureur} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Numéro d&apos;assurance</label><input type="text" name="assurance" value={formData.assurance} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" /></div>
           {renderFileField('📄 Contrat d\'assurance (PDF)', 'assurance_pdf', 'assurance_nom', 'Uploader le contrat d\'assurance (PDF)')}
 
           {/* Documents */}
@@ -404,7 +410,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
           {renderFileField('📄 État des lieux (PDF)', 'etat_lieux_pdf', 'etat_lieux_nom', 'Uploader l\'état des lieux (PDF)')}
 
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l'état des lieux</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l&apos;état des lieux</label>
             {formData.etat_lieux_photos ? (
               <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
                 <span className="text-sm text-gray-700">✅ {JSON.parse(formData.etat_lieux_photos).length} photo(s)</span>
@@ -473,7 +479,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
           <button type="submit" disabled={loading} className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
             {loading ? 'Modification...' : '💾 Enregistrer'}
           </button>
-          <a href="/logements" className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Annuler</a>
+          <Link href="/logements" className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Annuler</Link>
         </div>
       </form>
     </div>

@@ -59,6 +59,15 @@ interface Participation {
   cout_hotel: number;
 }
 
+interface BasicActiveEntity {
+  est_actif?: boolean;
+}
+
+interface Bail {
+  date_debut: string;
+  date_fin: string;
+}
+
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -104,11 +113,11 @@ export default function DashboardPage() {
         ]);
 
         // Gérer les réponses avec try-catch
-        let logements = [];
-        let collaborateurs = [];
-        let baux = [];
-        let costs = null;
-        let costsByCenter = [];
+        let logements: BasicActiveEntity[] = [];
+        let collaborateurs: BasicActiveEntity[] = [];
+        let baux: Bail[] = [];
+        const costs = null;
+        const costsByCenter: CostByCenter[] = [];
 
         try {
           const logementsData = await logementsRes.json();
@@ -163,7 +172,7 @@ export default function DashboardPage() {
         }
 
         // Calculer les baux en cours
-        const bauxEncours = baux.filter((b: any) => {
+        const bauxEncours = baux.filter((b) => {
           try {
             const now = new Date();
             const debut = new Date(b.date_debut);
@@ -176,9 +185,9 @@ export default function DashboardPage() {
 
         setStats({
           totalLogements: Array.isArray(logements) ? logements.length : 0,
-          logementActifs: Array.isArray(logements) ? logements.filter((l: any) => l.est_actif !== false).length : 0,
+          logementActifs: Array.isArray(logements) ? logements.filter((l) => l.est_actif !== false).length : 0,
           totalCollaborateurs: Array.isArray(collaborateurs) ? collaborateurs.length : 0,
-          collaborateursActifs: Array.isArray(collaborateurs) ? collaborateurs.filter((c: any) => c.est_actif !== false).length : 0,
+          collaborateursActifs: Array.isArray(collaborateurs) ? collaborateurs.filter((c) => c.est_actif !== false).length : 0,
           baux: Array.isArray(baux) ? baux.length : 0,
           bauxEncours,
         });
@@ -210,9 +219,9 @@ export default function DashboardPage() {
       <div className="min-h-screen flex items-center justify-center bg-red-50">
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-2">❌ Accès refusé</h1>
-          <p className="text-gray-600">Vous n'avez pas les permissions pour accéder au dashboard.</p>
+          <p className="text-gray-600">Vous n&apos;avez pas les permissions pour accéder au dashboard.</p>
           <Link href="/" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-            Retour à l'accueil
+            Retour à l&apos;accueil
           </Link>
         </div>
       </div>
@@ -301,7 +310,7 @@ export default function DashboardPage() {
                 {costData && (
                   <div className="bg-white p-6 rounded-lg shadow-md">
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">🏠 Loyer total mensuel</h3>
-                    <p className="text-xs text-gray-500 mb-4">Ce que l'hôtel verse aux propriétaires — {costData.mois}</p>
+                    <p className="text-xs text-gray-500 mb-4">Ce que l&apos;hôtel verse aux propriétaires — {costData.mois}</p>
                     <div className="text-center">
                       <div className="text-4xl font-bold text-green-600">
                         {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}

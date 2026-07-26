@@ -30,20 +30,26 @@ const SUPER_ADMIN_ROUTES = [
   '/admin/users',
   '/admin/technicien',
 ];
- 
-// ✅ Routes pour tous les utilisateurs connectés (y compris 'user')
-const USER_ROUTES = [
-  '/mon-logement',
-];
+
+const isDebugProxyLogs = process.env.NODE_ENV !== 'production';
+
+function proxyDebug(...args: unknown[]) {
+  if (isDebugProxyLogs) {
+    console.log(...args);
+  }
+}
 
 /**
  * Ajoute les headers de sécurité à la réponse
  */
 function addSecurityHeaders(response: NextResponse): NextResponse {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const scriptSrc = isProduction ? "'self' 'unsafe-inline'" : "'self' 'unsafe-inline' 'unsafe-eval'";
+
   // 🔒 Content Security Policy (CSP)
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:;"
+    `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:;`
   );
 
   // Empêcher le clickjacking
@@ -65,7 +71,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   );
 
   // HSTS (HTTPS Strict Transport Security) - uniquement en production
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     response.headers.set(
       'Strict-Transport-Security',
       'max-age=31536000; includeSubDomains; preload'
@@ -79,7 +85,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const startTime = Date.now();
 
-  console.log('🛡️ [Proxy] Path:', pathname);
+  proxyDebug('🛡️ [Proxy] Path:', pathname);
 
   // Ignorer les assets statiques
   if (pathname.startsWith('/_next') || pathname.startsWith('/public')) {
@@ -89,7 +95,7 @@ export async function proxy(request: NextRequest) {
 
   // ✅ Routes publiques - accès libre
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    console.log('✅ [Proxy] Route publique');
+    proxyDebug('✅ [Proxy] Route publique');
     const response = NextResponse.next();
     const duration = Date.now() - startTime;
     logRequest(request.method, pathname, 200, duration);
@@ -99,11 +105,11 @@ export async function proxy(request: NextRequest) {
   // ✅ Récupérer le token depuis le cookie
   const token = request.cookies.get('token')?.value;
 
-  console.log('🔑 [Proxy] Token:', token ? '✅ Présent' : '❌ Absent');
+  proxyDebug('🔑 [Proxy] Token:', token ? '✅ Présent' : '❌ Absent');
 
   // Si pas de token, rediriger vers login
   if (!token) {
-    console.log('🔀 [Proxy] Redirection vers /login');
+    proxyDebug('🔀 [Proxy] Redirection vers /login');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
     const duration = Date.now() - startTime;
@@ -125,7 +131,7 @@ export async function proxy(request: NextRequest) {
       return addSecurityHeaders(response);
     }
 
-    console.log('👤 [Proxy] Utilisateur:', payload.email, 'Rôle:', payload.role);
+    proxyDebug('👤 [Proxy] Utilisateur authentifié, rôle:', payload.role);
     const userRole = payload.role;
     const isSuperAdminRoute = SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route));
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
@@ -138,7 +144,7 @@ export async function proxy(request: NextRequest) {
       case 'admin_readonly':
         // L'Admin (et admin_readonly) ne peut pas accéder aux routes Super Admin
         if (isSuperAdminRoute) {
-          console.log('⛔ [Proxy] Accès refusé (Super Admin requis) pour:', pathname);
+          proxyDebug('⛔ [Proxy] Accès refusé (Super Admin requis) pour:', pathname);
           const duration = Date.now() - startTime;
           logRequest(request.method, pathname, 403, duration);
           const response = NextResponse.redirect(new URL('/', request.url));
@@ -149,7 +155,7 @@ export async function proxy(request: NextRequest) {
       default:
         // Les utilisateurs simples ne peuvent accéder qu'à leurs routes
         if (isAdminRoute || isSuperAdminRoute) {
-          console.log('⛔ [Proxy] Accès refusé (Admin requis) pour:', pathname);
+          proxyDebug('⛔ [Proxy] Accès refusé (Admin requis) pour:', pathname);
           const duration = Date.now() - startTime;
           logRequest(request.method, pathname, 403, duration);
           const response = NextResponse.redirect(new URL('/', request.url));

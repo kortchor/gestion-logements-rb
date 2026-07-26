@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Erreur migration:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur inconnue' },
+      { error: 'Erreur interne lors de la migration' },
       { status: 500 }
     );
   }

@@ -3,13 +3,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 
+interface LogementRow {
+  id: number;
+  nom_logement: string | null;
+  adresse: string;
+  ville: string;
+  est_actif: boolean;
+  nombre_lits: string | number;
+  lits_libres: string | number;
+}
+
+interface OccupantRow {
+  logement_id: number;
+  id: number;
+  prenom: string;
+  nom: string;
+  participation: string | number | null;
+}
+
+interface GroupedVille {
+  ville: string;
+  logements: Array<{
+    id: number;
+    nom_logement: string | null;
+    adresse: string;
+    est_actif: boolean;
+    occupants: Array<{ nom: string; contribution: number }>;
+    nombre_occupants: number;
+    nombre_lits: number;
+    lits_libres: number;
+  }>;
+}
+
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
-  // Vérifier que l'utilisateur est admin ou super_admin
   if (!['admin', 'super_admin'].includes(payload.role)) {
-    return NextResponse.json(
-      { error: 'Accès refusé. Administrateur requis.' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: 'Accès refusé. Administrateur requis.' }, { status: 403 });
   }
 
   try {
@@ -18,26 +46,28 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const actif = searchParams.get('actif');
 
     let whereClause = '';
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramIndex = 1;
 
     if (actif === 'true') {
-      whereClause += `WHERE log.est_actif = true`;
+      whereClause += 'WHERE log.est_actif = true';
     } else if (actif === 'false') {
-      whereClause += `WHERE log.est_actif = false`;
+      whereClause += 'WHERE log.est_actif = false';
     }
 
     if (ville) {
-      if (whereClause) whereClause += ' AND';
-      else whereClause += 'WHERE';
+      if (whereClause) {
+        whereClause += ' AND';
+      } else {
+        whereClause += 'WHERE';
+      }
       whereClause += ` log.ville ILIKE $${paramIndex}`;
       params.push(`%${ville}%`);
       paramIndex++;
     }
 
-    // Requête pour récupérer tous les logements avec leurs informations
-    const logements = await query(
-      `SELECT 
+    const logementsResult = await query(
+      `SELECT
         log.id,
         log.nom_logement,
         log.adresse,
@@ -55,16 +85,12 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       params
     );
 
-    // Pour chaque logement, récupérer les occupants
-    const logementIds = logements.rows.map((l: any) => l.id);
-    let occupants: any[] = [];
+    const logementRows = logementsResult.rows as LogementRow[];
+    const logementIds = logementRows.map((l) => l.id);
+    let occupants: OccupantRow[] = [];
 
     if (logementIds.length > 0) {
-      const placeholders = logementIds
-        .map((_, i) => `$${i + 1}`)
-        .join(',');
-
-      // Récupérer les occupants (directement via lits.collaborateur_id et via lit_occupants)
+      const placeholders = logementIds.map((_, i) => `$${i + 1}`).join(',');
       const occupantsResult = await query(
         `SELECT DISTINCT
           c.logement_id,
@@ -83,20 +109,16 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         ORDER BY c.logement_id, col.nom, col.prenom`,
         logementIds
       );
-
-      occupants = occupantsResult.rows;
+      occupants = occupantsResult.rows as OccupantRow[];
     }
 
-    // Grouper par ville
-    const grouped = logements.rows.reduce((acc: any, log: any) => {
-      const villeGroup = acc.find((g: any) => g.ville === log.ville);
-      
-      // Récupérer les occupants pour ce logement avec leurs contributions
+    const grouped = logementRows.reduce<GroupedVille[]>((acc, log) => {
+      const villeGroup = acc.find((g) => g.ville === log.ville);
       const logOccupants = occupants
-        .filter((o: any) => o.logement_id === log.id)
-        .map((o: any) => ({
+        .filter((o) => o.logement_id === log.id)
+        .map((o) => ({
           nom: `${o.prenom} ${o.nom}`,
-          contribution: o.participation ? parseFloat(o.participation) : 0
+          contribution: o.participation ? parseFloat(String(o.participation)) : 0,
         }));
 
       const logementData = {
@@ -106,35 +128,25 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         est_actif: log.est_actif,
         occupants: logOccupants,
         nombre_occupants: logOccupants.length,
-        nombre_lits: parseInt(log.nombre_lits || 0),
-        lits_libres: parseInt(log.lits_libres || 0),
+        nombre_lits: parseInt(String(log.nombre_lits || 0), 10),
+        lits_libres: parseInt(String(log.lits_libres || 0), 10),
       };
 
       if (villeGroup) {
         villeGroup.logements.push(logementData);
       } else {
-        acc.push({
-          ville: log.ville,
-          logements: [logementData],
-        });
+        acc.push({ ville: log.ville, logements: [logementData] });
       }
 
       return acc;
     }, []);
 
-    // Trier les villes alphabétiquement
-    grouped.sort((a: any, b: any) => a.ville.localeCompare(b.ville));
+    grouped.sort((a, b) => a.ville.localeCompare(b.ville));
 
-    return NextResponse.json({
-      success: true,
-      data: grouped,
-    });
+    return NextResponse.json({ success: true, data: grouped });
   } catch (error) {
     console.error('❌ Erreur tableau logements:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la récupération du tableau' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erreur lors de la récupération du tableau' }, { status: 500 });
   }
 };
 

@@ -2,24 +2,32 @@
 
 import { useState, useEffect } from 'react';
 
+interface LitRow {
+  id: number;
+  numero: string;
+  chambre_nom: string | null;
+  logement_adresse: string | null;
+  ville: string | null;
+  est_occupe: boolean;
+  collaborateur_nom: string | null;
+  collaborateur_prenom: string | null;
+}
+
 export default function AdminLitsPage() {
-  const [lits, setLits] = useState([]);
+  const [lits, setLits] = useState<LitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ total: 0, occupes: 0, disponibles: 0 });
-
-  useEffect(() => {
-    fetchLits();
-  }, []);
 
   async function fetchLits() {
     try {
       const response = await fetch('/api/admin/lits');
       const data = await response.json();
       if (data.success) {
-        setLits(data.data);
-        const total = data.data.length;
-        const occupes = data.data.filter((l: any) => l.est_occupe).length;
+        const rows = data.data as LitRow[];
+        setLits(rows);
+        const total = rows.length;
+        const occupes = rows.filter((l) => l.est_occupe).length;
         setStats({ total, occupes, disponibles: total - occupes });
       } else {
         setError(data.error || 'Erreur');
@@ -30,6 +38,10 @@ export default function AdminLitsPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    fetchLits();
+  }, []);
 
   async function libererLit(litId: number) {
     if (!confirm('Voulez-vous vraiment libérer ce lit ?')) return;
@@ -108,7 +120,7 @@ export default function AdminLitsPage() {
                   </td>
                 </tr>
               ) : (
-                lits.map((lit: any) => (
+                lits.map((lit) => (
                   <tr key={lit.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">{lit.id}</td>
                     <td className="px-6 py-4">Lit {lit.numero}</td>
@@ -158,7 +170,7 @@ export default function AdminLitsPage() {
 
       <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
         <p className="text-sm text-blue-700">
-          💡 <strong>Astuce :</strong> Utilisez le bouton "Libérer" pour rendre un lit disponible 
+          💡 <strong>Astuce :</strong> Utilisez le bouton &quot;Libérer&quot; pour rendre un lit disponible 
           si un collaborateur a quitté son logement.
         </p>
       </div>

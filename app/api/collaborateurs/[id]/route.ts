@@ -115,7 +115,7 @@ const putCollaborateurHandler = async (
     // Log audit
     if (Object.keys(changes).length > 0) {
       await logAudit({
-        userId: payload.sub,
+        userId: payload.id,
         userEmail: payload.email,
         action: 'update',
         entityType: 'collaborateur',

@@ -6,7 +6,7 @@ export interface AuditLog {
   action: string; // 'create', 'update', 'delete', etc.
   entityType: string; // 'collaborateur', 'logement', 'lit', etc.
   entityId?: number;
-  changes?: Record<string, any>;
+  changes?: Record<string, unknown>;
   ipAddress?: string;
 }
 
@@ -44,7 +44,7 @@ export async function getAuditTrail(
 ) {
   try {
     let whereClause = '';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (userId) {
       whereClause = 'WHERE user_id = $1';
@@ -85,7 +85,7 @@ export async function getAuditTrail(
 export async function countAuditTrail(userId?: number): Promise<number> {
   try {
     let whereClause = '';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (userId) {
       whereClause = 'WHERE user_id = $1';
@@ -97,7 +97,7 @@ export async function countAuditTrail(userId?: number): Promise<number> {
       params
     );
 
-    return parseInt(result.rows[0]?.total || 0);
+    return parseInt(String(result.rows[0]?.total ?? '0'), 10);
   } catch (error) {
     console.error('❌ Erreur lors du comptage de l\'audit trail:', error);
     return 0;

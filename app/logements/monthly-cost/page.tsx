@@ -38,10 +38,6 @@ export default function MonthlyCostPage() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  useEffect(() => {
-    fetchCoutMensuel();
-  }, [selectedDate]);
-
   const fetchCoutMensuel = async () => {
     try {
       setPageLoading(true);
@@ -61,6 +57,10 @@ export default function MonthlyCostPage() {
       setPageLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCoutMensuel();
+  }, [selectedDate]);
 
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
@@ -103,7 +103,7 @@ export default function MonthlyCostPage() {
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
             >
-              Aujourd'hui
+              Aujourd&apos;hui
             </button>
           </div>
         </div>

@@ -1,11 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+interface Modele {
+  id: number;
+  nom: string;
+  description: string | null;
+  contenu: string;
+}
 
 export default function ModelesPage() {
   const router = useRouter();
-  const [modeles, setModeles] = useState([]);
+  const [modeles, setModeles] = useState<Modele[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
   const [formData, setFormData] = useState({
@@ -67,7 +75,7 @@ export default function ModelesPage() {
     }
   };
 
-  const handleEdit = (modele: any) => {
+  const handleEdit = (modele: Modele) => {
     setEditing(modele.id);
     setFormData({
       nom: modele.nom,
@@ -95,12 +103,12 @@ export default function ModelesPage() {
     <div className="container mx-auto p-8 max-w-6xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">📄 Modèles de convention</h1>
-        <a
+        <Link
           href="/"
           className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors no-underline"
         >
           ← Retour
-        </a>
+        </Link>
       </div>
 
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
@@ -210,7 +218,7 @@ Signature de l'Occupant : _________________`}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {modeles.map((modele: any) => (
+              {modeles.map((modele) => (
                 <tr key={modele.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium">{modele.nom}</td>
                   <td className="px-6 py-4">{modele.description || '-'}</td>

@@ -28,9 +28,10 @@ export default function NouveauCollaborateur() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+      [name]: newValue,
     });
   };
 
@@ -57,7 +58,7 @@ export default function NouveauCollaborateur() {
         setError(result.error || 'Erreur lors de la création');
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error('Erreur:', err);
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
@@ -187,7 +188,7 @@ export default function NouveauCollaborateur() {
 
           {/* Date d'arrivée */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'arrivée (logement) *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date d&apos;arrivée (logement) *</label>
             <input
               type="date"
               name="date_arrivee"

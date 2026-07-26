@@ -1,47 +1,54 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3003';
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function callAlertEndpoint(baseUrl: string, jours: number, type: string, label: string) {
+  const endpoint = `${baseUrl}/api/email/alerte-fin-bail?jours=${jours}&type=${type}`;
+  const response = await fetchWithTimeout(endpoint);
+
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`Endpoint ${label} en echec (${response.status}): ${payload.slice(0, 200)}`);
+  }
+
+  const data = await response.json();
+  return { type: label, ...data };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const host = request.headers.get('host');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const runtimeBaseUrl = host ? `${protocol}://${host}` : null;
+    const baseUrl = process.env.NEXTAUTH_URL || runtimeBaseUrl || 'http://localhost:3000';
     const results = [];
 
     // 1. Alerte 1 mois avant (30 jours)
     console.log('📧 Envoi des alertes 1 mois avant...');
-    const res30 = await fetch(
-      `${baseUrl}/api/email/alerte-fin-bail?jours=30&type=premiere`,
-      { cache: 'no-store' }
-    );
-    const data30 = await res30.json();
-    results.push({ type: '1 mois (30j)', ...data30 });
+    results.push(await callAlertEndpoint(baseUrl, 30, 'premiere', '1 mois (30j)'));
 
     // 2. Alerte 2 semaines avant (14 jours)
     console.log('📧 Envoi des alertes 2 semaines avant...');
-    const res14 = await fetch(
-      `${baseUrl}/api/email/alerte-fin-bail?jours=14&type=relance`,
-      { cache: 'no-store' }
-    );
-    const data14 = await res14.json();
-    results.push({ type: '2 semaines (14j)', ...data14 });
+    results.push(await callAlertEndpoint(baseUrl, 14, 'relance', '2 semaines (14j)'));
 
     // 3. Alerte 1 semaine avant (7 jours)
     console.log('📧 Envoi des alertes 1 semaine avant...');
-    const res7 = await fetch(
-      `${baseUrl}/api/email/alerte-fin-bail?jours=7&type=derniere`,
-      { cache: 'no-store' }
-    );
-    const data7 = await res7.json();
-    results.push({ type: '1 semaine (7j)', ...data7 });
+    results.push(await callAlertEndpoint(baseUrl, 7, 'derniere', '1 semaine (7j)'));
 
     // 4. Alerte quotidienne (1 jour avant)
     console.log('📧 Envoi des alertes quotidiennes...');
-    const res1 = await fetch(
-      `${baseUrl}/api/email/alerte-fin-bail?jours=1&type=quotidienne`,
-      { cache: 'no-store' }
-    );
-    const data1 = await res1.json();
-    results.push({ type: '1 jour (1j)', ...data1 });
+    results.push(await callAlertEndpoint(baseUrl, 1, 'quotidienne', '1 jour (1j)'));
 
     return NextResponse.json({
       success: true,

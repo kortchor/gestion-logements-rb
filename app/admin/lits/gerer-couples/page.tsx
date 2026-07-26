@@ -49,17 +49,13 @@ export default function GererCouplesPage() {
   const [loading2, setLoading2] = useState(true);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
       // Récupérer les lits libres (doubles)
       const litsRes = await fetch('/api/lits/libres');
       const litsData = await litsRes.json();
       if (litsData.success) {
-        setLitsLibres(litsData.data.filter((l: any) => l.type_lit === 'double'));
+        setLitsLibres((litsData.data as Lit[]).filter((l) => l.type_lit === 'double'));
       }
 
       // Récupérer les lits assignés
@@ -73,7 +69,7 @@ export default function GererCouplesPage() {
       const collabRes = await fetch('/api/collaborateurs');
       const collabData = await collabRes.json();
       if (collabData.success) {
-        setCollaborateurs(collabData.data.filter((c: any) => c.est_actif));
+        setCollaborateurs((collabData.data as Collaborateur[]).filter((c) => c.est_actif));
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -81,6 +77,10 @@ export default function GererCouplesPage() {
       setLoading2(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleAssignCouple = async () => {
     if (!selectedLit || !collaborateur1) {

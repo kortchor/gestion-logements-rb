@@ -35,7 +35,7 @@ export default function LoginPage() {
       } else {
         setError(data.error || 'Email ou mot de passe incorrect');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
@@ -47,7 +47,7 @@ export default function LoginPage() {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-blue-600">🏨 Les Roches Blanches</h1>
-          <p className="text-gray-600 mt-2">Connexion à l'application</p>
+          <p className="text-gray-600 mt-2">Connexion à l&apos;application</p>
         </div>
 
         {error && (

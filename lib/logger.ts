@@ -33,21 +33,23 @@ export function logRequest(method: string, path: string, status?: number, durati
 }
 
 // Log les erreurs
-export function logError(error: Error, context?: Record<string, any>) {
+export function logError(error: Error, context?: Record<string, unknown>) {
   logger.error({ error, ...context }, error.message);
 }
 
 // Log la sécurité
-export function logSecurityEvent(event: string, details?: Record<string, any>) {
+export function logSecurityEvent(event: string, details?: Record<string, unknown>) {
   logger.warn({ event, ...details }, `🔒 Security: ${event}`);
 }
 
 // Log les authentifications
 export function logAuth(userId: number, email: string, action: string, success: boolean) {
   const level = success ? 'info' : 'warn';
+  const emailForLogs = process.env.NODE_ENV === 'production' ? '[redacted]' : email;
+
   logger[level](
-    { userId, email, action, success },
-    `🔐 Auth [${action}]: ${email}`
+    { userId, email: emailForLogs, action, success },
+    `🔐 Auth [${action}]: ${emailForLogs}`
   );
 }
 

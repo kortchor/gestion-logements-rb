@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 
 interface ExportButtonsProps {
   type: 'logements' | 'collaborateurs';
-  data: any[];
+  data: Array<object>;
   columns: { key: string; label: string }[];
   filename: string;
 }
@@ -13,19 +13,27 @@ interface ExportButtonsProps {
 export default function ExportButtons({ type, data, columns, filename }: ExportButtonsProps) {
   const [loading, setLoading] = useState<'excel' | 'pdf' | null>(null);
 
+  const toDisplayDate = (value: unknown): string => {
+    if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+      return new Date(value).toLocaleDateString('fr-FR');
+    }
+    return '';
+  };
+
   // Export Excel
   const exportExcel = async () => {
     setLoading('excel');
     try {
       const formattedData = data.map((item) => {
-        const row: any = {};
+        const row: Record<string, string> = {};
+        const record = item as Record<string, unknown>;
         columns.forEach((col) => {
-          let value = item[col.key];
+          let value = record[col.key];
           // Formater les dates
           if (value && (col.key.includes('date') || col.key.includes('Date'))) {
-            value = new Date(value).toLocaleDateString('fr-FR');
+            value = toDisplayDate(value);
           }
-          row[col.label] = value || '';
+          row[col.label] = value == null ? '' : String(value);
         });
         return row;
       });
@@ -62,6 +70,8 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
       const pdfDoc = await PDFDocument.create();
       const page = pdfDoc.addPage([595.28, 841.89]); // A4
       const { width, height } = page.getSize();
+      let currentPage = page;
+      let currentWidth = width;
 
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -72,7 +82,7 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
 
       // Titre
       const title = type === 'logements' ? 'Liste des logements' : 'Liste des collaborateurs';
-      page.drawText(title, {
+      currentPage.drawText(title, {
         x: 50,
         y: y,
         size: 16,
@@ -87,7 +97,7 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
         month: 'long',
         year: 'numeric',
       });
-      page.drawText(`Exporté le ${dateStr}`, {
+      currentPage.drawText(`Exporté le ${dateStr}`, {
         x: 50,
         y: y,
         size: 10,
@@ -101,7 +111,7 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
       let x = 50;
 
       // Fond gris pour les en-têtes
-      page.drawRectangle({
+      currentPage.drawRectangle({
         x: 50,
         y: y - 2,
         width: width - 100,
@@ -109,8 +119,8 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
         color: rgb(0.9, 0.9, 0.9),
       });
 
-      columns.forEach((col, index) => {
-        page.drawText(col.label, {
+      columns.forEach((col) => {
+        currentPage.drawText(col.label, {
           x: x + 4,
           y: y,
           size: fontSize,
@@ -122,9 +132,9 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
       y -= lineHeight + 4;
 
       // Lignes de séparation
-      page.drawLine({
+      currentPage.drawLine({
         start: { x: 50, y: y + 2 },
-        end: { x: width - 50, y: y + 2 },
+        end: { x: currentWidth - 50, y: y + 2 },
         thickness: 1,
         color: rgb(0.8, 0.8, 0.8),
       });
@@ -140,11 +150,13 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
           const newPage = pdfDoc.addPage([595.28, 841.89]);
           const newWidth = newPage.getSize().width;
           const newHeight = newPage.getSize().height;
+          currentPage = newPage;
+          currentWidth = newWidth;
           y = newHeight - 50;
           rowCount = 0;
 
           // Re-titre
-          page.drawText(title, {
+          currentPage.drawText(title, {
             x: 50,
             y: y,
             size: 16,
@@ -156,7 +168,7 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
           // En-têtes
           let newX = 50;
           columns.forEach((col) => {
-            page.drawText(col.label, {
+            currentPage.drawText(col.label, {
               x: newX + 4,
               y: y,
               size: fontSize,
@@ -167,25 +179,26 @@ export default function ExportButtons({ type, data, columns, filename }: ExportB
           });
           y -= lineHeight + 4;
 
-          page.drawLine({
+          currentPage.drawLine({
             start: { x: 50, y: y + 2 },
-            end: { x: newWidth - 50, y: y + 2 },
+            end: { x: currentWidth - 50, y: y + 2 },
             thickness: 1,
             color: rgb(0.8, 0.8, 0.8),
           });
         }
 
         let currentX = 50;
+        const record = item as Record<string, unknown>;
         columns.forEach((col) => {
-          let value = item[col.key];
+          let value = record[col.key];
           if (value && (col.key.includes('date') || col.key.includes('Date'))) {
-            value = new Date(value).toLocaleDateString('fr-FR');
+            value = toDisplayDate(value);
           }
           const text = String(value || '');
           // Tronquer si trop long
           const maxChars = Math.floor(colWidth / 6);
           const displayText = text.length > maxChars ? text.substring(0, maxChars - 3) + '...' : text;
-          page.drawText(displayText, {
+          currentPage.drawText(displayText, {
             x: currentX + 4,
             y: y,
             size: fontSize - 1,

@@ -13,7 +13,7 @@ interface AuditEntry {
   action: string;
   entity_type: string;
   entity_id: number;
-  changes: any;
+  changes: Record<string, unknown> | null;
   ip_address: string;
   created_at: string;
 }
@@ -30,10 +30,6 @@ export default function AuditTrailPage() {
     action?: string;
     user_email?: string;
   }>({});
-
-  useEffect(() => {
-    fetchAuditTrail();
-  }, [page, filter]);
 
   const fetchAuditTrail = async () => {
     try {
@@ -60,6 +56,10 @@ export default function AuditTrailPage() {
       setPageLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAuditTrail();
+  }, [page, filter]);
 
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
@@ -90,7 +90,7 @@ export default function AuditTrailPage() {
           <h2 className="text-lg font-bold mb-4">Filtres</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Type d'entité</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Type d&apos;entité</label>
               <select
                 value={filter.entity_type || ''}
                 onChange={(e) => {

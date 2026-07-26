@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 
 export default async function CollaborateurDetail({ params }: { params: { id: string } }) {
   const id = parseInt(params.id);
@@ -32,12 +33,12 @@ export default async function CollaborateurDetail({ params }: { params: { id: st
     <div className="container mx-auto p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">👤 Détail du collaborateur</h1>
-        <a
+        <Link
           href="/collaborateurs"
           className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
         >
           ← Retour
-        </a>
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -59,7 +60,7 @@ export default async function CollaborateurDetail({ params }: { params: { id: st
             <p className="font-medium">{collab.telephone || 'Non renseigné'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Date d'arrivée (logement)</p>
+            <p className="text-sm text-gray-500">Date d&apos;arrivée (logement)</p>
             <p className="font-medium">{collab.date_arrivee ? new Date(collab.date_arrivee).toLocaleDateString('fr-FR') : '-'}</p>
           </div>
           <div>
@@ -98,7 +99,7 @@ export default async function CollaborateurDetail({ params }: { params: { id: st
               <p><span className="font-medium">Chambre :</span> {collab.chambre_nom}</p>
               <p><span className="font-medium">Lit :</span> {collab.lit_numero}</p>
               <p><span className="font-medium">Type de lit :</span> {collab.type_lit === 'simple' ? '🛏️ Simple' : '🛏️🛏️ Double'}</p>
-              <p><span className="font-medium">Type d'occupation :</span> {
+              <p><span className="font-medium">Type d&apos;occupation :</span> {
                 collab.logement_type_occupation === 'mixte' ? 'Mixte' :
                 collab.logement_type_occupation === 'fille' ? '👩 Filles' : '👨 Garçons'
               }</p>

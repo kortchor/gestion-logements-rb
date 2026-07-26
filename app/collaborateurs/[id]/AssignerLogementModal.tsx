@@ -44,8 +44,6 @@ interface Props {
 }
 
 export default function AssignerLogementModal({ isOpen, onClose, onSuccess, collaborateur }: Props) {
-  if (!isOpen) return null;
-
   const [logementsDisponibles, setLogementsDisponibles] = useState<LogementDisponible[]>([]);
   const [modelesConvention, setModelesConvention] = useState<ModeleConvention[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -76,8 +74,9 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         if (!logementsRes.ok) throw new Error('Erreur chargement logements');
         const logementsData = await logementsRes.json();
         if (Array.isArray(logementsData)) {
-          setLogementsDisponibles(logementsData);
-          const villes = [...new Set(logementsData.map(l => l.ville).filter(Boolean))];
+          const typedLogements = logementsData as LogementDisponible[];
+          setLogementsDisponibles(typedLogements);
+          const villes = [...new Set(typedLogements.map((l) => l.ville).filter(Boolean))];
           setVillesDisponibles(villes);
         }
 
@@ -127,7 +126,12 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
     setSuccessMessage(null);
 
     try {
-      const payload: any = {
+      const payload: {
+        lit_id: number;
+        modele_convention_id: number;
+        chambre_privée: boolean;
+        participation_mensuelle?: number;
+      } = {
         lit_id: selectedLit,
         modele_convention_id: parseInt(selectedModele),
         chambre_privée: chambrePrivee,
@@ -159,6 +163,8 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

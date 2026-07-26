@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -11,18 +11,12 @@ function ResetPasswordForm() {
   const token = searchParams.get('token');
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(!token ? 'Token invalide ou expiré' : '');
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     mot_de_passe: '',
     confirmation: '',
   });
-
-  useEffect(() => {
-    if (!token) {
-      setError('Token invalide ou expiré');
-    }
-  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +54,7 @@ function ResetPasswordForm() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);

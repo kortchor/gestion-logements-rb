@@ -361,7 +361,7 @@ export default function RecherchePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'occupation</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type d&apos;occupation</label>
                 <select
                   name="type_occupation"
                   value={formData.type_occupation}

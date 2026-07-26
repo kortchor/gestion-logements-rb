@@ -323,13 +323,13 @@ export default function CollaborateurPage() {
                 )}
                 {collaborateur.centre_affectation && (
                   <div>
-                    <span className="text-gray-500">Centre d'affectation</span>
+                    <span className="text-gray-500">Centre d&apos;affectation</span>
                     <p className="font-medium text-gray-900">{collaborateur.centre_affectation}</p>
                   </div>
                 )}
                 {collaborateur.date_arrivee && (
                   <div>
-                    <span className="text-gray-500">Date d'arrivée</span>
+                    <span className="text-gray-500">Date d&apos;arrivée</span>
                     <p className="font-medium text-gray-900">
                       {format(new Date(collaborateur.date_arrivee), 'dd/MM/yyyy', { locale: fr })}
                     </p>
@@ -493,7 +493,7 @@ export default function CollaborateurPage() {
 
                 {activeTab === 'historique' && bauxHistorique.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    Aucun bail dans l'historique
+                    Aucun bail dans l&apos;historique
                   </div>
                 )}
 

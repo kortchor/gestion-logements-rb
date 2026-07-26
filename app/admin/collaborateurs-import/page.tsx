@@ -102,7 +102,6 @@ export default function CollaborateursImportPage() {
     ];
     ws['!cols'] = colWidths;
 
-    XLSX.write(wb, { bookType: 'xlsx', type: 'binary', filename: 'modele_collaborateurs.xlsx' });
     const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([buf], { type: 'application/octet-stream' });
     const link = document.createElement('a');
@@ -228,7 +227,7 @@ export default function CollaborateursImportPage() {
         {/* Summary */}
         {summary && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-lg font-bold mb-6">✅ Résumé de l'import</h2>
+            <h2 className="text-lg font-bold mb-6">✅ Résumé de l&apos;import</h2>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-gray-50 p-4 rounded-lg">

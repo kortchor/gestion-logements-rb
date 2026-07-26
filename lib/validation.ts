@@ -14,11 +14,52 @@ export interface ValidationResult<T> {
   errors?: ValidationError[];
 }
 
+interface CollaborateurInput {
+  nom: string;
+  prenom: string;
+  email: string;
+  civilite: string | null;
+  telephone: string | null;
+  genre: string | null;
+  date_arrivee: string | null;
+  date_depart: string | null;
+  date_debut_contrat: string | null;
+  date_fin_contrat: string | null;
+  vehicule: boolean;
+  animal: boolean;
+  commentaire: string | null;
+  centre_principal: string | null;
+  centre_affectation: string | null;
+}
+
+interface LogementInput {
+  nom_logement: string;
+  adresse: string;
+  ville: string;
+  type: string | null;
+  prix_loyer: number | null;
+  proprietaire: string | null;
+  contact_proprietaire: string | null;
+  description_detaillee: string | null;
+  est_visible: boolean;
+  mixte_autorise: boolean;
+}
+
+type UnknownData = Record<string, unknown>;
+
+function getOptionalTrimmedString(value: unknown): string | null {
+  return typeof value === 'string' ? value.trim() || null : null;
+}
+
+function getOptionalString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 /**
  * Schéma de validation pour le login
  */
 export const loginSchema = {
-  validate: (data: any): ValidationResult<{ email: string; mot_de_passe: string }> => {
+  validate: (data: UnknownData): ValidationResult<{ email: string; mot_de_passe: string }> => {
     const errors: ValidationError[] = [];
 
     // Vérifier email
@@ -46,8 +87,8 @@ export const loginSchema = {
     return {
       success: true,
       data: {
-        email: data.email.toLowerCase().trim(),
-        mot_de_passe: data.mot_de_passe,
+        email: (data.email as string).toLowerCase().trim(),
+        mot_de_passe: data.mot_de_passe as string,
       },
     };
   },
@@ -57,7 +98,7 @@ export const loginSchema = {
  * Schéma de validation pour la création de collaborateur
  */
 export const createCollaborateurSchema = {
-  validate: (data: any): ValidationResult<any> => {
+  validate: (data: UnknownData): ValidationResult<CollaborateurInput> => {
     const errors: ValidationError[] = [];
 
     // Nom
@@ -97,21 +138,21 @@ export const createCollaborateurSchema = {
     return {
       success: true,
       data: {
-        nom: data.nom.trim(),
-        prenom: data.prenom.trim(),
-        email: data.email.toLowerCase().trim(),
-        civilite: data.civilite?.trim() || null,
-        telephone: data.telephone?.trim() || null,
-        genre: data.genre || null,
-        date_arrivee: data.date_arrivee || null,
-        date_depart: data.date_depart || null,
-        date_debut_contrat: data.date_debut_contrat || null,
-        date_fin_contrat: data.date_fin_contrat || null,
+        nom: (data.nom as string).trim(),
+        prenom: (data.prenom as string).trim(),
+        email: (data.email as string).toLowerCase().trim(),
+        civilite: getOptionalTrimmedString(data.civilite),
+        telephone: getOptionalTrimmedString(data.telephone),
+        genre: getOptionalString(data.genre),
+        date_arrivee: getOptionalString(data.date_arrivee),
+        date_depart: getOptionalString(data.date_depart),
+        date_debut_contrat: getOptionalString(data.date_debut_contrat),
+        date_fin_contrat: getOptionalString(data.date_fin_contrat),
         vehicule: Boolean(data.vehicule),
         animal: Boolean(data.animal),
-        commentaire: data.commentaire?.trim() || null,
-        centre_principal: data.centre_principal?.trim() || null,
-        centre_affectation: data.centre_affectation?.trim() || null,
+        commentaire: getOptionalTrimmedString(data.commentaire),
+        centre_principal: getOptionalTrimmedString(data.centre_principal),
+        centre_affectation: getOptionalTrimmedString(data.centre_affectation),
       },
     };
   },
@@ -121,7 +162,7 @@ export const createCollaborateurSchema = {
  * Schéma de validation pour la création de logement
  */
 export const createLogementSchema = {
-  validate: (data: any): ValidationResult<any> => {
+  validate: (data: UnknownData): ValidationResult<LogementInput> => {
     const errors: ValidationError[] = [];
 
     // Nom logement
@@ -166,14 +207,14 @@ export const createLogementSchema = {
     return {
       success: true,
       data: {
-        nom_logement: data.nom_logement.trim(),
-        adresse: data.adresse.trim(),
-        ville: data.ville.trim(),
-        type: data.type?.trim() || null,
-        prix_loyer: data.prix_loyer || null,
-        proprietaire: data.proprietaire?.trim() || null,
-        contact_proprietaire: data.contact_proprietaire?.trim() || null,
-        description_detaillee: data.description_detaillee?.trim() || null,
+        nom_logement: (data.nom_logement as string).trim(),
+        adresse: (data.adresse as string).trim(),
+        ville: (data.ville as string).trim(),
+        type: getOptionalTrimmedString(data.type),
+        prix_loyer: typeof data.prix_loyer === 'number' ? data.prix_loyer : null,
+        proprietaire: getOptionalTrimmedString(data.proprietaire),
+        contact_proprietaire: getOptionalTrimmedString(data.contact_proprietaire),
+        description_detaillee: getOptionalTrimmedString(data.description_detaillee),
         est_visible: Boolean(data.est_visible),
         mixte_autorise: Boolean(data.mixte_autorise),
       },

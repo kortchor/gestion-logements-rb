@@ -208,7 +208,7 @@ export default function Charts({ data }: { data: ChartsData }) {
           {data.assignationsParMois.length > 1 ? (
             <Line data={evolutionData} options={chartOptions} />
           ) : (
-            <p className="text-gray-500 text-sm">Pas assez de données pour l'évolution</p>
+            <p className="text-gray-500 text-sm">Pas assez de données pour l&apos;évolution</p>
           )}
         </ChartCard>
       </div>

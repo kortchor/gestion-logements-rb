@@ -1,5 +1,13 @@
 import { query } from '@/lib/db';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+
+interface ChambreRow {
+  id: number;
+  nom: string;
+  type_lit: string;
+  nombre_lits: number;
+}
 
 export default async function LogementDetail({ params }: { params: Promise<{ id: string }> }) {
   // ✅ DÉBALLER LA PROMESSE AVEC await
@@ -37,12 +45,12 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
     <div className="container mx-auto p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">🏠 Détail du logement</h1>
-        <a
+        <Link
           href="/logements"
           className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors no-underline"
         >
           ← Retour
-        </a>
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -84,7 +92,7 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
             <p className="font-medium">{logement.assurance || 'Non renseigné'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Type d'occupation</p>
+            <p className="text-sm text-gray-500">Type d&apos;occupation</p>
             <p className="font-medium">
               {logement.type_occupation_effectif === 'mixte' ? 'Mixte' :
                logement.type_occupation_effectif === 'F' ? '👩 Filles' : '👨 Garçons'}
@@ -107,7 +115,7 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
         {logement.assurance_nom && (
           <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
             <p className="text-sm text-green-700">
-              📄 Contrat d'assurance : {logement.assurance_nom}
+              📄 Contrat d&apos;assurance : {logement.assurance_nom}
             </p>
           </div>
         )}
@@ -118,7 +126,7 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
             <p className="text-gray-500">Aucune chambre</p>
           ) : (
             <ul className="space-y-2">
-              {chambres.map((chambre: any) => (
+              {(chambres as ChambreRow[]).map((chambre) => (
                 <li key={chambre.id} className="bg-gray-50 p-3 rounded flex justify-between">
                   <span>{chambre.nom}</span>
                   <span>{chambre.type_lit === 'simple' ? '🛏️ Simple' : '🛏️🛏️ Double'} - {chambre.nombre_lits} lit(s)</span>

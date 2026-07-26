@@ -3,11 +3,19 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 
+interface SignatureData {
+  prenom: string;
+  nom: string;
+  adresse: string;
+  date_debut: string;
+  date_fin: string | null;
+}
+
 export default function SignaturePage({ params }: { params: Promise<{ token: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const [loading, setLoading] = useState(false);
-  const [signatureData, setSignatureData] = useState<any>(null);
+  const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const [error, setError] = useState('');
   const [signe, setSigne] = useState(false);
 
@@ -21,7 +29,7 @@ export default function SignaturePage({ params }: { params: Promise<{ token: str
         } else {
           setError(data.error || 'Contrat non trouvé');
         }
-      } catch (err) {
+      } catch {
         setError('Erreur de chargement');
       }
     }
@@ -44,7 +52,7 @@ export default function SignaturePage({ params }: { params: Promise<{ token: str
       } else {
         alert(data.error || 'Erreur lors de la signature');
       }
-    } catch (err) {
+    } catch {
       alert('Erreur de connexion');
     } finally {
       setLoading(false);
@@ -87,7 +95,7 @@ export default function SignaturePage({ params }: { params: Promise<{ token: str
             </div>
 
             <p className="text-gray-600 mb-4">
-              En cliquant sur "Signer", vous acceptez les conditions de la convention locative.
+              En cliquant sur &quot;Signer&quot;, vous acceptez les conditions de la convention locative.
             </p>
 
             <button

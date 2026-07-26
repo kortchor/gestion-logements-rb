@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -21,48 +22,65 @@ interface Bail {
 export default function MonEspacePage() {
   const { user, loading: authLoading } = useAuth();
   const [bailActif, setBailActif] = useState<Bail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'logement' | 'etat-lieux'>('logement');
 
-  const fetchMonLogement = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`/api/collaborateurs/${user.id}/baux`);
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        throw new Error(result.error || 'Erreur lors du chargement');
-      }
-
-      // Filtrer le bail actif (date_fin >= aujourd'hui)
-      const today = new Date().toISOString().split('T')[0];
-      const actif = result.data.find((b: Bail) => b.date_fin && b.date_fin.split('T')[0] >= today);
-      setBailActif(actif || null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
   useEffect(() => {
-    if (!authLoading && user) {
-      fetchMonLogement();
-    } else if (!authLoading && !user) {
-      setLoading(false);
-      setError("Vous devez être connecté pour accéder à cet espace.");
+    if (authLoading) {
+      return;
     }
-  }, [authLoading, user, fetchMonLogement]);
+
+    if (!user?.id) {
+      return;
+    }
+
+    const fetchMonLogement = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/collaborateurs/${user.id}/baux`);
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+          throw new Error(result.error || 'Erreur lors du chargement');
+        }
+
+        // Filtrer le bail actif (date_fin >= aujourd'hui)
+        const today = new Date().toISOString().split('T')[0];
+        const actif = result.data.find((b: Bail) => b.date_fin && b.date_fin.split('T')[0] >= today);
+        setBailActif(actif || null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchMonLogement();
+  }, [authLoading, user]);
 
   // Afficher les photos
   const getPhotos = (etatLieuxPhotos: string | null): string[] => {
     if (!etatLieuxPhotos) return [];
     try {
       const parsed = JSON.parse(etatLieuxPhotos);
-      return Array.isArray(parsed) ? parsed.map((p: any) => typeof p === 'string' ? p : p.data) : [];
+      return Array.isArray(parsed)
+        ? parsed
+            .map((p: unknown) => {
+              if (typeof p === 'string') {
+                return p;
+              }
+
+              if (p && typeof p === 'object' && 'data' in p) {
+                const value = (p as { data?: unknown }).data;
+                return typeof value === 'string' ? value : null;
+              }
+
+              return null;
+            })
+            .filter((p): p is string => p !== null)
+        : [];
     } catch {
       return [];
     }
@@ -72,6 +90,16 @@ export default function MonEspacePage() {
     return (
       <div className="container mx-auto p-4 text-center">
         <p className="text-gray-500">Chargement de votre espace...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          ❌ Vous devez être connecté pour accéder à cet espace.
+        </div>
       </div>
     );
   }
@@ -91,7 +119,7 @@ export default function MonEspacePage() {
   return (
     <div className="container mx-auto p-4">
       <div className="flex items-center gap-3 mb-6">
-        <img src="/logo-hotel.svg" alt="Les Roches Blanches" className="h-8 w-auto" />
+        <Image src="/logo-hotel.svg" alt="Les Roches Blanches" width={120} height={32} className="h-8 w-auto" />
         <h1 className="text-2xl font-bold">🏠 Mon Espace</h1>
       </div>
 
@@ -135,7 +163,7 @@ export default function MonEspacePage() {
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">📅 Période d'occupation :</span> 
+                      <span className="font-medium">📅 Période d&apos;occupation :</span>
                       <br /> du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} 
                       <br /> au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}
                     </p>
@@ -149,7 +177,7 @@ export default function MonEspacePage() {
                   )}
                 </>
               ) : (
-                <p className="text-gray-500 text-center py-8">Vous n'avez pas de logement actuellement assigné.</p>
+                    <p className="text-gray-500 text-center py-8">Vous n&apos;avez pas de logement actuellement assigné.</p>
               )}
             </div>
           )}
@@ -159,7 +187,7 @@ export default function MonEspacePage() {
             <div>
               {bailActif && photos.length > 0 ? (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📷 Photos de l'état des lieux</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📷 Photos de l&apos;état des lieux</h3>
                   <p className="text-sm text-gray-600 mb-4">
                     {photos.length} photo{photos.length > 1 ? 's' : ''} disponible{photos.length > 1 ? 's' : ''}
                   </p>
@@ -173,10 +201,13 @@ export default function MonEspacePage() {
                         className="group relative overflow-hidden rounded-lg shadow-md hover:shadow-lg transition-shadow"
                         title={`Photo ${i + 1}`}
                       >
-                        <img 
-                          src={url} 
-                          alt={`Photo de l'état des lieux ${i + 1}`} 
+                        <Image
+                          src={url}
+                          alt={`Photo de l'état des lieux ${i + 1}`}
+                          width={256}
+                          height={128}
                           className="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-300"
+                          unoptimized
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                           <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
@@ -191,7 +222,7 @@ export default function MonEspacePage() {
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">
                     {bailActif 
-                      ? '📸 Aucune photo d\'état des lieux disponible pour le moment.' 
+                      ? '📸 Aucune photo d\'état des lieux disponible pour le moment.'
                       : '❌ Vous n\'avez pas de logement assigné.'}
                   </p>
                 </div>

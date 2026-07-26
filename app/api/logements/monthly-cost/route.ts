@@ -1,6 +1,23 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+interface LogementCostRow {
+  id: number;
+  nom_logement: string;
+  adresse: string;
+  ville: string;
+  prix_loyer: number;
+  date_debut_contrat: string;
+  date_fin_contrat: string | null;
+  cout_loyer_mois: number | string;
+}
+
+interface GroupedVille {
+  ville: string;
+  logements: LogementCostRow[];
+  sousTotal: number;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -49,24 +66,24 @@ export async function GET(request: NextRequest) {
       [startDate, endDate]
     );
 
-    const logements = result.rows.map((log: any) => ({
+    const logements = (result.rows as LogementCostRow[]).map((log) => ({
       ...log,
-      cout_loyer_mois: parseFloat(log.cout_loyer_mois) || 0
+      cout_loyer_mois: parseFloat(String(log.cout_loyer_mois)) || 0
     }));
-    const totalCout = logements.reduce((sum: number, log: any) => sum + (parseFloat(log.cout_loyer_mois) || 0), 0);
+    const totalCout = logements.reduce((sum, log) => sum + (parseFloat(String(log.cout_loyer_mois)) || 0), 0);
 
     // Grouper par ville
-    const byVille = logements.reduce((acc: any, log: any) => {
+    const byVille = logements.reduce<Record<string, LogementCostRow[]>>((acc, log) => {
       const ville = log.ville;
       if (!acc[ville]) acc[ville] = [];
       acc[ville].push(log);
       return acc;
     }, {});
 
-    const groupedByVille = Object.entries(byVille).map(([ville, logs]: [string, any]) => ({
+    const groupedByVille = Object.entries(byVille).map(([ville, logs]): GroupedVille => ({
       ville,
       logements: logs,
-      sousTotal: logs.reduce((sum: number, log: any) => sum + (log.cout_loyer_mois || 0), 0)
+      sousTotal: logs.reduce((sum, log) => sum + (Number(log.cout_loyer_mois) || 0), 0)
     }));
 
     // Formater le mois en texte

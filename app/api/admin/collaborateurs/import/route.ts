@@ -224,7 +224,7 @@ const postHandler = async (
 
     // Log audit
     await logAudit({
-      userId: payload.sub,
+      userId: payload.id,
       userEmail: payload.email,
       action: 'import',
       entityType: 'collaborateurs',

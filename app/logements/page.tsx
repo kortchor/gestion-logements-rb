@@ -159,6 +159,12 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold">🏠 Gestion des Logements</h1>
         <div className="flex flex-wrap gap-4">
+          <Link
+            href="/logements/renouvellements"
+            className="inline-flex items-center px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 no-underline"
+          >
+            🔄 Renouvellements
+          </Link>
           <ExportButtons
             type="logements"
             data={logementsFiltres}

@@ -1,14 +1,19 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import logger, { logError } from '@/lib/logger';
 
-const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+const ALLOWED_FILE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const postHandler = async (request: NextRequest, payload: TokenPayload) => {
@@ -82,71 +87,46 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const signalementId = signalementResult.rows[0].id;
 
-    // Sauvegarder les fichiers (optionnel - ne pas bloquer l'envoi si ça échoue)
-    const fichiersPaths: string[] = [];
-    if (fichiers.length > 0) {
-      try {
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'signalements', String(signalementId));
-        await mkdir(uploadDir, { recursive: true });
+    // Préparer les pièces jointes à partir des fichiers uploadés (robuste en serverless/Vercel)
+    const attachments: {
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }[] = [];
+    const attachedFileNames: string[] = [];
 
-        for (const file of fichiers) {
-          try {
-            if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-              logger.warn(
-                { route: '/api/signalements', action: 'file-validation', fileType: file.type },
-                'Type de fichier non autorise'
-              );
-              continue;
-            }
-            if (file.size > MAX_FILE_SIZE) {
-              logger.warn(
-                { route: '/api/signalements', action: 'file-validation', fileSize: file.size },
-                'Fichier trop volumineux'
-              );
-              continue;
-            }
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-            const filename = `${Date.now()}-${file.name}`;
-            const filepath = path.join(uploadDir, filename);
-            await writeFile(filepath, buffer);
-            fichiersPaths.push(`/uploads/signalements/${signalementId}/${filename}`);
-          } catch (fileError) {
-            if (fileError instanceof Error) {
-              logError(fileError, { route: '/api/signalements', action: 'save-file', fileName: file.name });
-            }
-            // Continuer même si un fichier échoue
+    if (fichiers.length > 0) {
+      for (const file of fichiers) {
+        try {
+          if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+            logger.warn(
+              { route: '/api/signalements', action: 'file-validation', fileType: file.type },
+              'Type de fichier non autorise'
+            );
+            continue;
+          }
+          if (file.size > MAX_FILE_SIZE) {
+            logger.warn(
+              { route: '/api/signalements', action: 'file-validation', fileSize: file.size },
+              'Fichier trop volumineux'
+            );
+            continue;
+          }
+
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+
+          attachments.push({
+            filename: file.name,
+            content: buffer,
+            contentType: file.type,
+          });
+          attachedFileNames.push(file.name);
+        } catch (fileError) {
+          if (fileError instanceof Error) {
+            logError(fileError, { route: '/api/signalements', action: 'prepare-attachment', fileName: file.name });
           }
         }
-      } catch (dirError) {
-        if (dirError instanceof Error) {
-          logError(dirError, { route: '/api/signalements', action: 'create-upload-directory' });
-        }
-        // Continuer sans les fichiers
-      }
-    }
-
-    // Préparer les pièces jointes pour l'email
-    let attachments: any[] = [];
-    if (fichiersPaths.length > 0) {
-      try {
-        attachments = fichiersPaths
-          .map((filepath, index) => {
-            try {
-              return {
-                filename: fichiers[index]?.name || `piece-jointe-${index+1}`,
-                path: path.join(process.cwd(), 'public', filepath),
-              };
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean);
-      } catch (e) {
-        if (e instanceof Error) {
-          logError(e, { route: '/api/signalements', action: 'prepare-attachments' });
-        }
-        attachments = [];
       }
     }
 
@@ -184,11 +164,11 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
             <p style="background: #f9fafb; padding: 10px; border-radius: 5px;">${message}</p>
           </div>
 
-          ${fichiersPaths.length > 0 ? `
+          ${attachedFileNames.length > 0 ? `
             <div class="files-list">
               <p><strong>📎 Fichiers joints :</strong></p>
               <ul>
-                ${fichiersPaths.map((f, i) => `<li>${fichiers[i]?.name || 'Fichier'}</li>`).join('')}
+                ${attachedFileNames.map((name) => `<li>${name}</li>`).join('')}
               </ul>
             </div>
           ` : ''}
@@ -207,12 +187,15 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     // Envoyer les emails (ne pas bloquer si ça échoue)
     try {
-      await sendEmail({
+      const techResult = await sendEmail({
         to: techEmail,
         subject: `🔧 Signalement technique : ${sujet}`,
         html: emailHtml,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
+      if ('error' in techResult) {
+        logError(techResult.error, { route: '/api/signalements', action: 'send-email-technicien' });
+      }
     } catch (emailError) {
       if (emailError instanceof Error) {
         logError(emailError, { route: '/api/signalements', action: 'send-email-technicien' });
@@ -220,12 +203,15 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
     }
 
     try {
-      await sendEmail({
+      const rhResult = await sendEmail({
         to: rhEmail,
         subject: `🔧 Copie signalement technique : ${sujet}`,
         html: emailHtml,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
+      if ('error' in rhResult) {
+        logError(rhResult.error, { route: '/api/signalements', action: 'send-email-rh' });
+      }
     } catch (emailError) {
       if (emailError instanceof Error) {
         logError(emailError, { route: '/api/signalements', action: 'send-email-rh' });
@@ -235,7 +221,8 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
     return NextResponse.json({
       success: true,
       message: 'Signalement envoyé avec succès',
-      fichiers: fichiersPaths.length,
+      signalementId,
+      fichiers: attachedFileNames.length,
     });
   } catch (error) {
     if (error instanceof Error) {

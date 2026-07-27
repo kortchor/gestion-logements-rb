@@ -9,7 +9,7 @@ interface LogementCostRow {
   nom_logement: string;
   adresse: string;
   ville: string;
-  prix_loyer: number;
+  prix_loyer: number | string;
   date_debut_contrat: string;
   date_fin_contrat: string | null;
   cout_loyer_mois: number | string;
@@ -116,6 +116,7 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const logements = (result.rows as LogementCostRow[]).map((log) => ({
       ...log,
+      prix_loyer: parseFloat(String(log.prix_loyer)) || 0,
       cout_loyer_mois: parseFloat(String(log.cout_loyer_mois)) || 0
     }));
     const totalCout = logements.reduce((sum, log) => sum + (parseFloat(String(log.cout_loyer_mois)) || 0), 0);

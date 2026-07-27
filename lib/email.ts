@@ -14,7 +14,12 @@ interface EmailPayload {
   subject: string;
   html: string;
   text?: string;
-  attachments?: { filename: string; path: string }[];
+  attachments?: {
+    filename: string;
+    path?: string;
+    content?: Buffer;
+    contentType?: string;
+  }[];
 }
 
 type EmailResult = 

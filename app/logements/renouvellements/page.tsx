@@ -33,6 +33,11 @@ interface DraftDates {
   date_fin_contrat: string;
 }
 
+interface BulkDates {
+  date_debut_contrat: string;
+  date_fin_contrat: string;
+}
+
 const STATUS_LABELS: Record<FilterStatus, string> = {
   expired: 'Expires',
   active: 'Actifs',
@@ -56,8 +61,11 @@ export default function RenouvellementsPage() {
   const [items, setItems] = useState<RenouvellementItem[]>([]);
   const [counts, setCounts] = useState<RenouvellementCounts | null>(null);
   const [drafts, setDrafts] = useState<Record<number, DraftDates>>({});
+  const [bulkDates, setBulkDates] = useState<BulkDates>({ date_debut_contrat: '', date_fin_contrat: '' });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [savingBulk, setSavingBulk] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -103,6 +111,7 @@ export default function RenouvellementsPage() {
       setItems(rows);
       setCounts(payload.counts || null);
       syncDrafts(rows);
+      setSelectedIds([]);
     } catch {
       setItems([]);
       setCounts(null);
@@ -168,6 +177,63 @@ export default function RenouvellementsPage() {
     }
   };
 
+  const isSelected = (logementId: number) => selectedIds.includes(logementId);
+
+  const toggleSelected = (logementId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(logementId)
+        ? prev.filter((id) => id !== logementId)
+        : [...prev, logementId]
+    );
+  };
+
+  const areAllSelected = items.length > 0 && selectedIds.length === items.length;
+
+  const toggleSelectAll = () => {
+    if (areAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(items.map((item) => item.id));
+    }
+  };
+
+  const handleBulkSave = async () => {
+    if (!canWrite || selectedIds.length === 0) {
+      return;
+    }
+
+    try {
+      setSavingBulk(true);
+      resetFeedback();
+
+      const response = await fetch('/api/logements/renouvellements', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          logementIds: selectedIds,
+          date_debut_contrat: bulkDates.date_debut_contrat,
+          date_fin_contrat: bulkDates.date_fin_contrat,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        setError(payload.error || 'Impossible de mettre a jour les logements selectionnes.');
+        return;
+      }
+
+      setSuccess(`${payload.updated || selectedIds.length} logement(s) mis a jour.`);
+      await loadData();
+    } catch {
+      setError('Erreur reseau lors de la mise a jour en masse.');
+    } finally {
+      setSavingBulk(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
   }
@@ -207,6 +273,45 @@ export default function RenouvellementsPage() {
           ))}
         </div>
 
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <h2 className="text-sm font-semibold text-gray-800 mb-3">Renouvellement en masse</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Date debut</label>
+              <input
+                type="date"
+                value={bulkDates.date_debut_contrat}
+                onChange={(e) => setBulkDates((prev) => ({ ...prev, date_debut_contrat: e.target.value }))}
+                className="border border-gray-300 rounded px-2 py-1 w-full"
+                disabled={!canWrite || savingBulk}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Date fin (vide = indefini)</label>
+              <input
+                type="date"
+                value={bulkDates.date_fin_contrat}
+                onChange={(e) => setBulkDates((prev) => ({ ...prev, date_fin_contrat: e.target.value }))}
+                className="border border-gray-300 rounded px-2 py-1 w-full"
+                disabled={!canWrite || savingBulk}
+              />
+            </div>
+            <div className="text-sm text-gray-600">
+              {selectedIds.length} logement(s) selectionne(s)
+            </div>
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleBulkSave}
+                disabled={!canWrite || savingBulk || selectedIds.length === 0}
+                className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {savingBulk ? 'Mise a jour...' : 'Appliquer aux selectionnes'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {counts && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow"><p className="text-sm text-gray-500">Total</p><p className="text-2xl font-bold">{counts.total}</p></div>
@@ -227,6 +332,15 @@ export default function RenouvellementsPage() {
               <table className="w-full min-w-[980px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                      <input
+                        type="checkbox"
+                        checked={areAllSelected}
+                        onChange={toggleSelectAll}
+                        disabled={items.length === 0 || !canWrite || savingBulk}
+                        aria-label="Selectionner tous les logements"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logement</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Loyer</th>
@@ -241,6 +355,15 @@ export default function RenouvellementsPage() {
                     const draft = drafts[row.id] || { date_debut_contrat: '', date_fin_contrat: '' };
                     return (
                       <tr key={row.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected(row.id)}
+                            onChange={() => toggleSelected(row.id)}
+                            disabled={!canWrite || savingBulk}
+                            aria-label={`Selectionner ${row.nom_logement}`}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900">{row.nom_logement}</div>
                           <div className="text-xs text-gray-500">{row.adresse}</div>

@@ -127,13 +127,23 @@ const patchHandler = async (request: NextRequest, payload: TokenPayload) => {
     await ensureRenouvellementsSchema();
 
     const body = await request.json();
-    const logementId = parseInt(String(body.logementId || ''), 10);
+    const singleLogementId = parseInt(String(body.logementId || ''), 10);
+    const bulkIds: number[] = Array.isArray(body.logementIds)
+      ? body.logementIds
+          .map((id: unknown) => parseInt(String(id), 10))
+          .filter((id: number) => !isNaN(id))
+      : [];
+
+    const logementIds: number[] = bulkIds.length > 0
+      ? [...new Set<number>(bulkIds)]
+      : (isNaN(singleLogementId) ? [] : [singleLogementId]);
+
     const dateDebut = typeof body.date_debut_contrat === 'string' ? body.date_debut_contrat.trim() : '';
     const dateFinRaw = typeof body.date_fin_contrat === 'string' ? body.date_fin_contrat.trim() : '';
     const dateFin = dateFinRaw.length > 0 ? dateFinRaw : null;
 
-    if (isNaN(logementId)) {
-      return NextResponse.json({ error: 'ID logement invalide' }, { status: 400 });
+    if (logementIds.length === 0) {
+      return NextResponse.json({ error: 'Aucun logement valide fourni' }, { status: 400 });
     }
 
     if (!dateDebut || !isValidDateFormat(dateDebut)) {
@@ -148,33 +158,46 @@ const patchHandler = async (request: NextRequest, payload: TokenPayload) => {
       return NextResponse.json({ error: 'La date de fin doit etre superieure ou egale a la date de debut' }, { status: 400 });
     }
 
-    const existing = await query('SELECT id FROM logements WHERE id = $1', [logementId]);
-    if (existing.rows.length === 0) {
-      return NextResponse.json({ error: 'Logement introuvable' }, { status: 404 });
+    const existing = await query(
+      `SELECT id FROM logements WHERE id = ANY($1::int[])`,
+      [logementIds]
+    );
+
+    if (existing.rows.length !== logementIds.length) {
+      return NextResponse.json({ error: 'Un ou plusieurs logements sont introuvables' }, { status: 404 });
     }
 
-    await query(
+    const updateResult = await query(
       `UPDATE logements
        SET date_debut_contrat = $1,
            date_fin_contrat = $2
-       WHERE id = $3`,
-      [dateDebut, dateFin, logementId]
+       WHERE id = ANY($3::int[])
+       RETURNING id`,
+      [dateDebut, dateFin, logementIds]
     );
 
     await logAudit({
       userId: payload.id,
       userEmail: payload.email,
       action: 'update',
-      entityType: 'logement',
-      entityId: logementId,
+      entityType: logementIds.length > 1 ? 'logement_batch' : 'logement',
+      entityId: logementIds.length === 1 ? logementIds[0] : undefined,
       changes: {
+        logement_ids: logementIds,
+        updated_count: updateResult.rows.length,
         date_debut_contrat: dateDebut,
         date_fin_contrat: dateFin,
       },
       ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
     });
 
-    return NextResponse.json({ success: true, message: 'Dates de bail mises a jour' });
+    return NextResponse.json({
+      success: true,
+      updated: updateResult.rows.length,
+      message: logementIds.length > 1
+        ? 'Dates de bail mises a jour en masse'
+        : 'Dates de bail mises a jour',
+    });
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/logements/renouvellements', method: 'PATCH' });

@@ -31,6 +31,7 @@ interface MonthlyCostData {
 
 export default function MonthlyCostPage() {
   const { user, loading } = useAuth();
+  const canAccess = !!user && ['admin', 'super_admin', 'admin_readonly'].includes(user.role);
   const [data, setData] = useState<MonthlyCostData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,6 +45,11 @@ export default function MonthlyCostPage() {
       setPageLoading(true);
       setError('');
       const [year, month] = selectedDate.split('-');
+      if (!year || !month) {
+        setData(null);
+        setError('Mois invalide.');
+        return;
+      }
       const response = await fetch(
         `/api/logements/monthly-cost?year=${year}&month=${month}`,
         { credentials: 'include' }
@@ -66,17 +72,19 @@ export default function MonthlyCostPage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    fetchCoutMensuel();
-  }, [fetchCoutMensuel]);
+    if (canAccess) {
+      fetchCoutMensuel();
+    }
+  }, [canAccess, fetchCoutMensuel]);
 
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
   }
 
-  if (!user || !['admin', 'super_admin'].includes(user.role)) {
+  if (!canAccess) {
     return (
       <div className="p-8 text-center text-red-600">
-        ❌ Accès refusé. Administrateur requis.
+        ❌ Accès refusé. Profil administrateur requis.
       </div>
     );
   }

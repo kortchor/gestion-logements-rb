@@ -72,22 +72,44 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const startDate = monthStart.toISOString().split('T')[0];
     const endDate = monthEnd.toISOString().split('T')[0];
 
-    // Récupérer les logements qui sont actifs pendant ce mois
+    // Récupérer les logements actifs pendant ce mois.
+    // Règle métier: date_fin_contrat vide/null => bail indéfini.
     const result = await query(
-      `SELECT 
+      `WITH normalized AS (
+        SELECT
+          l.id,
+          COALESCE(NULLIF(TRIM(l.nom_logement), ''), l.adresse) as nom_logement,
+          l.adresse,
+          COALESCE(l.ville, 'Non renseignée') as ville,
+          COALESCE(l.prix_loyer, 0)::numeric as prix_loyer,
+          CASE
+            WHEN l.date_debut_contrat IS NULL THEN $1::DATE
+            WHEN l.date_debut_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_debut_contrat::DATE
+            ELSE $1::DATE
+          END as date_debut_calc,
+          CASE
+            WHEN l.date_fin_contrat IS NULL THEN NULL
+            WHEN NULLIF(TRIM(l.date_fin_contrat::text), '') IS NULL THEN NULL
+            WHEN l.date_fin_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_fin_contrat::DATE
+            ELSE NULL
+          END as date_fin_calc,
+          COALESCE(l.est_actif, true) as est_actif
+        FROM logements l
+      )
+      SELECT
         id,
-        COALESCE(NULLIF(TRIM(nom_logement), ''), adresse) as nom_logement,
+        nom_logement,
         adresse,
-        COALESCE(ville, 'Non renseignée') as ville,
+        ville,
         prix_loyer,
-        COALESCE(date_debut_contrat, $1::DATE) as date_debut_contrat,
-        COALESCE(date_fin_contrat, ($2::DATE + INTERVAL '10 years')) as date_fin_contrat,
+        date_debut_calc as date_debut_contrat,
+        date_fin_calc as date_fin_contrat,
         prix_loyer as cout_loyer_mois
-      FROM logements
-      WHERE COALESCE(est_actif, true) = true
-      AND COALESCE(prix_loyer, 0) > 0
-      AND COALESCE(date_debut_contrat, $1::DATE) <= $2::DATE
-      AND COALESCE(date_fin_contrat, ($2::DATE + INTERVAL '10 years')::DATE) >= $1::DATE
+      FROM normalized
+      WHERE est_actif = true
+        AND prix_loyer > 0
+        AND date_debut_calc <= $2::DATE
+        AND COALESCE(date_fin_calc, 'infinity'::DATE) >= $1::DATE
       ORDER BY ville, nom_logement`,
       [startDate, endDate]
     );

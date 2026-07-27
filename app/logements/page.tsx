@@ -3,6 +3,7 @@ import DeleteLogementButton from '@/app/components/DeleteLogementButton';
 import AddLogementButton from '@/app/components/AddLogementButton';
 import ExportButtons from '@/app/components/ExportButtons';
 import ToggleLogementActifButton from '@/app/components/ToggleLogementActifButton';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,12 @@ interface LogementRow {
   mixte_autorise: boolean;
   type_occupation_effectif?: 'F' | 'M' | null;
   est_actif?: boolean | null;
+}
+
+interface LogementsPageProps {
+  searchParams?: Promise<{
+    contrat?: string;
+  }>;
 }
 
 const COULEURS_VILLES: { [key: string]: string } = {
@@ -59,7 +66,10 @@ function getOccupationLabel(logement: LogementRow) {
   return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">🔄 En attente</span>;
 }
 
-export default async function LogementsPage() {
+export default async function LogementsPage({ searchParams }: LogementsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const contratFilter = resolvedSearchParams?.contrat || 'actifs';
+
   let logements: LogementRow[] = [];
   let loadError: string | null = null;
 
@@ -80,12 +90,46 @@ export default async function LogementsPage() {
     loadError = error instanceof Error ? error.message : 'Erreur inconnue';
   }
 
+  const today = new Date();
+  const parseDate = (value: string | null | undefined) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const getContratStatus = (logement: LogementRow) => {
+    const debut = parseDate(logement.date_debut_contrat || null);
+    const fin = parseDate(logement.date_fin_contrat || null);
+
+    if (!debut) {
+      return 'sans_debut';
+    }
+    if (!fin) {
+      return 'actif_indefini';
+    }
+    if (fin < today) {
+      return 'expire';
+    }
+    return 'actif';
+  };
+
+  const logementsFiltres = logements.filter((logement) => {
+    const status = getContratStatus(logement);
+    if (contratFilter === 'expires') {
+      return status === 'expire';
+    }
+    if (contratFilter === 'all') {
+      return true;
+    }
+    return status === 'actif' || status === 'actif_indefini';
+  });
+
   const stats = {
-    total: logements.length,
-    Cassis: logements.filter((l) => l.ville === 'Cassis').length,
-    'La Ciotat': logements.filter((l) => l.ville === 'La Ciotat').length,
-    Marseille: logements.filter((l) => l.ville === 'Marseille').length,
-    'Roquefort-la-Bédoule': logements.filter((l) => l.ville === 'Roquefort-la-Bédoule').length,
+    total: logementsFiltres.length,
+    Cassis: logementsFiltres.filter((l) => l.ville === 'Cassis').length,
+    'La Ciotat': logementsFiltres.filter((l) => l.ville === 'La Ciotat').length,
+    Marseille: logementsFiltres.filter((l) => l.ville === 'Marseille').length,
+    'Roquefort-la-Bédoule': logementsFiltres.filter((l) => l.ville === 'Roquefort-la-Bédoule').length,
   };
 
   const exportColumns = [
@@ -117,12 +161,34 @@ export default async function LogementsPage() {
         <div className="flex flex-wrap gap-4">
           <ExportButtons
             type="logements"
-            data={logements}
+            data={logementsFiltres}
             columns={exportColumns}
             filename="liste_logements"
           />
           <AddLogementButton />
         </div>
+      </div>
+
+      <div className="mb-6 bg-white p-4 rounded-lg shadow flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-gray-700">Filtre baux:</span>
+        <Link
+          href="/logements?contrat=actifs"
+          className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'actifs' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'}`}
+        >
+          Actifs
+        </Link>
+        <Link
+          href="/logements?contrat=expires"
+          className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'expires' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-800'}`}
+        >
+          Expirés
+        </Link>
+        <Link
+          href="/logements?contrat=all"
+          className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'}`}
+        >
+          Tous
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -149,7 +215,7 @@ export default async function LogementsPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {logements.length === 0 ? (
+        {logementsFiltres.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p className="text-lg">Aucun logement pour le moment</p>
             <p className="text-sm">Cliquez sur &quot;Ajouter un logement&quot; pour commencer</p>
@@ -171,7 +237,7 @@ export default async function LogementsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {logements.map((logement) => (
+                {logementsFiltres.map((logement) => (
                   <tr key={logement.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">{logement.id}</td>
                     <td className="px-6 py-4 text-2xl">{getTypeIcon(logement.type || '')}</td>
@@ -190,6 +256,19 @@ export default async function LogementsPage() {
                         {logement.est_actif === false && (
                           <span className="badge badge-red">⏸️ Inactif</span>
                         )}
+                        {(() => {
+                          const status = getContratStatus(logement);
+                          if (status === 'expire') {
+                            return <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">📅 Bail expiré</span>;
+                          }
+                          if (status === 'actif_indefini') {
+                            return <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">♾️ Indéfini</span>;
+                          }
+                          if (status === 'sans_debut') {
+                            return <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⚠️ Début manquant</span>;
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -205,6 +284,15 @@ export default async function LogementsPage() {
                         >
                           ✏️
                         </a>
+                        {getContratStatus(logement) === 'expire' && (
+                          <a
+                            href={`/logements/${logement.id}/modifier`}
+                            className="text-red-600 hover:underline no-underline mr-1 text-sm"
+                            title="Renouveler le bail"
+                          >
+                            🔄
+                          </a>
+                        )}
                         <a
                           href={`/logements/${logement.id}`}
                           className="text-blue-600 hover:underline no-underline mr-1 text-sm"

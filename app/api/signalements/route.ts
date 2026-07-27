@@ -57,19 +57,22 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
     const collaborateur = collaborateurResult.rows[0];
 
     // Récupérer le logement actuel du collaborateur
-    let logementInfo = 'Non assigné';
+    let logementNom = 'Non assigné';
+    let logementAdresse = 'Non assignée';
     try {
       const logementResult = await query(
-        `SELECT DISTINCT l.adresse, l.id
+        `SELECT DISTINCT l.nom_logement, l.adresse, l.id
          FROM logements l
          INNER JOIN baux b ON l.id = b.logement_id
          WHERE b.collaborateur_id = $1 
-         AND b.date_fin >= CURRENT_DATE
+         AND (b.date_fin IS NULL OR b.date_fin >= CURRENT_DATE)
+         ORDER BY b.date_debut DESC NULLS LAST
          LIMIT 1`,
         [payload.id]
       );
       if (logementResult.rows.length > 0) {
-        logementInfo = logementResult.rows[0].adresse;
+        logementNom = logementResult.rows[0].nom_logement || 'Sans nom';
+        logementAdresse = logementResult.rows[0].adresse || 'Adresse non renseignée';
       }
     } catch (e) {
       if (e instanceof Error) {
@@ -154,7 +157,8 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
             <h3>👤 Informations du collaborateur</h3>
             <p><strong>Nom :</strong> ${collaborateur.prenom} ${collaborateur.nom}</p>
             <p><strong>Email :</strong> ${collaborateur.email}</p>
-            <p><strong>🏠 Logement :</strong> ${logementInfo}</p>
+            <p><strong>🏠 Logement :</strong> ${logementNom}</p>
+            <p><strong>📍 Adresse :</strong> ${logementAdresse}</p>
           </div>
           
           <div class="info-box">

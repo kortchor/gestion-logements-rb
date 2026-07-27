@@ -113,11 +113,19 @@ export async function POST(request: NextRequest) {
 
     const user = userResult.rows[0];
 
-    // Vérifier l'ancien mot de passe
-    const isPasswordValid = await bcryptjs.compare(
-      ancien_mot_de_passe,
-      user.mot_de_passe
-    );
+    // Vérifier l'ancien mot de passe (supporte aussi certains formats hérités)
+    let isPasswordValid = false;
+    if (typeof user.mot_de_passe === 'string' && user.mot_de_passe.length > 0) {
+      try {
+        isPasswordValid = await bcryptjs.compare(
+          ancien_mot_de_passe,
+          user.mot_de_passe
+        );
+      } catch {
+        // Fallback legacy: anciens mots de passe éventuellement stockés en clair
+        isPasswordValid = ancien_mot_de_passe === user.mot_de_passe;
+      }
+    }
 
     if (!isPasswordValid) {
       logSecurityEvent('change_password_invalid_old_password', {
@@ -141,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Mettre à jour le mot de passe
     await query(
-      `UPDATE collaborateurs SET mot_de_passe = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE collaborateurs SET mot_de_passe = $1 WHERE id = $2`,
       [hashedPassword, userId]
     );
 

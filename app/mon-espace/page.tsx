@@ -115,6 +115,29 @@ export default function MonEspacePage() {
   }
 
   const photos = bailActif ? getPhotos(bailActif.logement?.etat_lieux_photos) : [];
+  const joursRestants = bailActif
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(bailActif.date_fin).getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+    : null;
+
+  const getBadgeJoursRestants = () => {
+    if (joursRestants == null) return null;
+
+    if (joursRestants <= 7) {
+      return 'bg-red-100 text-red-700 border-red-200';
+    }
+
+    if (joursRestants <= 30) {
+      return 'bg-amber-100 text-amber-700 border-amber-200';
+    }
+
+    return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
@@ -189,6 +212,13 @@ export default function MonEspacePage() {
                       <p className="text-sm text-slate-700">
                         Au {format(new Date(bailActif.date_fin), 'dd MMM yyyy', { locale: fr })}
                       </p>
+                      {joursRestants != null && (
+                        <span
+                          className={`mt-3 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getBadgeJoursRestants()}`}
+                        >
+                          ⏳ {joursRestants} jour{joursRestants > 1 ? 's' : ''} restant{joursRestants > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
 
                     <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 shadow-sm sm:col-span-2 lg:col-span-1">

@@ -117,31 +117,50 @@ export default function MonEspacePage() {
   const photos = bailActif ? getPhotos(bailActif.logement?.etat_lieux_photos) : [];
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex items-center gap-3 mb-6">
-        <Image src="/logo-hotel.svg" alt="Les Roches Blanches" width={120} height={32} className="h-8 w-auto" />
-        <h1 className="text-2xl font-bold">🏠 Mon Espace</h1>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
+      <div className="relative mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-cyan-900 p-6 text-white shadow-lg md:p-8">
+        <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-cyan-400/20 blur-2xl" />
+        <div className="absolute -bottom-12 left-10 h-36 w-36 rounded-full bg-blue-400/20 blur-2xl" />
+        <div className="relative z-10">
+          <div className="mb-3 inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
+            ESPACE COLLABORATEUR
+          </div>
+          <h1 className="text-2xl font-bold md:text-3xl">🏠 Mon Espace</h1>
+          <p className="mt-2 text-sm text-slate-200 md:text-base">
+            Bonjour {user.prenom || user.nom || 'collaborateur'}, voici un aperçu de votre logement et de votre état des lieux.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-cyan-100">
+              {bailActif ? 'Logement actif' : 'Aucun logement actif'}
+            </span>
+            {bailActif?.date_fin && (
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-cyan-100">
+                Jusqu&apos;au {format(new Date(bailActif.date_fin), 'dd MMM yyyy', { locale: fr })}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-slate-200 bg-slate-50/80">
           <button
             onClick={() => setActiveTab('logement')}
-            className={`flex-1 px-4 py-3 font-medium text-center transition-colors border-b-2 ${
+            className={`flex-1 px-4 py-3 text-center font-medium transition-colors border-b-2 ${
               activeTab === 'logement'
-                ? 'border-blue-600 text-blue-600 bg-blue-50'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
             }`}
           >
             🏠 Mon Logement
           </button>
           <button
             onClick={() => setActiveTab('etat-lieux')}
-            className={`flex-1 px-4 py-3 font-medium text-center transition-colors border-b-2 ${
+            className={`flex-1 px-4 py-3 text-center font-medium transition-colors border-b-2 ${
               activeTab === 'etat-lieux'
-                ? 'border-blue-600 text-blue-600 bg-blue-50'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
             }`}
           >
             📷 État des lieux
@@ -149,35 +168,35 @@ export default function MonEspacePage() {
         </div>
 
         {/* Contenu des onglets */}
-        <div className="p-6">
+        <div className="p-6 md:p-7">
           {/* Onglet Mon Logement */}
           {activeTab === 'logement' && (
             <div className="space-y-4">
               {bailActif ? (
                 <>
                   <div>
-                    <h2 className="text-xl font-semibold">{bailActif.logement?.nom || 'Logement'}</h2>
-                    <p className="text-gray-700 mt-2">
+                    <h2 className="text-xl font-semibold text-slate-900">{bailActif.logement?.nom || 'Logement'}</h2>
+                    <p className="mt-2 text-slate-700">
                       <span className="font-medium">📍 Adresse :</span> {bailActif.logement?.adresse || 'Adresse non spécifiée'}
                     </p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm text-slate-600">
                       <span className="font-medium">📅 Période d&apos;occupation :</span>
                       <br /> du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} 
                       <br /> au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}
                     </p>
                   </div>
                   {bailActif.participation_mensuelle != null && (
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <p className="text-gray-700">
-                        💰 <span className="font-medium">Participation mensuelle :</span> <strong className="text-blue-600">{bailActif.participation_mensuelle} €</strong>
+                    <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
+                      <p className="text-slate-700">
+                        💰 <span className="font-medium">Participation mensuelle :</span> <strong className="text-cyan-700">{bailActif.participation_mensuelle} €</strong>
                       </p>
                     </div>
                   )}
                 </>
               ) : (
-                    <p className="text-gray-500 text-center py-8">Vous n&apos;avez pas de logement actuellement assigné.</p>
+                    <p className="py-8 text-center text-slate-500">Vous n&apos;avez pas de logement actuellement assigné.</p>
               )}
             </div>
           )}
@@ -187,8 +206,8 @@ export default function MonEspacePage() {
             <div>
               {bailActif && photos.length > 0 ? (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📷 Photos de l&apos;état des lieux</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="mb-4 text-lg font-semibold text-slate-800">📷 Photos de l&apos;état des lieux</h3>
+                  <p className="mb-4 text-sm text-slate-600">
                     {photos.length} photo{photos.length > 1 ? 's' : ''} disponible{photos.length > 1 ? 's' : ''}
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -219,8 +238,8 @@ export default function MonEspacePage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">
+                <div className="py-12 text-center">
+                  <p className="text-lg text-slate-500">
                     {bailActif 
                       ? '📸 Aucune photo d\'état des lieux disponible pour le moment.'
                       : '❌ Vous n\'avez pas de logement assigné.'}

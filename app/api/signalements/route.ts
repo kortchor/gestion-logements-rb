@@ -61,12 +61,50 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
     let logementAdresse = 'Non assignée';
     try {
       const logementResult = await query(
-        `SELECT DISTINCT l.nom_logement, l.adresse, l.id
-         FROM logements l
-         INNER JOIN baux b ON l.id = b.logement_id
-         WHERE b.collaborateur_id = $1 
-         AND (b.date_fin IS NULL OR b.date_fin >= CURRENT_DATE)
-         ORDER BY b.date_debut DESC NULLS LAST
+        `WITH candidats AS (
+           -- Source principale: bail actif
+           SELECT
+             l.nom_logement,
+             l.adresse,
+             1 AS priorite,
+             COALESCE(b.date_debut, CURRENT_DATE) AS date_ref
+           FROM baux b
+           JOIN logements l ON l.id = b.logement_id
+           WHERE b.collaborateur_id = $1
+             AND b.date_debut <= CURRENT_DATE
+             AND (b.date_fin IS NULL OR b.date_fin >= CURRENT_DATE)
+
+           UNION ALL
+
+           -- Fallback: table lit_occupants (cas couples)
+           SELECT
+             log.nom_logement,
+             log.adresse,
+             2 AS priorite,
+             COALESCE(lo.created_at::date, CURRENT_DATE) AS date_ref
+           FROM lit_occupants lo
+           JOIN lits li ON li.id = lo.lit_id
+           JOIN chambres ch ON ch.id = li.chambre_id
+           JOIN logements log ON log.id = ch.logement_id
+           WHERE lo.collaborateur_id = $1
+
+           UNION ALL
+
+           -- Fallback legacy: collaborateur_id directement sur le lit
+           SELECT
+             log.nom_logement,
+             log.adresse,
+             3 AS priorite,
+             CURRENT_DATE AS date_ref
+           FROM lits li
+           JOIN chambres ch ON ch.id = li.chambre_id
+           JOIN logements log ON log.id = ch.logement_id
+           WHERE li.collaborateur_id = $1
+             AND COALESCE(li.est_occupe, false) = true
+         )
+         SELECT nom_logement, adresse
+         FROM candidats
+         ORDER BY priorite ASC, date_ref DESC
          LIMIT 1`,
         [payload.id]
       );

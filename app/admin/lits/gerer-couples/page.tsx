@@ -30,6 +30,11 @@ interface LitAssigne {
   }>;
 }
 
+type LitSelectable = Lit & {
+  occupantsActuels?: number;
+  estPartiellementOccupe?: boolean;
+};
+
 interface Collaborateur {
   id: number;
   nom: string;
@@ -77,6 +82,26 @@ export default function GererCouplesPage() {
       setLoading2(false);
     }
   };
+
+  const litsDisponiblesPourCouple: LitSelectable[] = [
+    ...litsLibres.map((lit) => ({
+      ...lit,
+      occupantsActuels: 0,
+      estPartiellementOccupe: false,
+    })),
+    ...litsAssignes
+      .filter((lit) => lit.type_lit === 'double' && lit.occupants.length < 2)
+      .map((lit) => ({
+        id: lit.id,
+        numero: lit.numero,
+        chambre_nom: lit.chambre_nom,
+        type_lit: lit.type_lit,
+        logement_adresse: lit.adresse,
+        ville: lit.ville,
+        occupantsActuels: lit.occupants.length,
+        estPartiellementOccupe: true,
+      })),
+  ];
 
   useEffect(() => {
     fetchData();
@@ -181,7 +206,7 @@ export default function GererCouplesPage() {
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-bold mb-6">➕ Assigner un couple</h2>
 
-            {litsLibres.length > 0 ? (
+            {litsDisponiblesPourCouple.length > 0 ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Lit double</label>
@@ -191,9 +216,10 @@ export default function GererCouplesPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Sélectionner un lit...</option>
-                    {litsLibres.map((lit) => (
+                    {litsDisponiblesPourCouple.map((lit) => (
                       <option key={lit.id} value={lit.id}>
                         {lit.logement_adresse} - Chambre {lit.chambre_nom}, Lit {lit.numero}
+                        {lit.estPartiellementOccupe ? ` (déjà occupé par ${lit.occupantsActuels} personne${lit.occupantsActuels === 1 ? '' : 's'})` : ''}
                       </option>
                     ))}
                   </select>
@@ -240,7 +266,7 @@ export default function GererCouplesPage() {
               </div>
             ) : (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center text-yellow-800">
-                Aucun lit double libre pour le moment
+                Aucun lit double disponible pour le moment
               </div>
             )}
           </div>

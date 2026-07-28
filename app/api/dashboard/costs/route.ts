@@ -60,7 +60,7 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
 
     const result = await query(`
       WITH active_baux AS (
-        SELECT b.collaborateur_id, b.logement_id
+        SELECT b.collaborateur_id, b.logement_id, b.participation_mensuelle
         FROM baux b
         WHERE b.date_debut <= CURRENT_DATE
           AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
@@ -73,7 +73,7 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
       SELECT
         COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
         SUM(
-          COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1)
+          COALESCE(ab.participation_mensuelle, COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1))
         ) as cout_centre,
         COUNT(DISTINCT ab.collaborateur_id) as nb_collaborateurs
       FROM active_baux ab
@@ -127,7 +127,7 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
         log.ville,
         COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
         ab.participation_mensuelle,
-        COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1) as cout_hotel_par_collaborateur,
+        COALESCE(ab.participation_mensuelle, COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1)) as cout_hotel_par_collaborateur,
         ab.date_debut,
         ab.date_fin
       FROM active_baux ab

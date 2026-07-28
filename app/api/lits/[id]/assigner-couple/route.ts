@@ -33,7 +33,14 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
     }
 
     // Vérifier que le lit existe
-    const litResult = await query('SELECT * FROM lits WHERE id = $1', [id]);
+    const litResult = await query(
+      `SELECT l.*, ch.logement_id, log.prix_loyer
+       FROM lits l
+       LEFT JOIN chambres ch ON l.chambre_id = ch.id
+       LEFT JOIN logements log ON ch.logement_id = log.id
+       WHERE l.id = $1`,
+      [id]
+    );
     if (litResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Lit non trouvé' },
@@ -48,6 +55,16 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
       return NextResponse.json(
         { error: 'Seuls les lits doubles peuvent accueillir deux personnes' },
         { status: 400 }
+      );
+    }
+
+    // Vérifier la capacité réelle du lit via la table lit_occupants
+    const occupantsAvant = await query('SELECT COUNT(*) FROM lit_occupants WHERE lit_id = $1', [id]);
+    const occupantsCount = parseInt(occupantsAvant.rows[0].count, 10);
+    if (occupantsCount >= 2) {
+      return NextResponse.json(
+        { error: 'Ce lit double est déjà complet' },
+        { status: 409 }
       );
     }
 
@@ -108,57 +125,55 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
       );
     }
 
-    // Marquer le lit comme occupé
+    // Marquer le lit comme occupé tant qu'il reste au moins un occupant
     await query('UPDATE lits SET est_occupe = true WHERE id = $1', [id]);
 
-    // Créer les baux automatiquement (si pas déjà existants)
+    // Recalculer le partage à partir du nombre réel d'occupants du lit
     const logement_id = lit.logement_id;
     const today = new Date().toISOString().split('T')[0];
     const endDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+    const prix_loyer = parseFloat(lit.prix_loyer || 0);
 
-    // Créer ou mettre à jour le bail pour collaborateur 1
-    const existingBail1 = await query(
-      'SELECT * FROM baux WHERE logement_id = $1 AND collaborateur_id = $2 AND date_fin >= CURRENT_DATE',
-      [logement_id, collaborateur1_id]
+    const occupantsApres = await query(
+      `SELECT collaborateur_id
+       FROM lit_occupants
+       WHERE lit_id = $1
+       ORDER BY created_at`,
+      [id]
     );
 
-    if (existingBail1.rows.length === 0) {
-      // Récupérer le prix du logement
-      const logInfo = await query('SELECT prix_loyer FROM logements WHERE id = $1', [logement_id]);
-      const prix_loyer = parseFloat(logInfo.rows[0]?.prix_loyer || 0);
-      const participation = collaborateur2_id ? prix_loyer / 2 : prix_loyer;
+    const occupantIds = occupantsApres.rows.map((row: { collaborateur_id: number }) => row.collaborateur_id);
+    const nombreOccupantsApres = occupantIds.length;
+    const participationActualisee = nombreOccupantsApres > 0 ? prix_loyer / nombreOccupantsApres : 0;
 
-      await query(
-        `INSERT INTO baux (logement_id, collaborateur_id, date_debut, date_fin, participation_mensuelle)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [logement_id, collaborateur1_id, today, endDate, participation]
-      );
-    }
-
-    // Créer le bail pour collaborateur 2 (si applicable)
-    if (collaborateur2_id) {
-      const existingBail2 = await query(
-        'SELECT * FROM baux WHERE logement_id = $1 AND collaborateur_id = $2 AND date_fin >= CURRENT_DATE',
-        [logement_id, collaborateur2_id]
+    for (const occupantId of occupantIds) {
+      const existingBail = await query(
+        'SELECT id FROM baux WHERE logement_id = $1 AND collaborateur_id = $2 AND date_fin >= CURRENT_DATE LIMIT 1',
+        [logement_id, occupantId]
       );
 
-      if (existingBail2.rows.length === 0) {
-        const logInfo = await query('SELECT prix_loyer FROM logements WHERE id = $1', [logement_id]);
-        const prix_loyer = parseFloat(logInfo.rows[0]?.prix_loyer || 0);
-        const participation = prix_loyer / 2;
-
+      if (existingBail.rows.length === 0) {
         await query(
           `INSERT INTO baux (logement_id, collaborateur_id, date_debut, date_fin, participation_mensuelle)
            VALUES ($1, $2, $3, $4, $5)`,
-          [logement_id, collaborateur2_id, today, endDate, participation]
+          [logement_id, occupantId, today, endDate, participationActualisee]
+        );
+      } else {
+        await query(
+          `UPDATE baux
+           SET participation_mensuelle = $1
+           WHERE logement_id = $2
+             AND collaborateur_id = $3
+             AND date_fin >= CURRENT_DATE`,
+          [participationActualisee, logement_id, occupantId]
         );
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: collaborateur2_id 
-        ? 'Couple assigné au lit avec succès et baux créés (50/50)' 
+      message: nombreOccupantsApres > 1
+        ? 'Couple assigné au lit avec succès et baux ajustés'
         : 'Collaborateur assigné au lit avec succès et bail créé',
     });
   } catch (error) {

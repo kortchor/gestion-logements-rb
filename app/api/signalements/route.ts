@@ -142,6 +142,8 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
           .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; }
           .info-box { background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 15px 0; }
+          .info-box p { margin: 6px 0; }
+          .muted { color: #6b7280; font-style: italic; }
           .footer { background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; }
           .files-list { background-color: #f9fafb; padding: 10px; border-radius: 5px; }
         </style>
@@ -157,8 +159,12 @@ const postHandler = async (request: NextRequest, payload: TokenPayload) => {
             <h3>👤 Informations du collaborateur</h3>
             <p><strong>Nom :</strong> ${collaborateur.prenom} ${collaborateur.nom}</p>
             <p><strong>Email :</strong> ${collaborateur.email}</p>
-            <p><strong>🏠 Logement :</strong> ${logementNom}</p>
-            <p><strong>📍 Adresse :</strong> ${logementAdresse}</p>
+            ${logementNom === 'Non assigné' && logementAdresse === 'Non assignée'
+              ? `<p class="muted">Aucun logement actif n'est assigné à ce collaborateur au moment du signalement.</p>`
+              : `
+                <p><strong>🏠 Logement :</strong> ${logementNom}</p>
+                <p><strong>📍 Adresse :</strong> ${logementAdresse}</p>
+              `}
           </div>
           
           <div class="info-box">

@@ -174,29 +174,53 @@ export default function MonEspacePage() {
             <div className="space-y-4">
               {bailActif ? (
                 <>
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900">{bailActif.logement?.nom || 'Logement'}</h2>
-                    <p className="mt-2 text-slate-700">
-                      <span className="font-medium">📍 Adresse :</span> {bailActif.logement?.adresse || 'Adresse non spécifiée'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm text-slate-600">
-                      <span className="font-medium">📅 Période d&apos;occupation :</span>
-                      <br /> du {format(new Date(bailActif.date_debut), 'dd MMMM yyyy', { locale: fr })} 
-                      <br /> au {format(new Date(bailActif.date_fin), 'dd MMMM yyyy', { locale: fr })}
-                    </p>
-                  </div>
-                  {bailActif.participation_mensuelle != null && (
-                    <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
-                      <p className="text-slate-700">
-                        💰 <span className="font-medium">Participation mensuelle :</span> <strong className="text-cyan-700">{bailActif.participation_mensuelle} €</strong>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Logement</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">{bailActif.logement?.nom || 'Logement'}</p>
+                      <p className="mt-1 text-sm text-slate-600">{bailActif.logement?.adresse || 'Adresse non spécifiée'}</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Période</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        Du {format(new Date(bailActif.date_debut), 'dd MMM yyyy', { locale: fr })}
+                      </p>
+                      <p className="text-sm text-slate-700">
+                        Au {format(new Date(bailActif.date_fin), 'dd MMM yyyy', { locale: fr })}
                       </p>
                     </div>
-                  )}
+
+                    <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 shadow-sm sm:col-span-2 lg:col-span-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Participation</p>
+                      <p className="mt-1 text-2xl font-bold text-cyan-800">
+                        {bailActif.participation_mensuelle != null ? `${bailActif.participation_mensuelle} €` : 'Non définie'}
+                      </p>
+                      <p className="text-xs text-cyan-700/80">Montant mensuel actuel</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-700">Informations complémentaires</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Vos données de logement sont mises à jour à partir de votre bail actif. En cas d&apos;erreur,
+                      contactez l&apos;administration pour vérification.
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Référence bail #{bailActif.id}
+                    </p>
+                  </div>
                 </>
               ) : (
-                    <p className="py-8 text-center text-slate-500">Vous n&apos;avez pas de logement actuellement assigné.</p>
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                  <p className="text-lg font-semibold text-slate-700">Aucun logement actif</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Vous n&apos;avez pas de logement actuellement assigné. L&apos;équipe RH peut vous informer dès qu&apos;une affectation est réalisée.
+                  </p>
+                  <div className="mt-4 inline-flex rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+                    Statut: en attente d&apos;affectation
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -235,7 +259,7 @@ export default function MonEspacePage() {
                         </div>
                       </a>
                     ))}
-                  </div>
+                    </div>
                 </div>
               ) : (
                 <div className="py-12 text-center">

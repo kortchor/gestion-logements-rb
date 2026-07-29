@@ -315,7 +315,7 @@ export default function DashboardPage() {
                       <div className="text-4xl font-bold text-green-600">
                         {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                       </div>
-                      <p className="text-sm text-gray-500 mt-2">Somme des loyers des logements actifs</p>
+                      <p className="text-sm text-gray-500 mt-2">Somme des loyers des logements avec bail actif sur le mois en cours</p>
                     </div>
                   </div>
                 )}

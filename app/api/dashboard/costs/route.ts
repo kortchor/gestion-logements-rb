@@ -26,13 +26,26 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
   try {
     await ensureDashboardCostsSchema();
 
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const startDate = monthStart.toISOString().split('T')[0];
+    const endDate = monthEnd.toISOString().split('T')[0];
+
     const result = await query(`
-      SELECT 
-        COALESCE(SUM(l.prix_loyer), 0) as total_loyer
-      FROM logements l
+      WITH active_baux AS (
+        SELECT DISTINCT b.logement_id
+        FROM baux b
+        WHERE b.date_debut <= $2::DATE
+          AND COALESCE(b.date_fin, 'infinity'::DATE) >= $1::DATE
+      )
+      SELECT
+        COALESCE(SUM(COALESCE(l.prix_loyer, 0)::numeric), 0) AS total_loyer
+      FROM active_baux ab
+      JOIN logements l ON l.id = ab.logement_id
       WHERE COALESCE(l.est_actif, true) = true
-        AND l.prix_loyer IS NOT NULL
-    `);
+        AND COALESCE(l.prix_loyer, 0) > 0
+    `, [startDate, endDate]);
 
     const totalLoyer = parseFloat(result.rows[0]?.total_loyer || 0);
 

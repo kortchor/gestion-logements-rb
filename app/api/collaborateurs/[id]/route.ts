@@ -6,6 +6,41 @@ import { logAudit } from '@/lib/audit';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
+let collaborateurDetailSchemaChecked = false;
+
+async function ensureCollaborateurDetailSchema() {
+  if (collaborateurDetailSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE collaborateurs
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS date_arrivee DATE,
+    ADD COLUMN IF NOT EXISTS date_depart DATE,
+    ADD COLUMN IF NOT EXISTS date_debut_contrat DATE,
+    ADD COLUMN IF NOT EXISTS date_fin_contrat DATE
+  `);
+
+  collaborateurDetailSchemaChecked = true;
+}
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value == null ? null : String(value);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toNullableDate(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value == null ? null : String(value);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 const getCollaborateurHandler = async (
   request: NextRequest,
   payload: TokenPayload,
@@ -72,6 +107,18 @@ const putCollaborateurHandler = async (
       centre_affectation,
     } = body;
 
+    await ensureCollaborateurDetailSchema();
+
+    if (!nom || typeof nom !== 'string' || nom.trim().length === 0) {
+      return NextResponse.json({ success: false, error: 'Le nom est requis' }, { status: 400 });
+    }
+    if (!prenom || typeof prenom !== 'string' || prenom.trim().length === 0) {
+      return NextResponse.json({ success: false, error: 'Le prénom est requis' }, { status: 400 });
+    }
+    if (!email || typeof email !== 'string' || email.trim().length === 0) {
+      return NextResponse.json({ success: false, error: 'L\'email est requis' }, { status: 400 });
+    }
+
     // Récupérer les données actuelles
     const currentResult = await query(
       'SELECT * FROM collaborateurs WHERE id = $1',
@@ -101,21 +148,21 @@ const putCollaborateurHandler = async (
        WHERE id = $16
        RETURNING *`,
       [
-        nom,
-        prenom,
-        email,
-        civilite || null,
-        telephone || null,
+        toNullableString(nom),
+        toNullableString(prenom),
+        toNullableString(email),
+        toNullableString(civilite),
+        toNullableString(telephone),
         genre || 'F',
-        date_arrivee || null,
-        date_depart || null,
-        date_debut_contrat || null,
-        date_fin_contrat || null,
+        toNullableDate(date_arrivee),
+        toNullableDate(date_depart),
+        toNullableDate(date_debut_contrat),
+        toNullableDate(date_fin_contrat),
         vehicule === true || vehicule === 'true',
         animal === true || animal === 'true',
-        commentaire || null,
-        centre_principal || null,
-        centre_affectation || null,
+        toNullableString(commentaire),
+        toNullableString(centre_principal),
+        toNullableString(centre_affectation),
         collaborateurId,
       ]
     );

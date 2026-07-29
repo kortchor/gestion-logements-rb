@@ -97,7 +97,10 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
         router.push('/collaborateurs');
         router.refresh();
       } else {
-        setError(result.error || 'Erreur lors de la modification');
+        const details = Array.isArray(result.errors)
+          ? result.errors.map((e: { field?: string; message?: string }) => e?.message).filter(Boolean).join(' | ')
+          : '';
+        setError(details ? `${result.error || 'Données invalides'}: ${details}` : (result.error || 'Erreur lors de la modification'));
       }
     } catch (err) {
       setError('Erreur de connexion');

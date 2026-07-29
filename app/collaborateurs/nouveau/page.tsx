@@ -55,7 +55,10 @@ export default function NouveauCollaborateur() {
         router.push('/collaborateurs');
         router.refresh();
       } else {
-        setError(result.error || 'Erreur lors de la création');
+        const details = Array.isArray(result.errors)
+          ? result.errors.map((e: { field?: string; message?: string }) => e?.message).filter(Boolean).join(' | ')
+          : '';
+        setError(details ? `${result.error || 'Données invalides'}: ${details}` : (result.error || 'Erreur lors de la création'));
       }
     } catch (err) {
       console.error('Erreur:', err);

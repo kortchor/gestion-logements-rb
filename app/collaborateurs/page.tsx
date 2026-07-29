@@ -137,6 +137,13 @@ export default async function CollaborateursPage() {
         </div>
       </div>
 
+      <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-900">
+        <p className="text-sm">
+          <span className="font-semibold">Import Excel disponible:</span> utilisez le bouton "📥 Importer" pour charger une liste complète,
+          puis ouvrez chaque fiche collaborateur pour compléter les spécificités (logement, dates, commentaires, etc.).
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-500">Total</p>

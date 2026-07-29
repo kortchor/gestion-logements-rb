@@ -181,8 +181,8 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date d&apos;arrivée (logement) *</label>
-            <input type="date" name="date_arrivee" required value={formData.date_arrivee} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date d&apos;arrivée (logement)</label>
+            <input type="date" name="date_arrivee" value={formData.date_arrivee} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
 
           <div>
@@ -191,8 +191,8 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date début contrat *</label>
-            <input type="date" name="date_debut_contrat" required value={formData.date_debut_contrat} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date début contrat</label>
+            <input type="date" name="date_debut_contrat" value={formData.date_debut_contrat} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
 
           <div>

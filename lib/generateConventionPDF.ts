@@ -17,7 +17,7 @@ D'une part,
 
 Et
 
-{{CIVILITE}} {{PRENOM}} {{NOM}}
+{{CIVILITE_WITH_SPACE}}{{PRENOM}} {{NOM}}
 {{#if CENTRE_PRINCIPAL}}Centre principal : {{CENTRE_PRINCIPAL}}{{/if}}
 {{#if CENTRE_AFFECTATION}}Centre affectation : {{CENTRE_AFFECTATION}}{{/if}}
 Email : {{EMAIL}}
@@ -28,7 +28,7 @@ D'autre part
 IL EST CONVENU CE QUI SUIT
 
 Article 1er -- Logement mis à disposition de l'Occupant
-L'Employeur concède à {{CIVILITE}} {{PRENOM}} {{NOM}} en considération de sa qualité de salarié à son service et comme accessoire du contrat de travail liant les deux parties, la jouissance d'une partie du Logement suivant dont il est locataire à l'adresse suivante :
+L'Employeur concède à {{CIVILITE_WITH_SPACE}}{{PRENOM}} {{NOM}} en considération de sa qualité de salarié à son service et comme accessoire du contrat de travail liant les deux parties, la jouissance d'une partie du Logement suivant dont il est locataire à l'adresse suivante :
 Adresse du Logement : {{ADRESSE}}, {{VILLE}}
 
 Description du Logement mis à disposition de l'Occupant
@@ -45,6 +45,25 @@ function remplacerVariables(template: string, variables: Record<string, string>)
     result = result.replaceAll(`{{${key}}}`, value);
   }
   return result;
+}
+
+function normaliserCivilite(value?: string | null): string {
+  const raw = (value || '').trim().toLowerCase();
+  if (!raw) return '';
+
+  if (raw === 'm.' || raw === 'm' || raw === 'mr' || raw === 'monsieur' || raw === 'homme' || raw === 'h') {
+    return 'M.';
+  }
+
+  if (raw === 'mme' || raw === 'madame' || raw === 'femme' || raw === 'f') {
+    return 'Mme';
+  }
+
+  if (raw === 'non precise' || raw === 'non precis' || raw === 'non précisé' || raw === 'non precisee' || raw === 'non precisée') {
+    return '';
+  }
+
+  return '';
 }
 
 // ✅ NOUVELLE FONCTION : Générer un PDF depuis un modèle
@@ -87,10 +106,12 @@ export async function generateConventionPDF({
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const civiliteNormalisee = normaliserCivilite(civilite);
 
   // Préparer les variables
   const variables = {
-    CIVILITE: civilite,
+    CIVILITE: civiliteNormalisee,
+    CIVILITE_WITH_SPACE: civiliteNormalisee ? `${civiliteNormalisee} ` : '',
     NOM: nom.toUpperCase(),
     PRENOM: prenom,
     EMAIL: email || '',

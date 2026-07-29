@@ -90,7 +90,7 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   }
 
   // 3. Récupérer les données essentielles
-  const collaborateurResult = await client.query('SELECT id, genre, nom, prenom, email FROM collaborateurs WHERE id = $1', [collaborateurId]);
+  const collaborateurResult = await client.query('SELECT id, genre, civilite, nom, prenom, email FROM collaborateurs WHERE id = $1', [collaborateurId]);
   if (collaborateurResult.rows.length === 0) {
     return { error: NextResponse.json({ error: 'Collaborateur non trouvé' }, { status: 404 }) };
   }
@@ -237,6 +237,7 @@ const assignerHandler = async (
       nom: collaborateur.nom,
       prenom: collaborateur.prenom,
       email: collaborateur.email,
+      civilite: collaborateur.civilite,
       adresseLogement: lit.adresse,
       villeLogement: lit.ville,
       dateDebut: dateDebut,

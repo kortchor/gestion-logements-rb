@@ -85,7 +85,7 @@ export default function ModelesPage() {
   };
 
   const variables = [
-    '{{NOM}}', '{{PRENOM}}', '{{EMAIL}}', '{{ADRESSE}}',
+    '{{CIVILITE}}', '{{CIVILITE_WITH_SPACE}}', '{{NOM}}', '{{PRENOM}}', '{{EMAIL}}', '{{ADRESSE}}',
     '{{VILLE}}', '{{DATE_DEBUT}}', '{{DATE_FIN}}',
     '{{PARTICIPATION}}', '{{DESCRIPTION}}', '{{NUMERO_CONTRAT}}',
     '{{DATE_SIGNATURE}}', '{{CENTRE_PRINCIPAL}}', '{{CENTRE_AFFECTATION}}'
@@ -164,7 +164,7 @@ export default function ModelesPage() {
             placeholder={`Exemple :
 CONVENTION DE MISE A DISPOSITION D'UN LOGEMENT
 
-Entre LES ROCHES BLANCHES DE CASSIS et {{NOM}} {{PRENOM}}
+Entre LES ROCHES BLANCHES DE CASSIS et {{CIVILITE_WITH_SPACE}}{{PRENOM}} {{NOM}}
 
 Logement : {{ADRESSE}}, {{VILLE}}
 Période : {{DATE_DEBUT}} au {{DATE_FIN}}

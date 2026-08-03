@@ -90,7 +90,7 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 };
 
-// Coût par centre analytique = SUM(prix_loyer / nb_occupants) pour chaque bail actif
+// Coût par centre analytique = (loyer / nb_lits_du_logement) puis partage par nb_occupants_du_lit
 const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPayload) => {
   void request;
   void payload;
@@ -99,28 +99,76 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
 
     const result = await query(`
       WITH active_baux AS (
-        SELECT b.collaborateur_id, b.logement_id
+        SELECT DISTINCT b.collaborateur_id, b.logement_id
         FROM baux b
         WHERE b.date_debut <= CURRENT_DATE
           AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
       ),
-      occupants_per_logement AS (
-        SELECT logement_id, COUNT(DISTINCT collaborateur_id) as nb_occupants
-        FROM active_baux
-        GROUP BY logement_id
+      lits_per_logement AS (
+        SELECT
+          ch.logement_id,
+          COUNT(l.id)::int AS nb_lits
+        FROM chambres ch
+        JOIN lits l ON l.chambre_id = ch.id
+        GROUP BY ch.logement_id
+      ),
+      occupants_per_lit AS (
+        SELECT
+          occ.lit_id,
+          COUNT(DISTINCT occ.collaborateur_id)::int AS nb_occupants
+        FROM (
+          SELECT lo.lit_id, lo.collaborateur_id
+          FROM lit_occupants lo
+
+          UNION
+
+          SELECT l.id AS lit_id, l.collaborateur_id
+          FROM lits l
+          WHERE l.collaborateur_id IS NOT NULL
+        ) AS occ
+        GROUP BY occ.lit_id
+      ),
+      active_assignments AS (
+        SELECT
+          ab.collaborateur_id,
+          ab.logement_id,
+          assigned_lit.lit_id
+        FROM active_baux ab
+        LEFT JOIN LATERAL (
+          SELECT l.id AS lit_id
+          FROM lits l
+          JOIN chambres ch ON ch.id = l.chambre_id
+          LEFT JOIN lit_occupants lo
+            ON lo.lit_id = l.id
+           AND lo.collaborateur_id = ab.collaborateur_id
+          WHERE ch.logement_id = ab.logement_id
+            AND (lo.collaborateur_id IS NOT NULL OR l.collaborateur_id = ab.collaborateur_id)
+          ORDER BY CASE WHEN lo.collaborateur_id IS NOT NULL THEN 0 ELSE 1 END, l.id
+          LIMIT 1
+        ) AS assigned_lit ON true
+      ),
+      per_collaborateur AS (
+        SELECT
+          aa.collaborateur_id,
+          COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) AS centre_analytique,
+          CASE
+            WHEN COALESCE(lpl.nb_lits, 0) <= 0 THEN 0::numeric
+            WHEN aa.lit_id IS NULL THEN COALESCE(log.prix_loyer, 0)::numeric / lpl.nb_lits::numeric
+            ELSE (COALESCE(log.prix_loyer, 0)::numeric / lpl.nb_lits::numeric) / GREATEST(COALESCE(opl.nb_occupants, 1), 1)::numeric
+          END AS cout_hotel
+        FROM active_assignments aa
+        JOIN collaborateurs c ON c.id = aa.collaborateur_id
+        JOIN logements log ON log.id = aa.logement_id
+        LEFT JOIN lits_per_logement lpl ON lpl.logement_id = aa.logement_id
+        LEFT JOIN occupants_per_lit opl ON opl.lit_id = aa.lit_id
+        WHERE COALESCE(log.est_actif, true) = true
+          AND COALESCE(log.prix_loyer, 0) > 0
       )
       SELECT
-        COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
-        SUM(
-          COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1)
-        ) as cout_centre,
-        COUNT(DISTINCT ab.collaborateur_id) as nb_collaborateurs
-      FROM active_baux ab
-      JOIN logements log ON ab.logement_id = log.id
-      JOIN collaborateurs c ON ab.collaborateur_id = c.id
-      LEFT JOIN occupants_per_logement opl ON opl.logement_id = log.id
-      WHERE COALESCE(log.est_actif, true) = true
-        AND COALESCE(log.prix_loyer, 0) > 0
+        centre_analytique,
+        SUM(cout_hotel) AS cout_centre,
+        COUNT(DISTINCT collaborateur_id) AS nb_collaborateurs
+      FROM per_collaborateur
       GROUP BY 1
       ORDER BY cout_centre DESC
     `);
@@ -140,7 +188,7 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
   }
 };
 
-// Tableau des participations : chaque collaborateur avec sa participation et son coût hôtel
+// Tableau des participations : coût hôtel basé sur coût par lit puis partage par occupants du lit
 const participationsHandler = async (request: NextRequest, payload: TokenPayload) => {
   void request;
   void payload;
@@ -149,15 +197,57 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
 
     const result = await query(`
       WITH active_baux AS (
-        SELECT b.collaborateur_id, b.logement_id, b.participation_mensuelle, b.date_debut, b.date_fin
+        SELECT DISTINCT b.collaborateur_id, b.logement_id, b.participation_mensuelle, b.date_debut, b.date_fin
         FROM baux b
         WHERE b.date_debut <= CURRENT_DATE
           AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
       ),
-      occupants_per_logement AS (
-        SELECT logement_id, COUNT(DISTINCT collaborateur_id) as nb_occupants
-        FROM active_baux
-        GROUP BY logement_id
+      lits_per_logement AS (
+        SELECT
+          ch.logement_id,
+          COUNT(l.id)::int AS nb_lits
+        FROM chambres ch
+        JOIN lits l ON l.chambre_id = ch.id
+        GROUP BY ch.logement_id
+      ),
+      occupants_per_lit AS (
+        SELECT
+          occ.lit_id,
+          COUNT(DISTINCT occ.collaborateur_id)::int AS nb_occupants
+        FROM (
+          SELECT lo.lit_id, lo.collaborateur_id
+          FROM lit_occupants lo
+
+          UNION
+
+          SELECT l.id AS lit_id, l.collaborateur_id
+          FROM lits l
+          WHERE l.collaborateur_id IS NOT NULL
+        ) AS occ
+        GROUP BY occ.lit_id
+      ),
+      active_assignments AS (
+        SELECT
+          ab.collaborateur_id,
+          ab.logement_id,
+          ab.participation_mensuelle,
+          ab.date_debut,
+          ab.date_fin,
+          assigned_lit.lit_id,
+          assigned_lit.numero AS lit_numero
+        FROM active_baux ab
+        LEFT JOIN LATERAL (
+          SELECT l.id AS lit_id, l.numero
+          FROM lits l
+          JOIN chambres ch ON ch.id = l.chambre_id
+          LEFT JOIN lit_occupants lo
+            ON lo.lit_id = l.id
+           AND lo.collaborateur_id = ab.collaborateur_id
+          WHERE ch.logement_id = ab.logement_id
+            AND (lo.collaborateur_id IS NOT NULL OR l.collaborateur_id = ab.collaborateur_id)
+          ORDER BY CASE WHEN lo.collaborateur_id IS NOT NULL THEN 0 ELSE 1 END, l.id
+          LIMIT 1
+        ) AS assigned_lit ON true
       )
       SELECT
         c.prenom || ' ' || c.nom as collaborateur,
@@ -165,14 +255,22 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
         log.adresse,
         log.ville,
         COALESCE(NULLIF(TRIM(c.centre_principal), ''), COALESCE(NULLIF(TRIM(log.centre_analytique), ''), 'Non assigné')) as centre_analytique,
-        ab.participation_mensuelle,
-        COALESCE(log.prix_loyer, 0)::numeric / GREATEST(COALESCE(opl.nb_occupants, 1), 1) as cout_hotel_par_collaborateur,
-        ab.date_debut,
-        ab.date_fin
-      FROM active_baux ab
-      JOIN collaborateurs c ON ab.collaborateur_id = c.id
-      JOIN logements log ON ab.logement_id = log.id
-      LEFT JOIN occupants_per_logement opl ON opl.logement_id = log.id
+        aa.participation_mensuelle,
+        CASE
+          WHEN COALESCE(lpl.nb_lits, 0) <= 0 THEN 0::numeric
+          WHEN aa.lit_id IS NULL THEN COALESCE(log.prix_loyer, 0)::numeric / lpl.nb_lits::numeric
+          ELSE (COALESCE(log.prix_loyer, 0)::numeric / lpl.nb_lits::numeric) / GREATEST(COALESCE(opl.nb_occupants, 1), 1)::numeric
+        END as cout_hotel_par_collaborateur,
+        aa.date_debut,
+        aa.date_fin,
+        aa.lit_numero,
+        COALESCE(opl.nb_occupants, 0) AS lit_occupants,
+        COALESCE(lpl.nb_lits, 0) AS logement_nb_lits
+      FROM active_assignments aa
+      JOIN collaborateurs c ON aa.collaborateur_id = c.id
+      JOIN logements log ON aa.logement_id = log.id
+      LEFT JOIN lits_per_logement lpl ON lpl.logement_id = aa.logement_id
+      LEFT JOIN occupants_per_lit opl ON opl.lit_id = aa.lit_id
       WHERE COALESCE(log.est_actif, true) = true
         AND COALESCE(log.prix_loyer, 0) > 0
       ORDER BY centre_analytique, c.nom, c.prenom

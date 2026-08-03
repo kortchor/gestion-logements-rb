@@ -41,6 +41,11 @@ export default function Header() {
               <Link href="/dashboard" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
                 📊 Dashboard
               </Link>
+              {user?.role === 'super_admin' && (
+                <Link href="/admin/audit-trail" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                  📋 Suivi des actions
+                </Link>
+              )}
               <Link href="/admin/modeles" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
                 📄 Modèles
               </Link>

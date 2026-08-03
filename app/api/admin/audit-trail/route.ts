@@ -23,6 +23,16 @@ async function ensureAuditTrailSchema() {
     )
   `);
 
+  // Garantit la compatibilite avec d'anciennes versions de schema.
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS user_id INTEGER`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS user_email VARCHAR(255)`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS action VARCHAR(50)`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS entity_type VARCHAR(100)`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS entity_id INTEGER`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS changes JSONB`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS ip_address VARCHAR(100)`);
+  await query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
   auditTrailSchemaChecked = true;
 }
 
@@ -93,7 +103,7 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       LEFT JOIN collaborateurs c ON a.user_id = c.id
       ${whereClause}
       ORDER BY a.created_at DESC
-      LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}`,
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, pageSize, offset]
     );
 

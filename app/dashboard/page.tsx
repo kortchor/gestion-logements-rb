@@ -694,12 +694,6 @@ export default function DashboardPage() {
               <p className="text-lg font-semibold text-orange-900">📊</p>
               <p className="text-sm text-orange-700 mt-2">Tableau logements</p>
             </Link>
-            {user?.role === 'super_admin' && (
-              <Link href="/admin/audit-trail" className="bg-red-50 hover:bg-red-100 p-4 rounded-lg border border-red-200 transition-colors no-underline">
-                <p className="text-lg font-semibold text-red-900">👤</p>
-                <p className="text-sm text-red-700 mt-2">Suivi des actions</p>
-              </Link>
-            )}
           </div>
         </div>
       </div>

@@ -78,19 +78,23 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
 
   // 2. Vérifier la disponibilité des lits (avec verrouillage pour la transaction)
   const litsIndisponibles: number[] = [];
+  const litsIndisponiblesDetails: Array<{ id: number; type_lit: string; occupants_count: number; capacity: number }> = [];
+  const litsDoublesPartiels: Array<{ id: number; occupants_count: number; capacity: number }> = [];
   for (const id of litsAAssigner) {
     const litCheck = await client.query(
       `SELECT
          l.id,
          ch.type_lit,
-         COALESCE(lo_counts.occupants_count, CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END) AS occupants_count
+         COALESCE(
+           (
+             SELECT COUNT(*)::int
+             FROM lit_occupants lo
+             WHERE lo.lit_id = l.id
+           ),
+           CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END
+         ) AS occupants_count
        FROM lits l
        JOIN chambres ch ON ch.id = l.chambre_id
-       LEFT JOIN (
-         SELECT lit_id, COUNT(*)::int AS occupants_count
-         FROM lit_occupants
-         GROUP BY lit_id
-       ) AS lo_counts ON lo_counts.lit_id = l.id
        WHERE l.id = $1
        FOR UPDATE`,
       [id]
@@ -106,11 +110,51 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
     const occupantsCount = Number(litCheck.rows[0].occupants_count || 0);
     if (occupantsCount >= capacity) {
       litsIndisponibles.push(id);
+      litsIndisponiblesDetails.push({
+        id,
+        type_lit: typeLit,
+        occupants_count: occupantsCount,
+        capacity,
+      });
+    } else if (typeLit === 'double' && occupantsCount > 0 && occupantsCount < capacity) {
+      litsDoublesPartiels.push({
+        id,
+        occupants_count: occupantsCount,
+        capacity,
+      });
     }
   }
 
   if (litsIndisponibles.length > 0) {
-    return { error: NextResponse.json({ error: `Un ou plusieurs lits ne sont plus disponibles : ${litsIndisponibles.join(', ')}` }, { status: 409 }) };
+    const litsComplets = litsIndisponiblesDetails
+      .filter((lit) => lit.type_lit === 'double')
+      .map((lit) => `${lit.id} (${lit.occupants_count}/${lit.capacity})`);
+
+    const messageDouble = litsComplets.length > 0
+      ? ` Lit(s) double(s) complet(s): ${litsComplets.join(', ')}.`
+      : '';
+
+    return {
+      error: NextResponse.json(
+        {
+          error: `Un ou plusieurs lits ne sont plus disponibles : ${litsIndisponibles.join(', ')}.${messageDouble}`,
+          code: 'BED_CAPACITY_REACHED',
+          details: litsIndisponiblesDetails,
+        },
+        { status: 409 }
+      )
+    };
+  }
+
+  if (litsDoublesPartiels.length > 0) {
+    logger.info(
+      {
+        route: '/api/collaborateurs/[id]/assigner',
+        collaborateurId,
+        litsDoublesPartiels,
+      },
+      'Assignation autorisée sur lit double partiellement occupé (place restante)'
+    );
   }
 
   // 3. Récupérer les données essentielles

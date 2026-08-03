@@ -6,6 +6,8 @@ interface LitDisponible {
   id: number;
   numero: string | number;
   est_occupe: boolean;
+  occupants_count?: number;
+  capacity?: number;
 }
 
 interface ChambreDisponible {
@@ -154,6 +156,18 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
     const chambre = chambresDisponibles.find((item) => item.id === selectedChambre);
     return (chambre?.lits || []).filter((lit) => !lit.est_occupe);
   }, [chambresDisponibles, selectedChambre]);
+
+  const selectedChambreData = useMemo(
+    () => chambresDisponibles.find((item) => item.id === selectedChambre) || null,
+    [chambresDisponibles, selectedChambre]
+  );
+
+  const selectedChambreType = normalizeTypeLit(selectedChambreData?.type_lit);
+
+  const selectedLitData = useMemo(
+    () => litsDisponibles.find((lit) => lit.id === selectedLit) || null,
+    [litsDisponibles, selectedLit]
+  );
 
   const handleAssigner = async () => {
     if (!selectedLit || !selectedModele || !collaborateur) {
@@ -316,12 +330,26 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                     onChange={e => setSelectedLit(e.target.value ? parseInt(e.target.value) : null)}
                   >
                     <option value="">Sélectionner un lit</option>
-                    {litsDisponibles.map(lit => (
-                        <option key={lit.id} value={lit.id}>Lit n°{lit.numero} ✅ Libre</option>
-                      ))}
+                    {litsDisponibles.map(lit => {
+                      const capacity = Number(lit.capacity || (selectedChambreType === 'double' ? 2 : 1));
+                      const occupantsCount = Number(lit.occupants_count || 0);
+                      const hasPartialOccupancy = capacity > 1 && occupantsCount > 0 && occupantsCount < capacity;
+
+                      return (
+                        <option key={lit.id} value={lit.id}>
+                          Lit n°{lit.numero} {hasPartialOccupancy ? `(${occupantsCount}/${capacity} occupant(s))` : 'Libre'}
+                        </option>
+                      );
+                    })}
                   </select>
                   {litsDisponibles.length === 0 && (
                     <p className="text-xs text-amber-700 mt-1">Aucun lit libre dans cette chambre.</p>
+                  )}
+
+                  {selectedChambreType === 'double' && selectedLitData && (
+                    <p className="text-xs text-blue-700 mt-1">
+                      Occupation actuelle: {Number(selectedLitData.occupants_count || 0)}/{Number(selectedLitData.capacity || 2)} occupant(s).
+                    </p>
                   )}
                 </div>
               )}

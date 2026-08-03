@@ -24,9 +24,40 @@ export async function GET() {
       FROM logements l
       LEFT JOIN chambres c ON l.id = c.logement_id
       LEFT JOIN (
-        SELECT chambre_id, jsonb_agg(jsonb_build_object('id', id, 'numero', numero, 'est_occupe', est_occupe)) as lits
-        FROM lits
-        GROUP BY chambre_id
+        SELECT
+          lit_rows.chambre_id,
+          jsonb_agg(
+            jsonb_build_object(
+              'id', lit_rows.id,
+              'numero', lit_rows.numero,
+              'est_occupe', lit_rows.occupants_count >= lit_rows.capacity,
+              'occupants_count', lit_rows.occupants_count,
+              'capacity', lit_rows.capacity
+            )
+            ORDER BY lit_rows.numero
+          ) AS lits
+        FROM (
+          SELECT
+            l.id,
+            l.numero,
+            l.chambre_id,
+            CASE
+              WHEN LOWER(TRIM(COALESCE(ch.type_lit, 'simple'))) = 'double' THEN 2
+              ELSE 1
+            END AS capacity,
+            COALESCE(
+              lo_counts.occupants_count,
+              CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END
+            ) AS occupants_count
+          FROM lits l
+          JOIN chambres ch ON ch.id = l.chambre_id
+          LEFT JOIN (
+            SELECT lit_id, COUNT(*)::int AS occupants_count
+            FROM lit_occupants
+            GROUP BY lit_id
+          ) AS lo_counts ON lo_counts.lit_id = l.id
+        ) AS lit_rows
+        GROUP BY lit_rows.chambre_id
       ) as lits_agg ON c.id = lits_agg.chambre_id
       WHERE COALESCE(l.est_actif, true) = true
         AND l.date_debut_contrat IS NOT NULL

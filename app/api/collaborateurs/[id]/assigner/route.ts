@@ -79,8 +79,32 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   // 2. Vérifier la disponibilité des lits (avec verrouillage pour la transaction)
   const litsIndisponibles: number[] = [];
   for (const id of litsAAssigner) {
-    const litCheck = await client.query('SELECT est_occupe FROM lits WHERE id = $1 FOR UPDATE', [id]);
-    if (litCheck.rows.length === 0 || litCheck.rows[0].est_occupe) {
+    const litCheck = await client.query(
+      `SELECT
+         l.id,
+         ch.type_lit,
+         COALESCE(lo_counts.occupants_count, CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END) AS occupants_count
+       FROM lits l
+       JOIN chambres ch ON ch.id = l.chambre_id
+       LEFT JOIN (
+         SELECT lit_id, COUNT(*)::int AS occupants_count
+         FROM lit_occupants
+         GROUP BY lit_id
+       ) AS lo_counts ON lo_counts.lit_id = l.id
+       WHERE l.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (litCheck.rows.length === 0) {
+      litsIndisponibles.push(id);
+      continue;
+    }
+
+    const typeLit = String(litCheck.rows[0].type_lit || 'simple').trim().toLowerCase();
+    const capacity = typeLit === 'double' ? 2 : 1;
+    const occupantsCount = Number(litCheck.rows[0].occupants_count || 0);
+    if (occupantsCount >= capacity) {
       litsIndisponibles.push(id);
     }
   }
@@ -97,7 +121,7 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   const collaborateur = collaborateurResult.rows[0];
 
   const litResult = await client.query(
-    `SELECT l.id, ch.logement_id, l.chambre_id, log.mixte_autorise, log.adresse, log.ville, log.nom_logement, ch.nom as chambre_nom
+    `SELECT l.id, ch.logement_id, l.chambre_id, ch.type_lit, log.mixte_autorise, log.adresse, log.ville, log.nom_logement, ch.nom as chambre_nom
      FROM lits l
      LEFT JOIN chambres ch ON l.chambre_id = ch.id
      LEFT JOIN logements log ON ch.logement_id = log.id
@@ -118,7 +142,24 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   // 4. Vérifier la règle de mixité (sauf si force_mixite est true)
   if (!lit.mixte_autorise && !body.force_mixite) {
     const occupantsResult = await client.query(
-      `SELECT c.genre FROM collaborateurs c JOIN lits l ON c.id = l.collaborateur_id JOIN chambres ch ON l.chambre_id = ch.id WHERE ch.logement_id = $1 AND c.id != $2`,
+      `SELECT DISTINCT c.genre
+       FROM collaborateurs c
+       JOIN (
+         SELECT lo.collaborateur_id
+         FROM lit_occupants lo
+         JOIN lits l2 ON l2.id = lo.lit_id
+         JOIN chambres ch2 ON ch2.id = l2.chambre_id
+         WHERE ch2.logement_id = $1
+
+         UNION
+
+         SELECT l3.collaborateur_id
+         FROM lits l3
+         JOIN chambres ch3 ON ch3.id = l3.chambre_id
+         WHERE ch3.logement_id = $1
+           AND l3.collaborateur_id IS NOT NULL
+       ) AS occ ON occ.collaborateur_id = c.id
+       WHERE c.id != $2`,
       [lit.logement_id, collaborateurId]
     );
     const premierOccupantGenre = occupantsResult.rows.length > 0 ? occupantsResult.rows[0].genre : null;
@@ -186,6 +227,36 @@ const assignerHandler = async (
     dateHier.setDate(dateHier.getDate() - 1);
     const dateHierISO = dateHier.toISOString().split('T')[0];
 
+    const anciensLitsResult = await client.query(
+      `SELECT DISTINCT lit_id FROM lit_occupants WHERE collaborateur_id = $1
+       UNION
+       SELECT id AS lit_id FROM lits WHERE collaborateur_id = $1`,
+      [collaborateurId]
+    );
+    const anciensLitsIds = anciensLitsResult.rows.map((row) => Number(row.lit_id)).filter((v) => Number.isInteger(v));
+
+    await client.query('DELETE FROM lit_occupants WHERE collaborateur_id = $1', [collaborateurId]);
+
+    for (const ancienLitId of anciensLitsIds) {
+      await client.query(
+        `WITH current_occupants AS (
+           SELECT collaborateur_id
+           FROM lit_occupants
+           WHERE lit_id = $1
+           ORDER BY created_at
+         )
+         UPDATE lits
+         SET est_occupe = EXISTS(SELECT 1 FROM current_occupants),
+             collaborateur_id = (
+               SELECT collaborateur_id
+               FROM current_occupants
+               LIMIT 1
+             )
+         WHERE id = $1`,
+        [ancienLitId]
+      );
+    }
+
     // Un bail est considéré "actif" si sa date_fin >= aujourd'hui
     const aujourdhui = new Date().toISOString().split('T')[0];
     const ancienBailActifResult = await client.query(
@@ -211,7 +282,21 @@ const assignerHandler = async (
     // 3. Assigner le(s) nouveau(x) lit(s)
     for (const id of litsAAssigner) {
       await client.query(
-        'UPDATE lits SET est_occupe = true, collaborateur_id = $1 WHERE id = $2',
+        `INSERT INTO lit_occupants (lit_id, collaborateur_id)
+         SELECT $1, $2
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM lit_occupants
+           WHERE lit_id = $1 AND collaborateur_id = $2
+         )`,
+        [id, collaborateurId]
+      );
+
+      await client.query(
+        `UPDATE lits
+         SET est_occupe = true,
+             collaborateur_id = COALESCE(collaborateur_id, $1)
+         WHERE id = $2`,
         [collaborateurId, id]
       );
     }

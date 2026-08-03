@@ -24,10 +24,13 @@ async function run() {
   const monthlySection = content.slice(monthlyStart, monthlyEnd);
 
   const requiredPatterns = [
-    'WITH normalized AS',
+    'WITH period AS',
     'FROM logements l',
-    'date_debut_calc <= $2::DATE',
-    "COALESCE(date_fin_calc, 'infinity'::DATE) >= $1::DATE",
+    'l.date_debut_contrat IS NOT NULL',
+    "COALESCE(l.date_fin_contrat, 'infinity'::DATE) >= $1::DATE",
+    'GREATEST(e.date_debut, p.month_start)',
+    'LEAST(COALESCE(e.date_fin, p.month_end), p.month_end)',
+    '(overlap_end - overlap_start + 1)::numeric / NULLIF(days_in_month, 0)::numeric',
   ];
 
   const forbiddenPatterns = [

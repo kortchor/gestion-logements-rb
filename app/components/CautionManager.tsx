@@ -93,10 +93,14 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       const response = await fetch(`/api/baux/${bailId}/caution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error('Erreur lors de la sauvegarde');
+      if (!response.ok) {
+        const apiError = await response.json().catch(() => ({}));
+        throw new Error(apiError?.error || 'Erreur lors de la sauvegarde');
+      }
       
       const updated = await response.json();
       setCaution(updated);
@@ -137,10 +141,14 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
 
       const response = await fetch('/api/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Erreur lors de l\'upload');
+      if (!response.ok) {
+        const apiError = await response.json().catch(() => ({}));
+        throw new Error(apiError?.error || 'Erreur lors de l\'upload');
+      }
       
       const result = await response.json();
       
@@ -148,13 +156,17 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       const updateResponse = await fetch(`/api/baux/${bailId}/caution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           justificatif_caution_url: result.url,
           justificatif_caution_public_id: result.public_id,
         }),
       });
 
-      if (!updateResponse.ok) throw new Error('Erreur lors de la mise à jour');
+      if (!updateResponse.ok) {
+        const apiError = await updateResponse.json().catch(() => ({}));
+        throw new Error(apiError?.error || 'Erreur lors de la mise à jour');
+      }
       
       const updated = await updateResponse.json();
       setCaution(updated);
@@ -179,7 +191,7 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       // Supprimer de Cloudinary
       const deleteResponse = await fetch(
         `/api/upload?public_id=${caution.justificatif_caution_public_id}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', credentials: 'include' }
       );
 
       if (!deleteResponse.ok) throw new Error('Erreur lors de la suppression');
@@ -188,6 +200,7 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       const updateResponse = await fetch(`/api/baux/${bailId}/caution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           justificatif_caution_url: null,
           justificatif_caution_public_id: null,

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger, { logError } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     logger.debug({ route: '/api/logements/disponibles' }, 'API /api/logements/disponibles appelee');
@@ -26,7 +29,8 @@ export async function GET() {
         GROUP BY chambre_id
       ) as lits_agg ON c.id = lits_agg.chambre_id
       WHERE COALESCE(l.est_actif, true) = true
-        AND (l.date_debut_contrat IS NULL OR l.date_debut_contrat <= CURRENT_DATE)
+        AND l.date_debut_contrat IS NOT NULL
+        AND l.date_debut_contrat <= CURRENT_DATE
         AND (l.date_fin_contrat IS NULL OR l.date_fin_contrat >= CURRENT_DATE)
       GROUP BY l.id, l.nom_logement, l.adresse, l.ville, l.type_occupation_effectif
       ORDER BY l.ville, l.adresse;

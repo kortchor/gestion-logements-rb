@@ -3,11 +3,34 @@ import { query } from '@/lib/db';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
+let cautionSchemaChecked = false;
+
+async function ensureCautionSchema() {
+  if (cautionSchemaChecked) {
+    return;
+  }
+
+  await query(`
+    ALTER TABLE baux
+    ADD COLUMN IF NOT EXISTS montant_caution NUMERIC,
+    ADD COLUMN IF NOT EXISTS date_versement_caution DATE,
+    ADD COLUMN IF NOT EXISTS date_restitution_caution DATE,
+    ADD COLUMN IF NOT EXISTS statut_caution VARCHAR(50) DEFAULT 'en_attente',
+    ADD COLUMN IF NOT EXISTS justificatif_caution_url TEXT,
+    ADD COLUMN IF NOT EXISTS justificatif_caution_public_id TEXT,
+    ADD COLUMN IF NOT EXISTS motif_retenue TEXT
+  `);
+
+  cautionSchemaChecked = true;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureCautionSchema();
+
     const params = await context.params;
     const bailId = parseInt(params.id);
 
@@ -23,6 +46,7 @@ export async function GET(
         date_restitution_caution,
         statut_caution,
         justificatif_caution_url,
+        justificatif_caution_public_id,
         motif_retenue,
         collaborateur_id,
         logement_id,
@@ -54,6 +78,8 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureCautionSchema();
+
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
     }

@@ -72,29 +72,44 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const startDate = monthStart.toISOString().split('T')[0];
     const endDate = monthEnd.toISOString().split('T')[0];
 
-    // Récupérer les logements actifs pendant ce mois.
-    // Règle métier: date_fin_contrat vide/null => bail indéfini.
+    // Récupérer les logements actifs pendant ce mois, avec prorata sur chevauchement de dates.
     const result = await query(
-      `WITH normalized AS (
+      `WITH period AS (
+        SELECT
+          $1::DATE AS month_start,
+          $2::DATE AS month_end,
+          ($2::DATE - $1::DATE + 1) AS days_in_month
+      ),
+      eligible AS (
         SELECT
           l.id,
           COALESCE(NULLIF(TRIM(l.nom_logement), ''), l.adresse) as nom_logement,
           l.adresse,
           COALESCE(l.ville, 'Non renseignée') as ville,
           COALESCE(l.prix_loyer, 0)::numeric as prix_loyer,
-          CASE
-            WHEN l.date_debut_contrat IS NULL THEN $1::DATE
-            WHEN l.date_debut_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_debut_contrat::DATE
-            ELSE $1::DATE
-          END as date_debut_calc,
-          CASE
-            WHEN l.date_fin_contrat IS NULL THEN NULL
-            WHEN NULLIF(TRIM(l.date_fin_contrat::text), '') IS NULL THEN NULL
-            WHEN l.date_fin_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_fin_contrat::DATE
-            ELSE NULL
-          END as date_fin_calc,
-          COALESCE(l.est_actif, true) as est_actif
+          l.date_debut_contrat::DATE as date_debut_calc,
+          l.date_fin_contrat::DATE as date_fin_calc
         FROM logements l
+        WHERE COALESCE(l.est_actif, true) = true
+          AND COALESCE(l.prix_loyer, 0) > 0
+          AND l.date_debut_contrat IS NOT NULL
+          AND l.date_debut_contrat <= $2::DATE
+          AND COALESCE(l.date_fin_contrat, 'infinity'::DATE) >= $1::DATE
+      ),
+      overlap AS (
+        SELECT
+          e.id,
+          e.nom_logement,
+          e.adresse,
+          e.ville,
+          e.prix_loyer,
+          e.date_debut_calc,
+          e.date_fin_calc,
+          GREATEST(e.date_debut_calc, p.month_start) AS overlap_start,
+          LEAST(COALESCE(e.date_fin_calc, p.month_end), p.month_end) AS overlap_end,
+          p.days_in_month
+        FROM eligible e
+        CROSS JOIN period p
       )
       SELECT
         id,
@@ -104,12 +119,11 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         prix_loyer,
         date_debut_calc as date_debut_contrat,
         date_fin_calc as date_fin_contrat,
-        prix_loyer as cout_loyer_mois
-      FROM normalized
-      WHERE est_actif = true
-        AND prix_loyer > 0
-        AND date_debut_calc <= $2::DATE
-        AND COALESCE(date_fin_calc, 'infinity'::DATE) >= $1::DATE
+        CASE
+          WHEN overlap_end < overlap_start THEN 0::numeric
+          ELSE prix_loyer * ((overlap_end - overlap_start + 1)::numeric / NULLIF(days_in_month, 0)::numeric)
+        END as cout_loyer_mois
+      FROM overlap
       ORDER BY ville, nom_logement`,
       [startDate, endDate]
     );

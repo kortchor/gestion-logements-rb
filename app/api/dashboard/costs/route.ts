@@ -33,29 +33,44 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
     const endDate = monthEnd.toISOString().split('T')[0];
 
     const result = await query(`
-      WITH normalized AS (
+      WITH period AS (
         SELECT
+          $1::DATE AS month_start,
+          $2::DATE AS month_end,
+          ($2::DATE - $1::DATE + 1) AS days_in_month
+      ),
+      eligible AS (
+        SELECT
+          l.id,
           COALESCE(l.prix_loyer, 0)::numeric AS prix_loyer,
-          CASE
-            WHEN l.date_debut_contrat IS NULL THEN $1::DATE
-            WHEN l.date_debut_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_debut_contrat::DATE
-            ELSE $1::DATE
-          END AS date_debut_calc,
-          CASE
-            WHEN l.date_fin_contrat IS NULL THEN NULL
-            WHEN NULLIF(TRIM(l.date_fin_contrat::text), '') IS NULL THEN NULL
-            WHEN l.date_fin_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_fin_contrat::DATE
-            ELSE NULL
-          END AS date_fin_calc,
-          COALESCE(l.est_actif, true) AS est_actif
+          l.date_debut_contrat::DATE AS date_debut,
+          l.date_fin_contrat::DATE AS date_fin
         FROM logements l
+        WHERE COALESCE(l.est_actif, true) = true
+          AND COALESCE(l.prix_loyer, 0) > 0
+          AND l.date_debut_contrat IS NOT NULL
+          AND l.date_debut_contrat <= $2::DATE
+          AND COALESCE(l.date_fin_contrat, 'infinity'::DATE) >= $1::DATE
+      ),
+      overlap AS (
+        SELECT
+          e.prix_loyer,
+          GREATEST(e.date_debut, p.month_start) AS overlap_start,
+          LEAST(COALESCE(e.date_fin, p.month_end), p.month_end) AS overlap_end,
+          p.days_in_month
+        FROM eligible e
+        CROSS JOIN period p
       )
-      SELECT COALESCE(SUM(prix_loyer), 0) AS total_loyer
-      FROM normalized
-      WHERE est_actif = true
-        AND prix_loyer > 0
-        AND date_debut_calc <= $2::DATE
-        AND COALESCE(date_fin_calc, 'infinity'::DATE) >= $1::DATE
+      SELECT COALESCE(
+        SUM(
+          CASE
+            WHEN overlap_end < overlap_start THEN 0
+            ELSE prix_loyer * ((overlap_end - overlap_start + 1)::numeric / NULLIF(days_in_month, 0)::numeric)
+          END
+        ),
+        0
+      ) AS total_loyer
+      FROM overlap
     `, [startDate, endDate]);
 
     const totalLoyer = parseFloat(result.rows[0]?.total_loyer || 0);

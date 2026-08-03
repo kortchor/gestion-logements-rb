@@ -72,3 +72,46 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!verifyCsrfMiddleware(request)) {
+      return NextResponse.json(
+        { error: 'CSRF token invalide' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const publicId = searchParams.get('public_id');
+
+    if (!publicId) {
+      return NextResponse.json(
+        { error: 'public_id manquant' },
+        { status: 400 }
+      );
+    }
+
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'auto',
+      invalidate: true,
+    });
+
+    if (result.result !== 'ok' && result.result !== 'not found') {
+      return NextResponse.json(
+        { error: `Suppression Cloudinary refusée: ${result.result}` },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true, result: result.result });
+  } catch (error) {
+    if (error instanceof Error) {
+      logError(error, { route: '/api/upload', method: 'DELETE' });
+    }
+    return NextResponse.json(
+      { error: 'Erreur lors de la suppression du fichier' },
+      { status: 500 }
+    );
+  }
+}

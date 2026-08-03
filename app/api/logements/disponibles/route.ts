@@ -6,7 +6,7 @@ export async function GET() {
   try {
     logger.debug({ route: '/api/logements/disponibles' }, 'API /api/logements/disponibles appelee');
 
-    // ✅ AMÉLIORATION : Requête unique et performante utilisant l'agrégation JSON
+    // Ne retourner que les logements actifs au sens contrat + statut actif.
     const result = await query(`
       SELECT
         l.id, l.nom_logement, l.adresse, l.ville, l.type_occupation_effectif,
@@ -14,6 +14,7 @@ export async function GET() {
           DISTINCT jsonb_build_object(
             'id', c.id,
             'nom', c.nom,
+            'type_lit', c.type_lit,
             'lits', COALESCE(lits_agg.lits, '[]'::jsonb)
           )
         ) FILTER (WHERE c.id IS NOT NULL) as chambres
@@ -24,7 +25,9 @@ export async function GET() {
         FROM lits
         GROUP BY chambre_id
       ) as lits_agg ON c.id = lits_agg.chambre_id
-      WHERE l.est_visible = true -- Garder ce filtre important
+      WHERE COALESCE(l.est_actif, true) = true
+        AND (l.date_debut_contrat IS NULL OR l.date_debut_contrat <= CURRENT_DATE)
+        AND (l.date_fin_contrat IS NULL OR l.date_fin_contrat >= CURRENT_DATE)
       GROUP BY l.id, l.nom_logement, l.adresse, l.ville, l.type_occupation_effectif
       ORDER BY l.ville, l.adresse;
     `);

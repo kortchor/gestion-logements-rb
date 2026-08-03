@@ -37,7 +37,6 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     etat_lieux_photos: '',
     date_debut_contrat: '',
     date_fin_contrat: '',
-    est_visible: true,
     mixte_autorise: false,
     description_detaillee: '',
   });
@@ -82,7 +81,6 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
             etat_lieux_photos: data.data.etat_lieux_photos || '',
             date_debut_contrat: data.data.date_debut_contrat ? data.data.date_debut_contrat.split('T')[0] : '',
             date_fin_contrat: data.data.date_fin_contrat ? data.data.date_fin_contrat.split('T')[0] : '',
-            est_visible: data.data.est_visible !== undefined ? data.data.est_visible : true,
             mixte_autorise: data.data.mixte_autorise || false,
             description_detaillee: data.data.description_detaillee || '',
           });
@@ -193,7 +191,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     setError('');
 
     try {
-      const dataToSend = { ...formData, chambres: newChambres };
+      const dataToSend = { ...formData, est_visible: true, chambres: newChambres };
       const { id } = await params;
       
       const response = await fetch(`/api/logements/${id}`, {
@@ -354,13 +352,6 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
             <label className="flex items-center cursor-pointer">
               <input type="checkbox" name="mixte_autorise" checked={formData.mixte_autorise} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded" />
               <span className="ml-3 text-sm text-gray-700">✅ Autoriser la cohabitation mixte</span>
-            </label>
-          </div>
-
-          <div>
-            <label className="flex items-center cursor-pointer">
-              <input type="checkbox" name="est_visible" checked={formData.est_visible} onChange={handleChange} className="w-4 h-4 text-blue-600 border-gray-300 rounded" />
-              <span className="ml-2 text-sm text-gray-700">✅ Logement visible</span>
             </label>
           </div>
 

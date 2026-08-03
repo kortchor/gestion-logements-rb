@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
 
 interface LitDisponible {
   id: number;
@@ -13,7 +12,7 @@ interface ChambreDisponible {
   id: number;
   nom: string;
   lits: LitDisponible[];
-  type_lit: string;
+  type_lit?: string;
 }
 
 interface LogementDisponible {
@@ -61,6 +60,16 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
   const [filtres, setFiltres] = useState({ ville: '', type_lit: '', type_occupation: '' });
   const [villesDisponibles, setVillesDisponibles] = useState<string[]>([]);
 
+  const normalizeTypeLit = (value: string | undefined) => (value || '').trim().toLowerCase();
+
+  const getFreeBedsCount = (chambres: ChambreDisponible[] | undefined) => {
+    if (!Array.isArray(chambres)) return 0;
+    return chambres.reduce((sum, chambre) => {
+      const freeBeds = chambre.lits?.filter((lit) => !lit.est_occupe).length || 0;
+      return sum + freeBeds;
+    }, 0);
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setInitialLoading(true);
@@ -100,6 +109,9 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
 
   const logementsFiltres = useMemo(() => {
     return logementsDisponibles.filter(logement => {
+      const hasFreeBed = logement.chambres?.some(c => c.lits?.some(l => !l.est_occupe));
+      if (!hasFreeBed) return false;
+
       if (filtres.ville && logement.ville !== filtres.ville) return false;
       if (filtres.type_occupation) {
         if (filtres.type_occupation === 'en_attente') {
@@ -109,11 +121,39 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         }
       }
       if (filtres.type_lit) {
-        if (!logement.chambres?.some(c => c.type_lit === filtres.type_lit && c.lits?.some(l => !l.est_occupe))) return false;
+        if (!logement.chambres?.some(c => normalizeTypeLit(c.type_lit) === normalizeTypeLit(filtres.type_lit) && c.lits?.some(l => !l.est_occupe))) return false;
       }
       return true;
     });
   }, [logementsDisponibles, filtres]);
+
+  const availabilitySummary = useMemo(() => {
+    const logements = logementsFiltres.length;
+    const litsLibres = logementsFiltres.reduce((sum, logement) => sum + getFreeBedsCount(logement.chambres), 0);
+    const litsDoublesLibres = logementsFiltres.reduce((sum, logement) => {
+      const doublesInLogement = (logement.chambres || [])
+        .filter((chambre) => normalizeTypeLit(chambre.type_lit) === 'double')
+        .reduce((innerSum, chambre) => innerSum + (chambre.lits?.filter((lit) => !lit.est_occupe).length || 0), 0);
+      return sum + doublesInLogement;
+    }, 0);
+    return { logements, litsLibres, litsDoublesLibres };
+  }, [logementsFiltres]);
+
+  const selectedLogementData = useMemo(
+    () => logementsFiltres.find((logement) => logement.id === selectedLogement) || null,
+    [logementsFiltres, selectedLogement]
+  );
+
+  const chambresDisponibles = useMemo(() => {
+    if (!selectedLogementData) return [];
+    return (selectedLogementData.chambres || []).filter((chambre) => chambre?.lits?.some((lit) => !lit.est_occupe));
+  }, [selectedLogementData]);
+
+  const litsDisponibles = useMemo(() => {
+    if (!selectedChambre) return [];
+    const chambre = chambresDisponibles.find((item) => item.id === selectedChambre);
+    return (chambre?.lits || []).filter((lit) => !lit.est_occupe);
+  }, [chambresDisponibles, selectedChambre]);
 
   const handleAssigner = async () => {
     if (!selectedLit || !selectedModele || !collaborateur) {
@@ -204,7 +244,18 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                     <option value="en_attente">⏳ En attente</option>
                   </select>
                 </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800">{availabilitySummary.logements} logement(s)</span>
+                  <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">{availabilitySummary.litsLibres} lit(s) libre(s)</span>
+                  <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">{availabilitySummary.litsDoublesLibres} lit(s) double(s) libre(s)</span>
+                </div>
               </div>
+
+              {logementsFiltres.length === 0 && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm">
+                  Aucun logement actif avec lit libre ne correspond aux filtres actuels.
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Logement</label>
@@ -244,14 +295,15 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                     }}
                   >
                     <option value="">Sélectionner une chambre</option>
-                    {logementsFiltres.find(l => l.id === selectedLogement)?.chambres
-                      ?.filter(c => c?.lits?.some(l => !l.est_occupe))
-                      .map(chambre => (
+                    {chambresDisponibles.map(chambre => (
                         <option key={chambre.id} value={chambre.id}>
-                          {chambre.nom} ({chambre.lits?.filter(l => !l.est_occupe).length || 0} lit(s) libre(s))
+                          {chambre.nom} - {normalizeTypeLit(chambre.type_lit) === 'double' ? '🛏️🛏️ Double' : '🛏️ Simple'} ({chambre.lits?.filter(l => !l.est_occupe).length || 0} lit(s) libre(s))
                         </option>
                       ))}
                   </select>
+                  {chambresDisponibles.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-1">Ce logement n&apos;a plus de chambre avec lit libre.</p>
+                  )}
                 </div>
               )}
 
@@ -264,13 +316,13 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                     onChange={e => setSelectedLit(e.target.value ? parseInt(e.target.value) : null)}
                   >
                     <option value="">Sélectionner un lit</option>
-                    {logementsFiltres.find(l => l.id === selectedLogement)?.chambres
-                      ?.find(c => c.id === selectedChambre)?.lits
-                      ?.filter(lit => !lit.est_occupe)
-                      .map(lit => (
+                    {litsDisponibles.map(lit => (
                         <option key={lit.id} value={lit.id}>Lit n°{lit.numero} ✅ Libre</option>
                       ))}
                   </select>
+                  {litsDisponibles.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-1">Aucun lit libre dans cette chambre.</p>
+                  )}
                 </div>
               )}
 

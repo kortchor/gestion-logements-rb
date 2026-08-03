@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/app/context/AuthContext';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
@@ -59,6 +59,13 @@ interface Participation {
   cout_hotel: number;
 }
 
+interface ParticipationsGroup {
+  centre: string;
+  rows: Participation[];
+  totalParticipation: number;
+  totalCoutHotel: number;
+}
+
 interface BasicActiveEntity {
   est_actif?: boolean;
 }
@@ -78,6 +85,7 @@ export default function DashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [costsLoading, setCostsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [collapsedCenters, setCollapsedCenters] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,6 +214,150 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  const totalByCenter = costByCenter.reduce((sum, center) => sum + center.cout_total, 0);
+  const monthlyTotal = costData?.totalCoutMois || 0;
+  const ecartNonReparti = Math.max(0, monthlyTotal - totalByCenter);
+  const hasEcartNonReparti = ecartNonReparti > 0.01;
+
+  const groupedParticipations = useMemo<ParticipationsGroup[]>(() => {
+    const sorted = [...participations].sort((a, b) => {
+      const byCentre = a.centre_analytique.localeCompare(b.centre_analytique, 'fr', { sensitivity: 'base' });
+      if (byCentre !== 0) return byCentre;
+      return a.collaborateur.localeCompare(b.collaborateur, 'fr', { sensitivity: 'base' });
+    });
+
+    const map = new Map<string, Participation[]>();
+    for (const row of sorted) {
+      const centre = row.centre_analytique || 'Non assigné';
+      const list = map.get(centre) || [];
+      list.push(row);
+      map.set(centre, list);
+    }
+
+    return Array.from(map.entries()).map(([centre, rows]) => ({
+      centre,
+      rows,
+      totalParticipation: rows.reduce((sum, row) => sum + row.participation_mensuelle, 0),
+      totalCoutHotel: rows.reduce((sum, row) => sum + row.cout_hotel, 0),
+    }));
+  }, [participations]);
+
+  const toggleCenter = (centre: string) => {
+    setCollapsedCenters((prev) => ({
+      ...prev,
+      [centre]: !prev[centre],
+    }));
+  };
+
+  const setAllCentersCollapsed = (collapsed: boolean) => {
+    setCollapsedCenters(() => {
+      const next: Record<string, boolean> = {};
+      for (const group of groupedParticipations) {
+        next[group.centre] = collapsed;
+      }
+      return next;
+    });
+  };
+
+  const exportParticipationsCsv = () => {
+    if (groupedParticipations.length === 0) return;
+
+    const escapeCsv = (value: string | number) => {
+      const normalized = String(value ?? '');
+      if (/[";\n]/.test(normalized)) {
+        return `"${normalized.replace(/"/g, '""')}"`;
+      }
+      return normalized;
+    };
+
+    const lines: string[] = [];
+    lines.push('Centre analytique;Collaborateur;Logement;Ville;Participation mensuelle;Cout hotel');
+
+    for (const group of groupedParticipations) {
+      lines.push(`${escapeCsv(group.centre)};;;;;`);
+      for (const row of group.rows) {
+        lines.push([
+          escapeCsv(row.centre_analytique),
+          escapeCsv(row.collaborateur),
+          escapeCsv(row.logement),
+          escapeCsv(row.ville),
+          escapeCsv(row.participation_mensuelle.toFixed(2)),
+          escapeCsv(row.cout_hotel.toFixed(2)),
+        ].join(';'));
+      }
+      lines.push([
+        escapeCsv(`Sous-total ${group.centre}`),
+        '',
+        '',
+        '',
+        escapeCsv(group.totalParticipation.toFixed(2)),
+        escapeCsv(group.totalCoutHotel.toFixed(2)),
+      ].join(';'));
+    }
+
+    lines.push([
+      escapeCsv('Total global'),
+      '',
+      '',
+      '',
+      escapeCsv(participations.reduce((sum, row) => sum + row.participation_mensuelle, 0).toFixed(2)),
+      escapeCsv(coutTotalParticipations.toFixed(2)),
+    ].join(';'));
+
+    const csvContent = `\ufeff${lines.join('\n')}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `participations-par-centre-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportParticipationsXlsx = async () => {
+    if (groupedParticipations.length === 0) return;
+
+    const XLSX = await import('xlsx');
+
+    const summaryRows = groupedParticipations.map((group) => ({
+      centre_analytique: group.centre,
+      nombre_collaborateurs: group.rows.length,
+      total_participation: Number(group.totalParticipation.toFixed(2)),
+      total_cout_hotel: Number(group.totalCoutHotel.toFixed(2)),
+    }));
+
+    const detailsRows = groupedParticipations.flatMap((group) =>
+      group.rows.map((row) => ({
+        centre_analytique: group.centre,
+        collaborateur: row.collaborateur,
+        logement: row.logement,
+        ville: row.ville,
+        participation_mensuelle: Number(row.participation_mensuelle.toFixed(2)),
+        cout_hotel: Number(row.cout_hotel.toFixed(2)),
+      }))
+    );
+
+    const summaryTotal = {
+      centre_analytique: 'TOTAL GLOBAL',
+      nombre_collaborateurs: detailsRows.length,
+      total_participation: Number(
+        participations.reduce((sum, row) => sum + row.participation_mensuelle, 0).toFixed(2)
+      ),
+      total_cout_hotel: Number(coutTotalParticipations.toFixed(2)),
+    };
+
+    const wb = XLSX.utils.book_new();
+    const summarySheet = XLSX.utils.json_to_sheet([...summaryRows, summaryTotal]);
+    const detailsSheet = XLSX.utils.json_to_sheet(detailsRows);
+
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Recap centres');
+    XLSX.utils.book_append_sheet(wb, detailsSheet, 'Detail participations');
+
+    XLSX.writeFile(wb, `participations-par-centre-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -297,6 +449,21 @@ export default function DashboardPage() {
         {/* Graphiques de coûts */}
         <div className="mt-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">💰 Analyse des coûts</h2>
+
+          <div className="mb-4 bg-white border border-slate-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-slate-800 mb-2">Lecture des montants</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-md p-2 text-emerald-900">
+                <strong>Loyer total mensuel:</strong> logements actifs du mois, même sans collaborateur assigné.
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-2 text-blue-900">
+                <strong>Répartition par centre:</strong> uniquement la part imputée aux collaborateurs logés.
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-2 text-amber-900">
+                <strong>Écart éventuel:</strong> logements actifs sans occupant ou non imputés sur un centre.
+              </div>
+            </div>
+          </div>
           
           {costsLoading ? (
             <div className="flex items-center justify-center h-64">
@@ -309,8 +476,8 @@ export default function DashboardPage() {
                 {/* Loyer total mensuel (payé aux propriétaires) */}
                 {costData && (
                   <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">🏠 Loyer total mensuel</h3>
-                    <p className="text-xs text-gray-500 mb-4">Ce que l&apos;hôtel verse aux propriétaires — {costData.mois}</p>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1">🏠 Loyer total mensuel contractuel</h3>
+                    <p className="text-xs text-gray-500 mb-4">Ce que l&apos;hôtel verse aux propriétaires (indépendant des assignations) — {costData.mois}</p>
                     <div className="text-center">
                       <div className="text-4xl font-bold text-green-600">
                         {costData.totalCoutMois.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
@@ -324,7 +491,7 @@ export default function DashboardPage() {
                 {costByCenter.length > 0 && (
                   <div className="bg-white p-6 rounded-lg shadow-md">
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">📊 Coûts par centre analytique</h3>
-                    <p className="text-xs text-gray-500 mb-4">Quote-part hôtel par collaborateur logé (loyer ÷ nb lits)</p>
+                    <p className="text-xs text-gray-500 mb-4">Part imputée aux collaborateurs logés (quote-part logement par centre)</p>
                     <div className="space-y-2">
                       {costByCenter.map((center) => (
                         <div key={center.centre_analytique} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
@@ -338,15 +505,36 @@ export default function DashboardPage() {
                         </div>
                       ))}
                       <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200 mt-2">
-                        <p className="font-bold text-blue-900">Total logement hôtel</p>
+                        <p className="font-bold text-blue-900">Total imputé aux centres</p>
                         <p className="font-bold text-blue-900 text-lg">
-                          {costByCenter.reduce((s, c) => s + c.cout_total, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          {totalByCenter.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
+
+              {costData && (
+                <div className="bg-white p-4 rounded-lg shadow-md border border-slate-200">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                      <p className="text-emerald-800 font-medium">Loyer total payé</p>
+                      <p className="text-lg font-bold text-emerald-700 mt-1">{monthlyTotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</p>
+                    </div>
+                    <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+                      <p className="text-blue-800 font-medium">Total imputé aux centres</p>
+                      <p className="text-lg font-bold text-blue-700 mt-1">{totalByCenter.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</p>
+                    </div>
+                    <div className={`rounded-md p-3 border ${hasEcartNonReparti ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+                      <p className={`font-medium ${hasEcartNonReparti ? 'text-amber-800' : 'text-slate-700'}`}>Écart non imputé</p>
+                      <p className={`text-lg font-bold mt-1 ${hasEcartNonReparti ? 'text-amber-700' : 'text-slate-700'}`}>
+                        {ecartNonReparti.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Graphique pie */}
               {costByCenter.length > 0 && (
@@ -376,9 +564,37 @@ export default function DashboardPage() {
               {/* Tableau des participations */}
               {participations.length > 0 && (
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">📋 Tableau des participations logement</h3>
-                    <p className="text-xs text-gray-500 mt-1">Baux en cours — coût hôtel = loyer ÷ nb lits du logement</p>
+                  <div className="p-6 border-b border-gray-200 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">📋 Tableau des participations logement</h3>
+                      <p className="text-xs text-gray-500 mt-1">Baux en cours — trié par centre analytique avec sous-totaux par centre</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setAllCentersCollapsed(false)}
+                        className="px-3 py-1.5 text-xs rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      >
+                        Tout déplier
+                      </button>
+                      <button
+                        onClick={() => setAllCentersCollapsed(true)}
+                        className="px-3 py-1.5 text-xs rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      >
+                        Tout replier
+                      </button>
+                      <button
+                        onClick={exportParticipationsCsv}
+                        className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Export CSV centres
+                      </button>
+                      <button
+                        onClick={exportParticipationsXlsx}
+                        className="px-3 py-1.5 text-xs rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        Export XLSX centres
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
@@ -392,20 +608,49 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {participations.map((p, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{p.collaborateur}</td>
-                            <td className="px-4 py-3 text-gray-600">{p.logement} <span className="text-xs text-gray-400">({p.ville})</span></td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">{p.centre_analytique}</span>
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-700">
-                              {p.participation_mensuelle.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-blue-700">
-                              {p.cout_hotel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                            </td>
-                          </tr>
+                        {groupedParticipations.map((group) => (
+                          <Fragment key={`group-${group.centre}`}>
+                            <tr className="bg-slate-50">
+                              <td colSpan={5} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCenter(group.centre)}
+                                  className="inline-flex items-center gap-2 hover:text-slate-900"
+                                >
+                                  <span>{collapsedCenters[group.centre] ? '▶' : '▼'}</span>
+                                  <span>Centre: {group.centre} ({group.rows.length} collaborateur(s))</span>
+                                </button>
+                              </td>
+                            </tr>
+                            {!collapsedCenters[group.centre] && (
+                              <>
+                                {group.rows.map((p, index) => (
+                                  <tr key={`${group.centre}-${p.collaborateur}-${index}`} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 font-medium text-gray-900">{p.collaborateur}</td>
+                                    <td className="px-4 py-3 text-gray-600">{p.logement} <span className="text-xs text-gray-400">({p.ville})</span></td>
+                                    <td className="px-4 py-3">
+                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">{p.centre_analytique}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-gray-700">
+                                      {p.participation_mensuelle.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-semibold text-blue-700">
+                                      {p.cout_hotel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr className="bg-blue-50/60 border-y border-blue-100">
+                                  <td colSpan={3} className="px-4 py-2 text-right text-xs font-semibold text-blue-900">Sous-total {group.centre}</td>
+                                  <td className="px-4 py-2 text-right text-xs font-semibold text-blue-900">
+                                    {group.totalParticipation.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                  </td>
+                                  <td className="px-4 py-2 text-right text-xs font-semibold text-blue-900">
+                                    {group.totalCoutHotel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                  </td>
+                                </tr>
+                              </>
+                            )}
+                          </Fragment>
                         ))}
                       </tbody>
                       <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-300">

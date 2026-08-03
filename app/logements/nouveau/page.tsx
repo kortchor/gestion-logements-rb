@@ -82,7 +82,6 @@ export default function NouveauLogement() {
     etat_lieux_photos: '',
     date_debut_contrat: '',
     date_fin_contrat: '',
-    est_visible: true,
     mixte_autorise: false,
     description_detaillee: '',
   });
@@ -181,7 +180,7 @@ export default function NouveauLogement() {
     setError('');
 
     try {
-      const dataToSend = { ...formData, chambres };
+      const dataToSend = { ...formData, est_visible: true, chambres };
       console.log('📦 Données envoyées:', dataToSend);
 
       const response = await fetch('/api/logements', {
@@ -333,19 +332,6 @@ export default function NouveauLogement() {
               <span className="ml-3 text-sm text-gray-700">✅ Autoriser la cohabitation mixte (filles et garçons)</span>
             </label>
             <p className="text-xs text-gray-500 mt-1 ml-8">Si non coché, le logement sera réservé au genre du premier occupant</p>
-          </div>
-
-          <div>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                name="est_visible"
-                checked={formData.est_visible}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-700">✅ Logement visible</span>
-            </label>
           </div>
 
           {/* ============================================================ */}

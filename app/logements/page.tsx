@@ -15,6 +15,8 @@ interface LogementRow {
   type: string | null;
   nombre_chambres: number;
   total_lits: number;
+  lits_simples?: number;
+  lits_doubles?: number;
   prix_loyer?: number | null;
   proprietaire?: string | null;
   date_debut_contrat?: string | null;
@@ -27,6 +29,7 @@ interface LogementRow {
 interface LogementsPageProps {
   searchParams?: Promise<{
     contrat?: string;
+    type_lit?: string;
   }>;
 }
 
@@ -69,6 +72,7 @@ function getOccupationLabel(logement: LogementRow) {
 export default async function LogementsPage({ searchParams }: LogementsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const contratFilter = resolvedSearchParams?.contrat || 'actifs';
+  const typeLitFilter = resolvedSearchParams?.type_lit || 'all';
 
   let logements: LogementRow[] = [];
   let loadError: string | null = null;
@@ -78,7 +82,9 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
       SELECT 
         l.*,
         COUNT(c.id) as nombre_chambres,
-        COALESCE(SUM(c.nombre_lits), 0) as total_lits
+        COALESCE(SUM(c.nombre_lits), 0) as total_lits,
+        COALESCE(SUM(CASE WHEN c.type_lit = 'simple' THEN c.nombre_lits ELSE 0 END), 0) as lits_simples,
+        COALESCE(SUM(CASE WHEN c.type_lit = 'double' THEN c.nombre_lits ELSE 0 END), 0) as lits_doubles
       FROM logements l
       LEFT JOIN chambres c ON l.id = c.logement_id
       GROUP BY l.id
@@ -115,13 +121,23 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
 
   const logementsFiltres = logements.filter((logement) => {
     const status = getContratStatus(logement);
+    const litsSimples = Number(logement.lits_simples || 0);
+    const litsDoubles = Number(logement.lits_doubles || 0);
+
     if (contratFilter === 'expires') {
-      return status === 'expire';
+      if (status !== 'expire') return false;
+    } else if (contratFilter !== 'all') {
+      if (!(status === 'actif' || status === 'actif_indefini')) return false;
     }
-    if (contratFilter === 'all') {
-      return true;
+
+    if (typeLitFilter === 'simple') {
+      return litsSimples > 0;
     }
-    return status === 'actif' || status === 'actif_indefini';
+    if (typeLitFilter === 'double') {
+      return litsDoubles > 0;
+    }
+
+    return true;
   });
 
   const stats = {
@@ -132,6 +148,16 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
     'Roquefort-la-Bédoule': logementsFiltres.filter((l) => l.ville === 'Roquefort-la-Bédoule').length,
   };
 
+  const litsSummary = {
+    totalLits: logementsFiltres.reduce((sum, logement) => sum + Number(logement.total_lits || 0), 0),
+    simples: logementsFiltres.reduce((sum, logement) => sum + Number(logement.lits_simples || 0), 0),
+    doubles: logementsFiltres.reduce((sum, logement) => sum + Number(logement.lits_doubles || 0), 0),
+  };
+
+  const getFilterHref = (nextContrat: string, nextTypeLit: string) => {
+    return `/logements?contrat=${nextContrat}&type_lit=${nextTypeLit}`;
+  };
+
   const exportColumns = [
     { key: 'id', label: 'ID' },
     { key: 'nom_logement', label: 'Nom' },
@@ -140,6 +166,8 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
     { key: 'type', label: 'Type' },
     { key: 'nombre_chambres', label: 'Chambres' },
     { key: 'total_lits', label: 'Lits' },
+    { key: 'lits_simples', label: 'Lits simples' },
+    { key: 'lits_doubles', label: 'Lits doubles' },
     { key: 'prix_loyer', label: 'Loyer (€)' },
     { key: 'proprietaire', label: 'Propriétaire' },
     { key: 'date_debut_contrat', label: 'Début contrat' },
@@ -178,23 +206,58 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
       <div className="mb-6 bg-white p-4 rounded-lg shadow flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium text-gray-700">Filtre baux:</span>
         <Link
-          href="/logements?contrat=actifs"
+          href={getFilterHref('actifs', typeLitFilter)}
           className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'actifs' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'}`}
         >
           Actifs
         </Link>
         <Link
-          href="/logements?contrat=expires"
+          href={getFilterHref('expires', typeLitFilter)}
           className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'expires' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-800'}`}
         >
           Expirés
         </Link>
         <Link
-          href="/logements?contrat=all"
+          href={getFilterHref('all', typeLitFilter)}
           className={`px-3 py-1 rounded-full text-sm no-underline ${contratFilter === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'}`}
         >
           Tous
         </Link>
+        <span className="ml-3 text-sm font-medium text-gray-700">Type de lit:</span>
+        <Link
+          href={getFilterHref(contratFilter, 'all')}
+          className={`px-3 py-1 rounded-full text-sm no-underline ${typeLitFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-800'}`}
+        >
+          Tous
+        </Link>
+        <Link
+          href={getFilterHref(contratFilter, 'simple')}
+          className={`px-3 py-1 rounded-full text-sm no-underline ${typeLitFilter === 'simple' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'}`}
+        >
+          🛏️ Simples
+        </Link>
+        <Link
+          href={getFilterHref(contratFilter, 'double')}
+          className={`px-3 py-1 rounded-full text-sm no-underline ${typeLitFilter === 'double' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}
+        >
+          🛏️🛏️ Doubles
+        </Link>
+      </div>
+
+      <div className="mb-6 bg-gradient-to-r from-slate-50 to-blue-50 border border-slate-200 rounded-lg p-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold text-slate-700">Synthèse filtres:</span>
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-white border border-slate-200 text-slate-700">
+          Logements: {stats.total}
+        </span>
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          Lits totaux: {litsSummary.totalLits}
+        </span>
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+          🛏️ Simples: {litsSummary.simples}
+        </span>
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+          🛏️🛏️ Doubles: {litsSummary.doubles}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -223,8 +286,8 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {logementsFiltres.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <p className="text-lg">Aucun logement pour le moment</p>
-            <p className="text-sm">Cliquez sur &quot;Ajouter un logement&quot; pour commencer</p>
+            <p className="text-lg">Aucun logement ne correspond aux filtres actuels</p>
+            <p className="text-sm">Essaie de changer le filtre de bail ou de type de lit, ou ajoute un nouveau logement</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -238,6 +301,7 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chambres</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lits</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Détail lits</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -256,6 +320,9 @@ export default async function LogementsPage({ searchParams }: LogementsPageProps
                     </td>
                     <td className="px-6 py-4 text-center">{logement.nombre_chambres || 0}</td>
                     <td className="px-6 py-4 text-center">{logement.total_lits || 0}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                      🛏️ {Number(logement.lits_simples || 0)} / 🛏️🛏️ {Number(logement.lits_doubles || 0)}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {getOccupationLabel(logement)}

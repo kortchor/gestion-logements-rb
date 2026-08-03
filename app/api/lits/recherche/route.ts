@@ -35,7 +35,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       LEFT JOIN chambres ch ON l.chambre_id = ch.id
       LEFT JOIN logements log ON ch.logement_id = log.id
       WHERE l.est_occupe = false
-        AND log.est_visible = true
+        AND COALESCE(log.est_actif, true) = true
+        AND (log.date_debut_contrat IS NULL OR log.date_debut_contrat <= CURRENT_DATE)
+        AND (log.date_fin_contrat IS NULL OR log.date_fin_contrat >= CURRENT_DATE)
     `;
 
     const params: any[] = [];

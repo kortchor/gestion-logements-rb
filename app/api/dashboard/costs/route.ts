@@ -33,18 +33,29 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
     const endDate = monthEnd.toISOString().split('T')[0];
 
     const result = await query(`
-      WITH active_baux AS (
-        SELECT DISTINCT b.logement_id
-        FROM baux b
-        WHERE b.date_debut <= $2::DATE
-          AND COALESCE(b.date_fin, 'infinity'::DATE) >= $1::DATE
+      WITH normalized AS (
+        SELECT
+          COALESCE(l.prix_loyer, 0)::numeric AS prix_loyer,
+          CASE
+            WHEN l.date_debut_contrat IS NULL THEN $1::DATE
+            WHEN l.date_debut_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_debut_contrat::DATE
+            ELSE $1::DATE
+          END AS date_debut_calc,
+          CASE
+            WHEN l.date_fin_contrat IS NULL THEN NULL
+            WHEN NULLIF(TRIM(l.date_fin_contrat::text), '') IS NULL THEN NULL
+            WHEN l.date_fin_contrat::text ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN l.date_fin_contrat::DATE
+            ELSE NULL
+          END AS date_fin_calc,
+          COALESCE(l.est_actif, true) AS est_actif
+        FROM logements l
       )
-      SELECT
-        COALESCE(SUM(COALESCE(l.prix_loyer, 0)::numeric), 0) AS total_loyer
-      FROM active_baux ab
-      JOIN logements l ON l.id = ab.logement_id
-      WHERE COALESCE(l.est_actif, true) = true
-        AND COALESCE(l.prix_loyer, 0) > 0
+      SELECT COALESCE(SUM(prix_loyer), 0) AS total_loyer
+      FROM normalized
+      WHERE est_actif = true
+        AND prix_loyer > 0
+        AND date_debut_calc <= $2::DATE
+        AND COALESCE(date_fin_calc, 'infinity'::DATE) >= $1::DATE
     `, [startDate, endDate]);
 
     const totalLoyer = parseFloat(result.rows[0]?.total_loyer || 0);

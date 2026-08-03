@@ -9,19 +9,55 @@ const getHandler = async (_request: NextRequest, payload: TokenPayload) => {
     const collaborateurId = payload.id;
 
     const result = await query(`
-      SELECT 
-        l.id as logement_id,
-        l.nom_logement,
-        l.adresse,
-        l.ville,
-        l.description_detaillee,
-        l.etat_lieux_photos,
-        c.nom as chambre_nom,
-        li.numero as lit_numero
-      FROM lits li
-      INNER JOIN chambres c ON li.chambre_id = c.id
-      INNER JOIN logements l ON c.logement_id = l.id
-      WHERE li.collaborateur_id = $1 AND li.est_occupe = true
+      WITH candidats AS (
+        SELECT
+          l.id AS logement_id,
+          l.nom_logement,
+          l.adresse,
+          l.ville,
+          l.description_detaillee,
+          l.etat_lieux_photos,
+          c.nom AS chambre_nom,
+          li.numero AS lit_numero,
+          1 AS priority,
+          COALESCE(lo.created_at::date, CURRENT_DATE) AS date_ref
+        FROM lit_occupants lo
+        JOIN lits li ON li.id = lo.lit_id
+        JOIN chambres c ON li.chambre_id = c.id
+        JOIN logements l ON c.logement_id = l.id
+        WHERE lo.collaborateur_id = $1
+
+        UNION ALL
+
+        SELECT
+          l.id AS logement_id,
+          l.nom_logement,
+          l.adresse,
+          l.ville,
+          l.description_detaillee,
+          l.etat_lieux_photos,
+          c.nom AS chambre_nom,
+          li.numero AS lit_numero,
+          2 AS priority,
+          CURRENT_DATE AS date_ref
+        FROM lits li
+        JOIN chambres c ON li.chambre_id = c.id
+        JOIN logements l ON c.logement_id = l.id
+        WHERE li.collaborateur_id = $1
+          AND COALESCE(li.est_occupe, false) = true
+      )
+      SELECT
+        logement_id,
+        nom_logement,
+        adresse,
+        ville,
+        description_detaillee,
+        etat_lieux_photos,
+        chambre_nom,
+        lit_numero
+      FROM candidats
+      ORDER BY priority ASC, date_ref DESC
+      LIMIT 1
     `, [collaborateurId]);
 
     if (result.rows.length === 0) {

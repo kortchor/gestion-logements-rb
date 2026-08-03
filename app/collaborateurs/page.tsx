@@ -59,20 +59,61 @@ export default async function CollaborateursPage() {
         c.centre_principal,
         c.centre_affectation,
         c.clefs,
-        l.id as lit_id,
-        l.numero as lit_numero,
-        ch.nom as chambre_nom,
-        log.id as logement_id,
-        log.nom_logement,
-        log.adresse as logement_adresse,
-        log.ville as logement_ville,
-        log.type_occupation_effectif as logement_type_occupation,
+        assigned.lit_id,
+        assigned.lit_numero,
+        assigned.chambre_nom,
+        assigned.logement_id,
+        assigned.nom_logement,
+        assigned.logement_adresse,
+        assigned.logement_ville,
+        assigned.logement_type_occupation,
         b.participation_mensuelle
       FROM collaborateurs c
-      LEFT JOIN lits l ON c.id = l.collaborateur_id
-      LEFT JOIN chambres ch ON l.chambre_id = ch.id
-      LEFT JOIN logements log ON ch.logement_id = log.id
-      LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.logement_id = log.id AND b.date_fin >= CURRENT_DATE
+      LEFT JOIN LATERAL (
+        SELECT
+          li.id AS lit_id,
+          li.numero AS lit_numero,
+          ch.nom AS chambre_nom,
+          log.id AS logement_id,
+          log.nom_logement,
+          log.adresse AS logement_adresse,
+          log.ville AS logement_ville,
+          log.type_occupation_effectif AS logement_type_occupation,
+          1 AS priority,
+          COALESCE(lo.created_at::date, CURRENT_DATE) AS date_ref
+        FROM lit_occupants lo
+        JOIN lits li ON li.id = lo.lit_id
+        JOIN chambres ch ON ch.id = li.chambre_id
+        JOIN logements log ON log.id = ch.logement_id
+        WHERE lo.collaborateur_id = c.id
+
+        UNION ALL
+
+        SELECT
+          li.id AS lit_id,
+          li.numero AS lit_numero,
+          ch.nom AS chambre_nom,
+          log.id AS logement_id,
+          log.nom_logement,
+          log.adresse AS logement_adresse,
+          log.ville AS logement_ville,
+          log.type_occupation_effectif AS logement_type_occupation,
+          2 AS priority,
+          CURRENT_DATE AS date_ref
+        FROM lits li
+        JOIN chambres ch ON ch.id = li.chambre_id
+        JOIN logements log ON log.id = ch.logement_id
+        WHERE li.collaborateur_id = c.id
+          AND COALESCE(li.est_occupe, false) = true
+
+        ORDER BY priority ASC, date_ref DESC
+        LIMIT 1
+      ) AS assigned ON true
+      LEFT JOIN baux b
+        ON b.collaborateur_id = c.id
+       AND b.logement_id = assigned.logement_id
+       AND b.date_debut <= CURRENT_DATE
+       AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
       ORDER BY c.id
     `);
     

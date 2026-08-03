@@ -28,25 +28,80 @@ const postHandler = async (
 
     logger.info({ route: '/api/collaborateurs/[id]/desassigner', collaborateurId }, 'Debut desassignation collaborateur');
 
-    // 1. Récupérer le logement du collaborateur
+    // 1. Récupérer le logement du collaborateur (lit_occupants prioritaire, fallback legacy)
     const logementResult = await query(
-      `SELECT DISTINCT ch.logement_id
-       FROM lits l
-       LEFT JOIN chambres ch ON l.chambre_id = ch.id
-       WHERE l.collaborateur_id = $1 AND l.est_occupe = true`,
+      `WITH candidats AS (
+         SELECT ch.logement_id, 1 AS priority, COALESCE(lo.created_at::date, CURRENT_DATE) AS date_ref
+         FROM lit_occupants lo
+         JOIN lits l ON l.id = lo.lit_id
+         JOIN chambres ch ON ch.id = l.chambre_id
+         WHERE lo.collaborateur_id = $1
+
+         UNION ALL
+
+         SELECT ch.logement_id, 2 AS priority, CURRENT_DATE AS date_ref
+         FROM lits l
+         JOIN chambres ch ON ch.id = l.chambre_id
+         WHERE l.collaborateur_id = $1
+           AND COALESCE(l.est_occupe, false) = true
+       )
+       SELECT logement_id
+       FROM candidats
+       ORDER BY priority ASC, date_ref DESC
+       LIMIT 1`,
       [collaborateurId]
     );
 
     const logementId = logementResult.rows[0]?.logement_id;
     logger.info({ route: '/api/collaborateurs/[id]/desassigner', collaborateurId, logementId }, 'Logement associe recupere');
 
-    // 2. Désassigner le lit
+    // 2. Identifier les lits concernés avant suppression des occupations
+    const affectedLitsResult = await query(
+      `SELECT DISTINCT lit_id
+       FROM lit_occupants
+       WHERE collaborateur_id = $1
+
+       UNION
+
+       SELECT id AS lit_id
+       FROM lits
+       WHERE collaborateur_id = $1`,
+      [collaborateurId]
+    );
+    const affectedLitIds = affectedLitsResult.rows
+      .map((row) => Number(row.lit_id))
+      .filter((v) => Number.isInteger(v));
+
+    // 3. Désassigner le collaborateur de lit_occupants puis fallback legacy
+    await query('DELETE FROM lit_occupants WHERE collaborateur_id = $1', [collaborateurId]);
+
     await query(
-      'UPDATE lits SET est_occupe = false, collaborateur_id = NULL WHERE collaborateur_id = $1',
+      'UPDATE lits SET collaborateur_id = NULL WHERE collaborateur_id = $1',
       [collaborateurId]
     );
 
-    // 3. Fermer le bail actif associé (date_fin = hier pour qu'il soit immédiatement en historique)
+    // Recalculer l'état d'occupation des lits touchés
+    for (const litId of affectedLitIds) {
+      await query(
+        `WITH current_occupants AS (
+           SELECT collaborateur_id
+           FROM lit_occupants
+           WHERE lit_id = $1
+           ORDER BY created_at
+         )
+         UPDATE lits
+         SET est_occupe = EXISTS(SELECT 1 FROM current_occupants),
+             collaborateur_id = (
+               SELECT collaborateur_id
+               FROM current_occupants
+               LIMIT 1
+             )
+         WHERE id = $1`,
+        [litId]
+      );
+    }
+
+    // 4. Fermer le bail actif associé (date_fin = hier pour qu'il soit immédiatement en historique)
     // On ferme TOUS les baux encore ouverts (date_fin >= hier) pour ce collaborateur
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -60,13 +115,25 @@ const postHandler = async (
       'Baux clotures pour collaborateur'
     );
 
-    // 4. Si le logement est vide, redevient mixte
+    // 5. Si le logement est vide, redevient mixte
     if (logementId) {
       const occupantsResult = await query(
-        `SELECT COUNT(*) as nb_occupants
-         FROM lits l
-         LEFT JOIN chambres ch ON l.chambre_id = ch.id
-         WHERE ch.logement_id = $1 AND l.est_occupe = true`,
+        `SELECT COUNT(DISTINCT occ.collaborateur_id) AS nb_occupants
+         FROM (
+           SELECT lo.collaborateur_id
+           FROM lit_occupants lo
+           JOIN lits l ON l.id = lo.lit_id
+           JOIN chambres ch ON ch.id = l.chambre_id
+           WHERE ch.logement_id = $1
+
+           UNION
+
+           SELECT l.collaborateur_id
+           FROM lits l
+           JOIN chambres ch ON ch.id = l.chambre_id
+           WHERE ch.logement_id = $1
+             AND l.collaborateur_id IS NOT NULL
+         ) AS occ`,
         [logementId]
       );
 

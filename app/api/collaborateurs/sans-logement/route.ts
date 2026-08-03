@@ -22,7 +22,13 @@ export const GET = withAuth(async (request: NextRequest, payload: TokenPayload) 
       FROM collaborateurs c
       LEFT JOIN baux b ON c.id = b.collaborateur_id AND b.date_fin >= CURRENT_DATE
       WHERE NOT EXISTS (
-        SELECT 1 FROM lits l 
+        SELECT 1
+        FROM lit_occupants lo
+        WHERE lo.collaborateur_id = c.id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM lits l
         WHERE l.collaborateur_id = c.id
       )
         AND c.role NOT IN ('super_admin', 'admin', 'admin_readonly')

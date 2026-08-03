@@ -27,11 +27,19 @@ export async function GET(
         ch.nom as chambre_nom,
         ch.type_lit,
         ch.nombre_lits as lits_dans_chambre,
-        COUNT(li.id) as nombre_lits_assignes
+        COUNT(li.id) FILTER (
+          WHERE EXISTS (
+            SELECT 1
+            FROM lit_occupants lo
+            WHERE lo.lit_id = li.id
+              AND lo.collaborateur_id = b.collaborateur_id
+          )
+          OR li.collaborateur_id = b.collaborateur_id
+        ) as nombre_lits_assignes
       FROM baux b
       LEFT JOIN logements l ON b.logement_id = l.id
       LEFT JOIN chambres ch ON ch.logement_id = l.id
-      LEFT JOIN lits li ON li.chambre_id = ch.id AND li.collaborateur_id = b.collaborateur_id
+      LEFT JOIN lits li ON li.chambre_id = ch.id
       WHERE b.collaborateur_id = $1
       GROUP BY b.id, l.id, ch.id
       ORDER BY b.date_debut DESC
@@ -40,23 +48,74 @@ export async function GET(
     );
 
     const currentResult = await query(
-      `SELECT 
-        l.id,
-        l.nom_logement,
-        l.adresse,
-        l.ville,
-        l.type,
-        ch.nom as chambre_nom,
-        li.numero as lit_numero,
-        b.participation_mensuelle,
-        b.chambre_privée,
-        b.date_debut,
-        b.date_fin
-      FROM lits li
-      LEFT JOIN chambres ch ON li.chambre_id = ch.id
-      LEFT JOIN logements l ON ch.logement_id = l.id
-      LEFT JOIN baux b ON b.collaborateur_id = li.collaborateur_id AND b.logement_id = l.id AND b.date_fin >= CURRENT_DATE
-      WHERE li.collaborateur_id = $1 AND li.est_occupe = true
+      `WITH candidats AS (
+         SELECT
+           l.id,
+           l.nom_logement,
+           l.adresse,
+           l.ville,
+           l.type,
+           ch.nom as chambre_nom,
+           li.numero as lit_numero,
+           b.participation_mensuelle,
+           b.chambre_privée,
+           b.date_debut,
+           b.date_fin,
+           1 AS priority,
+           COALESCE(lo.created_at::date, CURRENT_DATE) AS date_ref
+         FROM lit_occupants lo
+         JOIN lits li ON li.id = lo.lit_id
+         JOIN chambres ch ON ch.id = li.chambre_id
+         JOIN logements l ON l.id = ch.logement_id
+         LEFT JOIN baux b
+           ON b.collaborateur_id = lo.collaborateur_id
+          AND b.logement_id = l.id
+          AND b.date_debut <= CURRENT_DATE
+          AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
+         WHERE lo.collaborateur_id = $1
+
+         UNION ALL
+
+         SELECT
+           l.id,
+           l.nom_logement,
+           l.adresse,
+           l.ville,
+           l.type,
+           ch.nom as chambre_nom,
+           li.numero as lit_numero,
+           b.participation_mensuelle,
+           b.chambre_privée,
+           b.date_debut,
+           b.date_fin,
+           2 AS priority,
+           CURRENT_DATE AS date_ref
+         FROM lits li
+         JOIN chambres ch ON ch.id = li.chambre_id
+         JOIN logements l ON l.id = ch.logement_id
+         LEFT JOIN baux b
+           ON b.collaborateur_id = li.collaborateur_id
+          AND b.logement_id = l.id
+          AND b.date_debut <= CURRENT_DATE
+          AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
+         WHERE li.collaborateur_id = $1
+           AND COALESCE(li.est_occupe, false) = true
+       )
+       SELECT
+         id,
+         nom_logement,
+         adresse,
+         ville,
+         type,
+         chambre_nom,
+         lit_numero,
+         participation_mensuelle,
+         chambre_privée,
+         date_debut,
+         date_fin
+       FROM candidats
+       ORDER BY priority ASC, date_ref DESC
+       LIMIT 1
       `,
       [collaborateurId]
     );

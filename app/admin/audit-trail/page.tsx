@@ -22,6 +22,7 @@ export default function AuditTrailPage() {
   const { user, loading } = useAuth();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -34,6 +35,7 @@ export default function AuditTrailPage() {
   const fetchAuditTrail = async () => {
     try {
       setPageLoading(true);
+      setError(null);
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('pageSize', pageSize.toString());
@@ -49,9 +51,16 @@ export default function AuditTrailPage() {
       if (data.success) {
         setEntries(data.data);
         setTotal(data.total);
+      } else {
+        setEntries([]);
+        setTotal(0);
+        setError(data?.error || 'Impossible de charger le suivi des actions.');
       }
     } catch (error) {
       console.error('Erreur:', error);
+      setEntries([]);
+      setTotal(0);
+      setError(error instanceof Error ? error.message : 'Erreur de chargement du suivi des actions.');
     } finally {
       setPageLoading(false);
     }
@@ -85,6 +94,12 @@ export default function AuditTrailPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-8 py-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            ❌ {error}
+          </div>
+        )}
+
         {/* Filtres */}
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-lg font-bold mb-4">Filtres</h2>

@@ -4,6 +4,28 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
 
+let auditTrailSchemaChecked = false;
+
+async function ensureAuditTrailSchema() {
+  if (auditTrailSchemaChecked) return;
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS audit_trail (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      user_email VARCHAR(255),
+      action VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(100) NOT NULL,
+      entity_id INTEGER,
+      changes JSONB,
+      ip_address VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  auditTrailSchemaChecked = true;
+}
+
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   // Vérifier que l'utilisateur est super_admin
   if (payload.role !== 'super_admin') {
@@ -14,6 +36,8 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   }
 
   try {
+    await ensureAuditTrailSchema();
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);

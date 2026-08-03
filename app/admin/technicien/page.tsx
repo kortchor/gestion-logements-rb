@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/context/AuthContext';
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -9,6 +10,7 @@ function isValidEmail(value: string): boolean {
 
 export default function AdminTechnicienPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -18,23 +20,37 @@ export default function AdminTechnicienPage() {
     telephone: '',
   });
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
   useEffect(() => {
-    if (!token) {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
       router.push('/login');
       return;
     }
+
+    if (user.role !== 'super_admin') {
+      setError('Accès refusé. Super administrateur requis.');
+      return;
+    }
+
     fetchTechnicien();
-  }, [token]);
+  }, [authLoading, user, router]);
 
   const fetchTechnicien = async () => {
     try {
       const params = ['technicien_nom', 'technicien_email', 'technicien_telephone'];
       const promises = params.map((cle) =>
         fetch(`/api/admin/parametres?cle=${cle}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).then((res) => res.json())
+          credentials: 'include',
+        }).then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data?.error || `Erreur chargement paramètre ${cle}`);
+          }
+          return data;
+        })
       );
 
       const results = await Promise.all(promises);
@@ -88,8 +104,8 @@ export default function AdminTechnicienPage() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
           },
+          credentials: 'include',
           body: JSON.stringify(update),
         });
 
@@ -108,6 +124,10 @@ export default function AdminTechnicienPage() {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <div className="p-8 text-center">Chargement...</div>;
+  }
 
   return (
     <div className="container mx-auto p-8 max-w-2xl">

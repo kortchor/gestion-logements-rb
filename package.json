@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:logements-disponibles": "node scripts/test-logements-disponibles-active.mjs",
     "test:dashboard-monthly-cost": "node scripts/test-dashboard-monthly-cost-guard.mjs",
+    "test:caution-upload": "node scripts/test-caution-upload-guard.mjs",
     "verify:monthly-cost": "node scripts/verify-monthly-cost-breakdown.mjs",
     "active-logements:list": "node scripts/manage-active-logements.mjs --list",
     "active-logements:deactivate": "node scripts/manage-active-logements.mjs --deactivate"

@@ -236,6 +236,10 @@ export default function MonEspacePage() {
                       Vos données de logement sont mises à jour à partir de votre bail actif. En cas d&apos;erreur,
                       contactez l&apos;administration pour vérification.
                     </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      En cas de souci technique dans votre logement, ouvrez le menu de votre profil en haut à droite,
+                      puis cliquez sur <strong>Signaler un problème</strong>.
+                    </p>
                     <p className="mt-2 text-xs text-slate-500">
                       Référence bail #{bailActif.id}
                     </p>

@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export default function AdminTechnicienPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -59,10 +63,24 @@ export default function AdminTechnicienPage() {
     setSuccess(false);
 
     try {
+      const normalized = {
+        nom: formData.nom.trim(),
+        email: formData.email.trim().toLowerCase(),
+        telephone: formData.telephone.trim(),
+      };
+
+      if (!normalized.nom) {
+        throw new Error('Le nom du technicien est requis.');
+      }
+
+      if (!isValidEmail(normalized.email)) {
+        throw new Error('L\'email du technicien est invalide.');
+      }
+
       const updates = [
-        { cle: 'technicien_nom', valeur: formData.nom },
-        { cle: 'technicien_email', valeur: formData.email },
-        { cle: 'technicien_telephone', valeur: formData.telephone },
+        { cle: 'technicien_nom', valeur: normalized.nom },
+        { cle: 'technicien_email', valeur: normalized.email },
+        { cle: 'technicien_telephone', valeur: normalized.telephone },
       ];
 
       for (const update of updates) {
@@ -76,13 +94,16 @@ export default function AdminTechnicienPage() {
         });
 
         if (!response.ok) {
-          throw new Error('Erreur lors de la mise à jour');
+          const apiError = await response.json().catch(() => ({}));
+          throw new Error(apiError?.error || 'Erreur lors de la mise à jour');
         }
       }
 
+      setFormData(normalized);
+
       setSuccess(true);
     } catch (err) {
-      setError('Erreur lors de la mise à jour');
+      setError(err instanceof Error ? err.message : 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
     }
@@ -92,8 +113,18 @@ export default function AdminTechnicienPage() {
     <div className="container mx-auto p-8 max-w-2xl">
       <h1 className="text-3xl font-bold mb-6">🔧 Gestion du technicien</h1>
       <p className="text-gray-600 mb-6">
-        Ces informations seront utilisées pour les signalements techniques.
+        Ces informations sont utilisées comme destinataire principal des signalements techniques.
       </p>
+
+      <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded mb-4 text-sm">
+        <p className="font-medium">📧 Destinataire actuel des signalements</p>
+        <p className="mt-1">
+          {formData.email ? formData.email : 'Non défini'}
+        </p>
+        <p className="mt-1 text-xs text-blue-700">
+          Après enregistrement, les nouveaux signalements seront envoyés à cette adresse.
+        </p>
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

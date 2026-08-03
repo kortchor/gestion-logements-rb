@@ -4,6 +4,15 @@ import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 
 const ALLOWED_FOLDER_PATTERN = /^[a-zA-Z0-9/_-]+$/;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+function getMissingCloudinaryVars() {
+  const required = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const;
+  return required.filter((name) => !process.env[name]);
+}
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -31,6 +40,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: 'Le fichier dépasse 10MB.' },
+        { status: 400 }
+      );
+    }
+
+    const missingVars = getMissingCloudinaryVars();
+    if (missingVars.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Configuration Cloudinary incomplète (${missingVars.join(', ')}).`,
+          code: 'CLOUDINARY_CONFIG_MISSING',
+        },
+        { status: 500 }
+      );
+    }
+
     if (!ALLOWED_FOLDER_PATTERN.test(folder)) {
       return NextResponse.json(
         { error: 'Nom de dossier invalide' },
@@ -47,7 +74,7 @@ export async function POST(request: NextRequest) {
           folder: `gestion_logements/${folder}`,
           resource_type: 'auto',
           allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
-          max_bytes: 10 * 1024 * 1024,
+          max_bytes: MAX_FILE_SIZE_BYTES,
         },
         (error, result) => {
           if (error) reject(error);
@@ -63,11 +90,12 @@ export async function POST(request: NextRequest) {
       public_id: (result as any).public_id,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erreur inconnue';
     if (error instanceof Error) {
       logError(error, { route: '/api/upload', method: 'POST' });
     }
     return NextResponse.json(
-      { error: 'Erreur lors de l\'upload du fichier' },
+      { error: `Erreur upload fichier: ${message}` },
       { status: 500 }
     );
   }

@@ -107,7 +107,8 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       setSuccess('Caution mise à jour avec succès !');
       if (onUpdate) onUpdate();
     } catch (err) {
-      setError('Erreur lors de la sauvegarde');
+      const message = err instanceof Error ? err.message : 'Erreur lors de la sauvegarde';
+      setError(message);
       console.error(err);
     } finally {
       setSaving(false);
@@ -139,6 +140,8 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       formData.append('file', file);
       formData.append('folder', 'cautions');
 
+      let uploadedPublicId: string | null = null;
+
       const response = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
@@ -151,6 +154,10 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       }
       
       const result = await response.json();
+      uploadedPublicId = result?.public_id || null;
+      if (!result?.url || !result?.public_id) {
+        throw new Error('Upload incomplet: URL ou public_id manquant dans la réponse.');
+      }
       
       // Mettre à jour la caution avec le nouveau justificatif
       const updateResponse = await fetch(`/api/baux/${bailId}/caution`, {
@@ -165,7 +172,14 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
 
       if (!updateResponse.ok) {
         const apiError = await updateResponse.json().catch(() => ({}));
-        throw new Error(apiError?.error || 'Erreur lors de la mise à jour');
+        // Best effort cleanup pour éviter un fichier orphelin sur Cloudinary
+        if (uploadedPublicId) {
+          await fetch(`/api/upload?public_id=${encodeURIComponent(uploadedPublicId)}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          }).catch(() => null);
+        }
+        throw new Error(apiError?.error || 'Upload réussi mais échec de la mise à jour du bail');
       }
       
       const updated = await updateResponse.json();
@@ -173,7 +187,8 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       setSuccess('Justificatif uploadé avec succès !');
       if (onUpdate) onUpdate();
     } catch (err) {
-      setError('Erreur lors de l\'upload du justificatif');
+      const message = err instanceof Error ? err.message : 'Erreur lors de l\'upload du justificatif';
+      setError(message);
       console.error(err);
     } finally {
       setUploading(false);
@@ -214,7 +229,8 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
       setSuccess('Justificatif supprimé avec succès !');
       if (onUpdate) onUpdate();
     } catch (err) {
-      setError('Erreur lors de la suppression');
+      const message = err instanceof Error ? err.message : 'Erreur lors de la suppression';
+      setError(message);
       console.error(err);
     }
   };

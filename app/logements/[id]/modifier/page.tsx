@@ -10,6 +10,46 @@ interface ChambreForm {
   nombre_lits: number;
 }
 
+interface EtatLieuxPhoto {
+  name: string;
+  data: string;
+}
+
+function parseEtatLieuxPhotos(raw: string): EtatLieuxPhoto[] {
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item: unknown, index: number) => {
+        if (typeof item === 'string') {
+          return {
+            name: `photo-${index + 1}.jpg`,
+            data: item,
+          };
+        }
+
+        if (item && typeof item === 'object' && 'data' in item) {
+          const data = (item as { data?: unknown }).data;
+          const name = (item as { name?: unknown }).name;
+          if (typeof data === 'string') {
+            return {
+              name: typeof name === 'string' && name ? name : `photo-${index + 1}.jpg`,
+              data,
+            };
+          }
+        }
+
+        return null;
+      })
+      .filter((photo): photo is EtatLieuxPhoto => photo !== null);
+  } catch {
+    return [];
+  }
+}
+
 export default function ModifierLogement({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -44,6 +84,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
   const [newChambres, setNewChambres] = useState<ChambreForm[]>([
     { nom: 'Chambre 1', type_lit: 'simple', nombre_lits: 1 }
   ]);
+  const [etatLieuxPhotos, setEtatLieuxPhotos] = useState<EtatLieuxPhoto[]>([]);
 
   const villes = ['Cassis', 'La Ciotat', 'Marseille', 'Roquefort-la-Bédoule'];
   const types = ['Studio', 'Appartement', 'Villa'];
@@ -84,6 +125,8 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
             mixte_autorise: data.data.mixte_autorise || false,
             description_detaillee: data.data.description_detaillee || '',
           });
+
+          setEtatLieuxPhotos(parseEtatLieuxPhotos(data.data.etat_lieux_photos || ''));
 
           const chambresResponse = await fetch(`/api/logements/${id}/chambres`);
           const chambresData = await chambresResponse.json();
@@ -164,25 +207,63 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
     const files = e.target.files;
     if (files) {
       const fileList = Array.from(files);
+
+      for (const file of fileList) {
+        if (!file.type.startsWith('image/')) {
+          setError(`Le fichier ${file.name} n'est pas une image.`);
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          setError(`Le fichier ${file.name} depasse 10 Mo.`);
+          return;
+        }
+      }
+
       const promises = fileList.map((file) => {
-        return new Promise((resolve) => {
+        return new Promise<EtatLieuxPhoto>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => {
             resolve({
               name: file.name,
-              data: reader.result,
+              data: reader.result as string,
             });
           };
           reader.readAsDataURL(file);
         });
       });
       Promise.all(promises).then((results) => {
-        setFormData({
-          ...formData,
-          etat_lieux_photos: JSON.stringify(results),
+        setError('');
+        setEtatLieuxPhotos((prev) => {
+          const next = [...prev, ...results];
+          setFormData((current) => ({
+            ...current,
+            etat_lieux_photos: next.length ? JSON.stringify(next) : '',
+          }));
+          return next;
         });
       });
+
+      e.target.value = '';
     }
+  };
+
+  const removePhotoAt = (indexToRemove: number) => {
+    setEtatLieuxPhotos((prev) => {
+      const next = prev.filter((_, index) => index !== indexToRemove);
+      setFormData((current) => ({
+        ...current,
+        etat_lieux_photos: next.length ? JSON.stringify(next) : '',
+      }));
+      return next;
+    });
+  };
+
+  const clearAllPhotos = () => {
+    setEtatLieuxPhotos([]);
+    setFormData((current) => ({
+      ...current,
+      etat_lieux_photos: '',
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -402,17 +483,43 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
 
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">📸 Photos de l&apos;état des lieux</label>
-            {formData.etat_lieux_photos ? (
-              <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
-                <span className="text-sm text-gray-700">✅ {JSON.parse(formData.etat_lieux_photos).length} photo(s)</span>
-                <button type="button" onClick={() => handleFileRemove('etat_lieux_photos', 'etat_lieux_photos')} className="text-red-500 hover:text-red-700">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
+            <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+
+            {etatLieuxPhotos.length > 0 && (
+              <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm text-gray-700">✅ {etatLieuxPhotos.length} photo(s)</span>
+                  <button
+                    type="button"
+                    onClick={clearAllPhotos}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Supprimer tout
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {etatLieuxPhotos.map((photo, index) => (
+                    <div key={`${photo.name}-${index}`} className="relative overflow-hidden rounded border border-gray-200 bg-white">
+                      <img
+                        src={photo.data}
+                        alt={`Etat des lieux ${index + 1}`}
+                        className="h-24 w-full object-cover"
+                      />
+                      <div className="p-2">
+                        <p className="truncate text-xs text-gray-600" title={photo.name}>{photo.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => removePhotoAt(index)}
+                          className="mt-1 text-xs text-red-600 hover:text-red-800"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <input type="file" accept=".jpg,.jpeg,.png,.gif" multiple onChange={handlePhotoUpload} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
             )}
             <p className="text-xs text-gray-500 mt-1">Uploader les photos (JPG, PNG, GIF)</p>
           </div>

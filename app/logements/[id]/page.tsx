@@ -1,12 +1,35 @@
 import { query } from '@/lib/db';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import EtatLieuxGallery from '@/app/components/EtatLieuxGallery';
 
 interface ChambreRow {
   id: number;
   nom: string;
   type_lit: string;
   nombre_lits: number;
+}
+
+function parseEtatLieuxPhotos(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item: unknown) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'data' in item) {
+          const value = (item as { data?: unknown }).data;
+          return typeof value === 'string' ? value : null;
+        }
+        return null;
+      })
+      .filter((item): item is string => Boolean(item));
+  } catch {
+    return [];
+  }
 }
 
 export default async function LogementDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +63,7 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
     [logementId]
   );
   const chambres = chambresResult.rows;
+  const etatLieuxPhotos = parseEtatLieuxPhotos(logement.etat_lieux_photos);
 
   return (
     <div className="container mx-auto p-8 max-w-4xl">
@@ -119,6 +143,14 @@ export default async function LogementDetail({ params }: { params: Promise<{ id:
             </p>
           </div>
         )}
+
+        <div className="mt-6 border-t pt-4">
+          <EtatLieuxGallery
+            photos={etatLieuxPhotos}
+            title="📷 Photos de l'état des lieux"
+            emptyMessage="Aucune photo d'état des lieux n'est enregistrée pour ce logement."
+          />
+        </div>
 
         <div className="mt-6 border-t pt-4">
           <h2 className="text-xl font-semibold mb-3">🛏️ Chambres</h2>

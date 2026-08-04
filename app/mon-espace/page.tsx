@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import EtatLieuxGallery from '@/app/components/EtatLieuxGallery';
 
 interface Bail {
   id: number;
@@ -263,38 +263,11 @@ export default function MonEspacePage() {
           {activeTab === 'etat-lieux' && (
             <div>
               {bailActif && photos.length > 0 ? (
-                <div>
-                  <h3 className="mb-4 text-lg font-semibold text-slate-800">📷 Photos de l&apos;état des lieux</h3>
-                  <p className="mb-4 text-sm text-slate-600">
-                    {photos.length} photo{photos.length > 1 ? 's' : ''} disponible{photos.length > 1 ? 's' : ''}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {photos.map((url, i) => (
-                      <a 
-                        key={i} 
-                        href={url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="group relative overflow-hidden rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                        title={`Photo ${i + 1}`}
-                      >
-                        <Image
-                          src={url}
-                          alt={`Photo de l'état des lieux ${i + 1}`}
-                          width={256}
-                          height={128}
-                          className="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-300"
-                          unoptimized
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                          <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
-                            Voir
-                          </span>
-                        </div>
-                      </a>
-                    ))}
-                    </div>
-                </div>
+                <EtatLieuxGallery
+                  photos={photos}
+                  title="📷 Photos de l'état des lieux"
+                  emptyMessage="Aucune photo d'état des lieux disponible pour le moment."
+                />
               ) : (
                 <div className="py-12 text-center">
                   <p className="text-lg text-slate-500">

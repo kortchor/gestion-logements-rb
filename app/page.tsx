@@ -42,6 +42,26 @@ export default function HomePage() {
         { href: '/mon-espace', title: 'Mon espace', description: 'Consulter votre logement et l’état des lieux.' },
       ];
 
+  const heroTitle = isAdmin
+    ? `Bonjour ${user.prenom}, tout ce qu'il faut est deja au bon endroit.`
+    : `Bonjour ${user.prenom}, votre espace est pret.`;
+
+  const heroDescription = isAdmin
+    ? 'Suivi des logements, collaborateurs, coûts, anomalies et documents: le logiciel est pense pour vous donner le bon ecran en deux clics, sans dependre d une explication exterieure.'
+    : 'Retrouvez votre logement actif, vos informations utiles et vos photos d etat des lieux sans passer par des ecrans techniques.';
+
+  const heroPillars = isAdmin
+    ? [
+        { title: 'Navigation', text: 'Les acces cles sont regroupes dans le header pour eviter de chercher.' },
+        { title: 'Donnees', text: 'Les vues montrent les ecarts, les etats et les actions utiles immediatement.' },
+        { title: 'Confiance', text: 'Les ecrans prioritaires sont orientes correction, pas uniquement consultation.' },
+      ]
+    : [
+        { title: 'Navigation', text: 'Un acces direct a votre espace, sans menus complexes.' },
+        { title: 'Repere', text: 'Les informations de logement et de bail sont visibles en un coup d oeil.' },
+        { title: 'Simplicite', text: 'Vous accedez a l essentiel rapidement, sans etapes inutiles.' },
+      ];
+
   return (
     <div className="space-y-8 pb-8">
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white/85 shadow-[0_24px_90px_rgba(15,23,42,0.10)] backdrop-blur">
@@ -55,10 +75,10 @@ export default function HomePage() {
                 Portail opérationnel · {roleLabel}
               </div>
               <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
-                Bonjour {user.prenom}, tout ce qu&apos;il faut est déjà au bon endroit.
+                {heroTitle}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
-                Suivi des logements, collaborateurs, coûts, anomalies et documents: le logiciel est pensé pour vous donner le bon écran en deux clics, sans dépendre d&apos;une explication extérieure.
+                {heroDescription}
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -73,18 +93,12 @@ export default function HomePage() {
               </div>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Navigation</p>
-                  <p className="mt-2 text-sm text-slate-200">Les accès clés sont regroupés dans le header pour éviter de chercher.</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Données</p>
-                  <p className="mt-2 text-sm text-slate-200">Les vues montrent les écarts, les états et les actions utiles immédiatement.</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Confiance</p>
-                  <p className="mt-2 text-sm text-slate-200">Les écrans prioritaires sont orientés correction, pas uniquement consultation.</p>
-                </div>
+                {heroPillars.map((pillar) => (
+                  <div key={pillar.title} className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">{pillar.title}</p>
+                    <p className="mt-2 text-sm text-slate-200">{pillar.text}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -95,7 +109,7 @@ export default function HomePage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Accès rapide</p>
                 <h2 className="mt-1 text-xl font-bold text-slate-900">Ce que vous devez ouvrir</h2>
               </div>
-              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-800">4 actions</span>
+              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-800">{quickActions.length} action{quickActions.length > 1 ? 's' : ''}</span>
             </div>
 
             <div className="mt-5 grid gap-3">

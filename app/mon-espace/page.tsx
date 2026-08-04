@@ -77,6 +77,11 @@ export default function MonEspacePage() {
                 return typeof value === 'string' ? value : null;
               }
 
+              if (p && typeof p === 'object' && 'url' in p) {
+                const value = (p as { url?: unknown }).url;
+                return typeof value === 'string' ? value : null;
+              }
+
               return null;
             })
             .filter((p): p is string => p !== null)

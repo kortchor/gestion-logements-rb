@@ -20,9 +20,11 @@ function parseEtatLieuxPhotos(raw: unknown): string[] {
     return parsed
       .map((item: unknown) => {
         if (typeof item === 'string') return item;
-        if (item && typeof item === 'object' && 'data' in item) {
-          const value = (item as { data?: unknown }).data;
-          return typeof value === 'string' ? value : null;
+        if (item && typeof item === 'object') {
+          const dataValue = (item as { data?: unknown }).data;
+          const urlValue = (item as { url?: unknown }).url;
+          if (typeof urlValue === 'string') return urlValue;
+          if (typeof dataValue === 'string') return dataValue;
         }
         return null;
       })

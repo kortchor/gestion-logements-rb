@@ -2,6 +2,12 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import {
+  computeRemovedPhotoPublicIds,
+  deleteEtatLieuxPhotosFromCloudinary,
+  normalizeEtatLieuxPhotosForStorage,
+  parseEtatLieuxPhotosInput,
+} from '@/lib/etat-lieux-photos';
 
 // ✅ GET - Récupérer un logement avec ses chambres
 export async function GET(
@@ -95,6 +101,17 @@ export async function PUT(
       chambres,
     } = body;
 
+    const currentResult = await query('SELECT etat_lieux_photos FROM logements WHERE id = $1', [logementId]);
+    if (currentResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Logement non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    const previousPhotos = parseEtatLieuxPhotosInput(currentResult.rows[0]?.etat_lieux_photos);
+    const normalizedEtatLieuxPhotos = await normalizeEtatLieuxPhotosForStorage(etat_lieux_photos);
+
     // Mettre à jour le logement
     await query(
       `UPDATE logements 
@@ -126,7 +143,7 @@ export async function PUT(
         bail_nom || null,
         etat_lieux_pdf || null,
         etat_lieux_nom || null,
-        etat_lieux_photos || null,
+        normalizedEtatLieuxPhotos.length ? JSON.stringify(normalizedEtatLieuxPhotos) : null,
         date_debut_contrat || null,
         date_fin_contrat || null,
         est_visible !== undefined ? est_visible : true,
@@ -160,6 +177,19 @@ export async function PUT(
             [chambreId, `${chambre.nom}-L${i}`, chambre.type_lit]
           );
         }
+      }
+    }
+
+    const removedPublicIds = computeRemovedPhotoPublicIds(previousPhotos, normalizedEtatLieuxPhotos);
+    try {
+      await deleteEtatLieuxPhotosFromCloudinary(removedPublicIds);
+    } catch (cleanupError) {
+      if (cleanupError instanceof Error) {
+        logError(cleanupError, {
+          route: '/api/logements/[id]',
+          method: 'PUT',
+          context: 'cloudinary-photo-cleanup',
+        });
       }
     }
 

@@ -12,6 +12,8 @@
     "test:caution-upload": "node scripts/test-caution-upload-guard.mjs",
     "test:collaborateurs-double-bed": "node scripts/test-collaborateurs-double-bed-guard.mjs",
     "verify:monthly-cost": "node scripts/verify-monthly-cost-breakdown.mjs",
+    "migrate:etat-lieux:dry": "node scripts/migrate-etat-lieux-photos-to-cloudinary.mjs",
+    "migrate:etat-lieux:apply": "node scripts/migrate-etat-lieux-photos-to-cloudinary.mjs --apply",
     "active-logements:list": "node scripts/manage-active-logements.mjs --list",
     "active-logements:deactivate": "node scripts/manage-active-logements.mjs --deactivate"
   },

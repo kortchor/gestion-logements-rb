@@ -12,7 +12,8 @@ interface ChambreForm {
 
 interface EtatLieuxPhoto {
   name: string;
-  data: string;
+  url: string;
+  public_id?: string;
 }
 
 // ✅ NOUVEAU : Composant réutilisable pour l'upload de fichier
@@ -177,7 +178,7 @@ export default function NouveauLogement() {
           reader.onloadend = () => {
             resolve({
               name: file.name,
-              data: reader.result as string,
+              url: reader.result as string,
             });
           };
           reader.readAsDataURL(file);
@@ -548,7 +549,7 @@ export default function NouveauLogement() {
                   {etatLieuxPhotos.map((photo, index) => (
                     <div key={`${photo.name}-${index}`} className="relative overflow-hidden rounded border border-gray-200 bg-white">
                       <img
-                        src={photo.data}
+                        src={photo.url}
                         alt={`Etat des lieux ${index + 1}`}
                         className="h-24 w-full object-cover"
                       />

@@ -12,7 +12,8 @@ interface ChambreForm {
 
 interface EtatLieuxPhoto {
   name: string;
-  data: string;
+  url: string;
+  public_id?: string;
 }
 
 function parseEtatLieuxPhotos(raw: string): EtatLieuxPhoto[] {
@@ -22,29 +23,34 @@ function parseEtatLieuxPhotos(raw: string): EtatLieuxPhoto[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
-      .map((item: unknown, index: number) => {
+    const mapped: Array<EtatLieuxPhoto | null> = parsed.map((item: unknown, index: number) => {
         if (typeof item === 'string') {
           return {
             name: `photo-${index + 1}.jpg`,
-            data: item,
+            url: item,
           };
         }
 
-        if (item && typeof item === 'object' && 'data' in item) {
+        if (item && typeof item === 'object') {
           const data = (item as { data?: unknown }).data;
+          const url = (item as { url?: unknown }).url;
           const name = (item as { name?: unknown }).name;
-          if (typeof data === 'string') {
+          const publicId = (item as { public_id?: unknown }).public_id;
+          const resolvedUrl = typeof url === 'string' ? url : typeof data === 'string' ? data : null;
+
+          if (resolvedUrl) {
             return {
               name: typeof name === 'string' && name ? name : `photo-${index + 1}.jpg`,
-              data,
+              url: resolvedUrl,
+              public_id: typeof publicId === 'string' ? publicId : undefined,
             };
           }
         }
 
         return null;
-      })
-      .filter((photo): photo is EtatLieuxPhoto => photo !== null);
+      });
+
+    return mapped.filter((photo): photo is EtatLieuxPhoto => photo !== null);
   } catch {
     return [];
   }
@@ -225,7 +231,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
           reader.onloadend = () => {
             resolve({
               name: file.name,
-              data: reader.result as string,
+              url: reader.result as string,
             });
           };
           reader.readAsDataURL(file);
@@ -502,7 +508,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
                   {etatLieuxPhotos.map((photo, index) => (
                     <div key={`${photo.name}-${index}`} className="relative overflow-hidden rounded border border-gray-200 bg-white">
                       <img
-                        src={photo.data}
+                        src={photo.url}
                         alt={`Etat des lieux ${index + 1}`}
                         className="h-24 w-full object-cover"
                       />

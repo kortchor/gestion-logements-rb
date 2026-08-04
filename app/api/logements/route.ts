@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 import { logAudit } from '@/lib/audit';
+import {
+  deleteEtatLieuxPhotosFromCloudinary,
+  normalizeEtatLieuxPhotosForStorage,
+  parseEtatLieuxPhotosInput,
+} from '@/lib/etat-lieux-photos';
 
 let logementsSchemaChecked = false;
 
@@ -125,6 +130,8 @@ export async function POST(request: Request) {
       chambres,
     } = body;
 
+    const normalizedEtatLieuxPhotos = await normalizeEtatLieuxPhotosForStorage(etat_lieux_photos);
+
     // Insérer le logement
     const result = await query(
       `INSERT INTO logements (
@@ -157,7 +164,7 @@ export async function POST(request: Request) {
         bail_nom || null,
         etat_lieux_pdf || null,
         etat_lieux_nom || null,
-        etat_lieux_photos || null,
+        normalizedEtatLieuxPhotos.length ? JSON.stringify(normalizedEtatLieuxPhotos) : null,
         date_debut_contrat || null,
         date_fin_contrat || null,
         est_visible !== undefined ? est_visible : true,
@@ -243,7 +250,7 @@ export async function DELETE(request: Request) {
     const logementId = parseInt(id);
 
     const checkResult = await query(
-      'SELECT id FROM logements WHERE id = $1',
+      'SELECT id, etat_lieux_photos FROM logements WHERE id = $1',
       [logementId]
     );
 
@@ -257,6 +264,19 @@ export async function DELETE(request: Request) {
     // Supprimer les chambres (CASCADE gère les lits)
     await query('DELETE FROM chambres WHERE logement_id = $1', [logementId]);
     await query('DELETE FROM logements WHERE id = $1', [logementId]);
+
+    const previousPhotos = parseEtatLieuxPhotosInput(checkResult.rows[0]?.etat_lieux_photos);
+    try {
+      await deleteEtatLieuxPhotosFromCloudinary(previousPhotos.map((photo) => photo.public_id));
+    } catch (cleanupError) {
+      if (cleanupError instanceof Error) {
+        logError(cleanupError, {
+          route: '/api/logements',
+          method: 'DELETE',
+          context: 'cloudinary-photo-cleanup',
+        });
+      }
+    }
 
     await logAudit({
       action: 'delete',

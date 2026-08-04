@@ -1,7 +1,10 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 import {
   computeRemovedPhotoPublicIds,
   deleteEtatLieuxPhotosFromCloudinary,
@@ -10,13 +13,15 @@ import {
 } from '@/lib/etat-lieux-photos';
 
 // ✅ GET - Récupérer un logement avec ses chambres
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const getHandler = async (
+  request: NextRequest,
+  _payload: TokenPayload,
+  context: { params: Record<string, string | string[] | undefined> }
+) => {
   try {
-    const { id } = await params;
-    const logementId = parseInt(id);
+    const idParam = context.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    const logementId = parseInt(id || '', 10);
 
     if (isNaN(logementId)) {
       return NextResponse.json(
@@ -47,13 +52,14 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ PUT - Mettre à jour un logement
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const putHandler = async (
+  request: NextRequest,
+  _payload: TokenPayload,
+  context: { params: Record<string, string | string[] | undefined> }
+) => {
   try {
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json(
@@ -62,8 +68,9 @@ export async function PUT(
       );
     }
 
-    const { id } = await params;
-    const logementId = parseInt(id);
+    const idParam = context.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    const logementId = parseInt(id || '', 10);
 
     if (isNaN(logementId)) {
       return NextResponse.json(
@@ -203,4 +210,7 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withAuth(getHandler, ['admin', 'super_admin', 'admin_readonly']);
+export const PUT = withAuth(putHandler, ['admin', 'super_admin']);

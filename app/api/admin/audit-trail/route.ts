@@ -4,6 +4,48 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
 
+function csvEscape(value: unknown): string {
+  const text = String(value ?? '');
+  if (/[,"\n;]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsv(rows: Array<Record<string, unknown>>): string {
+  const header = [
+    'id',
+    'created_at',
+    'user_email',
+    'prenom',
+    'nom',
+    'action',
+    'entity_type',
+    'entity_id',
+    'ip_address',
+    'changes',
+  ];
+
+  const lines = [header.join(',')];
+
+  for (const row of rows) {
+    lines.push([
+      csvEscape(row.id),
+      csvEscape(row.created_at),
+      csvEscape(row.user_email),
+      csvEscape(row.prenom),
+      csvEscape(row.nom),
+      csvEscape(row.action),
+      csvEscape(row.entity_type),
+      csvEscape(row.entity_id),
+      csvEscape(row.ip_address),
+      csvEscape(row.changes ? JSON.stringify(row.changes) : ''),
+    ].join(','));
+  }
+
+  return lines.join('\n');
+}
+
 let auditTrailSchemaChecked = false;
 
 async function ensureAuditTrailSchema() {
@@ -54,6 +96,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const entityType = searchParams.get('entity_type');
     const action = searchParams.get('action');
     const userEmail = searchParams.get('user_email');
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+    const format = searchParams.get('format');
 
     const offset = (page - 1) * pageSize;
     let whereClause = 'WHERE 1=1';
@@ -76,6 +121,51 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       whereClause += ` AND a.user_email ILIKE $${paramIndex}`;
       params.push(`%${userEmail}%`);
       paramIndex++;
+    }
+
+    if (startDate) {
+      whereClause += ` AND a.created_at >= $${paramIndex}::date`;
+      params.push(startDate);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      whereClause += ` AND a.created_at < ($${paramIndex}::date + INTERVAL '1 day')`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    if (format === 'csv') {
+      const csvResult = await query(
+        `SELECT
+          a.id,
+          a.created_at,
+          a.user_email,
+          c.prenom,
+          c.nom,
+          a.action,
+          a.entity_type,
+          a.entity_id,
+          a.ip_address,
+          a.changes
+        FROM audit_trail a
+        LEFT JOIN collaborateurs c ON a.user_id = c.id
+        ${whereClause}
+        ORDER BY a.created_at DESC`,
+        params
+      );
+
+      const csv = buildCsv(csvResult.rows);
+      const filename = `audit-trail-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // Récupérer le total

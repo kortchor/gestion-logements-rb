@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 interface LitLibre {
   id: number;
@@ -41,14 +42,93 @@ interface LitDisponible {
   est_visible: boolean;
 }
 
+interface GlobalCollaborateur {
+  id: number;
+  prenom: string;
+  nom: string;
+  email: string;
+  est_actif: boolean;
+  role: string;
+}
+
+interface GlobalLogement {
+  id: number;
+  nom_logement: string;
+  adresse: string;
+  ville: string;
+  est_actif: boolean;
+}
+
+interface GlobalBail {
+  id: number;
+  date_debut: string;
+  date_fin: string;
+  participation_mensuelle: number;
+  collaborateur_id: number;
+  prenom: string;
+  nom: string;
+  logement_id: number;
+  nom_logement: string;
+  ville: string;
+}
+
+interface GlobalLit {
+  id: number;
+  numero: string;
+  type_lit: string;
+  est_occupe: boolean;
+  chambre_id: number;
+  chambre_nom: string;
+  logement_id: number;
+  nom_logement: string;
+  adresse: string;
+  ville: string;
+}
+
+interface GlobalResults {
+  collaborateurs: GlobalCollaborateur[];
+  logements: GlobalLogement[];
+  baux: GlobalBail[];
+  lits: GlobalLit[];
+}
+
+interface GlobalTotals {
+  collaborateurs: number;
+  logements: number;
+  baux: number;
+  lits: number;
+}
+
 export default function RecherchePage() {
-  const [activeTab, setActiveTab] = useState<'lits' | 'collaborateurs' | 'recherche'>('lits');
+  const [activeTab, setActiveTab] = useState<'lits' | 'collaborateurs' | 'recherche' | 'globale'>('lits');
   const [loading, setLoading] = useState(false);
   const [litsLibres, setLitsLibres] = useState<LitLibre[]>([]);
   const [collaborateursSans, setCollaborateursSans] = useState<CollaborateurSansLogement[]>([]);
   const [resultats, setResultats] = useState<LitDisponible[]>([]);
   const [villes, setVilles] = useState<string[]>([]);
   const [searchEffected, setSearchEffected] = useState(false);
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalSearched, setGlobalSearched] = useState(false);
+  const [globalTotals, setGlobalTotals] = useState<GlobalTotals>({
+    collaborateurs: 0,
+    logements: 0,
+    baux: 0,
+    lits: 0,
+  });
+  const [globalFilters, setGlobalFilters] = useState({
+    ville: '',
+    onlyActiveCollaborateurs: false,
+    onlyActiveLogements: true,
+    onlyFreeLits: false,
+    onlyActiveBaux: true,
+  });
+  const [globalResults, setGlobalResults] = useState<GlobalResults>({
+    collaborateurs: [],
+    logements: [],
+    baux: [],
+    lits: [],
+  });
   const [formData, setFormData] = useState({
     ville: '',
     type_lit: '',
@@ -141,6 +221,73 @@ export default function RecherchePage() {
     }
   };
 
+  const handleGlobalSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = globalQuery.trim();
+
+    if (trimmed.length < 2) {
+      setGlobalResults({ collaborateurs: [], logements: [], baux: [], lits: [] });
+      setGlobalSearched(true);
+      return;
+    }
+
+    setGlobalLoading(true);
+    setGlobalSearched(true);
+
+    try {
+      const params = new URLSearchParams();
+      params.append('q', trimmed);
+      params.append('limit', '10');
+      if (globalFilters.ville) params.append('ville', globalFilters.ville);
+      if (globalFilters.onlyActiveCollaborateurs) params.append('only_active_collaborateurs', 'true');
+      if (globalFilters.onlyActiveLogements) params.append('only_active_logements', 'true');
+      if (globalFilters.onlyFreeLits) params.append('only_free_lits', 'true');
+      if (globalFilters.onlyActiveBaux) params.append('only_active_baux', 'true');
+
+      const response = await fetch(`/api/recherche/globale?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setGlobalResults(data.data);
+        setGlobalTotals(data.totals || { collaborateurs: 0, logements: 0, baux: 0, lits: 0 });
+      } else {
+        alert(data.error || 'Erreur lors de la recherche globale');
+      }
+    } catch (error) {
+      console.error('Erreur recherche globale:', error);
+      alert('Erreur de connexion sur la recherche globale');
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  const rerunGlobalSearchWithLimit = async (limit: number) => {
+    const trimmed = globalQuery.trim();
+    if (trimmed.length < 2) return;
+
+    setGlobalLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('q', trimmed);
+      params.append('limit', String(limit));
+      if (globalFilters.ville) params.append('ville', globalFilters.ville);
+      if (globalFilters.onlyActiveCollaborateurs) params.append('only_active_collaborateurs', 'true');
+      if (globalFilters.onlyActiveLogements) params.append('only_active_logements', 'true');
+      if (globalFilters.onlyFreeLits) params.append('only_free_lits', 'true');
+      if (globalFilters.onlyActiveBaux) params.append('only_active_baux', 'true');
+
+      const response = await fetch(`/api/recherche/globale?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setGlobalResults(data.data);
+        setGlobalTotals(data.totals || { collaborateurs: 0, logements: 0, baux: 0, lits: 0 });
+      }
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
   const getVilleColor = (ville: string) => {
     const colors: { [key: string]: string } = {
       'Cassis': 'bg-pink-100 text-pink-800',
@@ -222,6 +369,16 @@ export default function RecherchePage() {
           }`}
         >
           🔎 Recherche avancée
+        </button>
+        <button
+          onClick={() => setActiveTab('globale')}
+          className={`pb-2 px-1 font-medium transition-colors ${
+            activeTab === 'globale'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          🌐 Recherche globale
         </button>
       </div>
 
@@ -482,6 +639,200 @@ export default function RecherchePage() {
               <p className="text-blue-700 text-sm mt-2">
                 Laissez les champs vides pour voir tous les lits disponibles
               </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'globale' && (
+        <>
+          <h2 className="text-2xl font-bold mb-4">Recherche globale unifiée</h2>
+
+          <form onSubmit={handleGlobalSearch} className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="flex flex-col md:flex-row gap-3">
+              <input
+                type="text"
+                value={globalQuery}
+                onChange={(e) => setGlobalQuery(e.target.value)}
+                placeholder="Nom collaborateur, email, logement, ville, numero de lit, bail..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={globalLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {globalLoading ? 'Recherche...' : '🔍 Rechercher'}
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                <select
+                  value={globalFilters.ville}
+                  onChange={(e) => setGlobalFilters((prev) => ({ ...prev, ville: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Toutes</option>
+                  {villes.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="inline-flex items-center mt-7 gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={globalFilters.onlyActiveCollaborateurs}
+                  onChange={(e) => setGlobalFilters((prev) => ({ ...prev, onlyActiveCollaborateurs: e.target.checked }))}
+                />
+                Collaborateurs actifs
+              </label>
+
+              <label className="inline-flex items-center mt-7 gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={globalFilters.onlyActiveLogements}
+                  onChange={(e) => setGlobalFilters((prev) => ({ ...prev, onlyActiveLogements: e.target.checked }))}
+                />
+                Logements actifs
+              </label>
+
+              <label className="inline-flex items-center mt-7 gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={globalFilters.onlyFreeLits}
+                  onChange={(e) => setGlobalFilters((prev) => ({ ...prev, onlyFreeLits: e.target.checked }))}
+                />
+                Lits libres uniquement
+              </label>
+
+              <label className="inline-flex items-center mt-7 gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={globalFilters.onlyActiveBaux}
+                  onChange={(e) => setGlobalFilters((prev) => ({ ...prev, onlyActiveBaux: e.target.checked }))}
+                />
+                Baux en cours
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Minimum 2 caracteres</p>
+          </form>
+
+          {globalSearched && (
+            <div className="space-y-5">
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">👥 Collaborateurs ({globalTotals.collaborateurs})</h3>
+                  {globalTotals.collaborateurs > globalResults.collaborateurs.length && (
+                    <button type="button" onClick={() => rerunGlobalSearchWithLimit(25)} className="text-sm text-blue-600 hover:underline">
+                      Voir plus
+                    </button>
+                  )}
+                </div>
+                {globalResults.collaborateurs.length ? (
+                  <ul className="space-y-2">
+                    {globalResults.collaborateurs.map((collab) => (
+                      <li key={collab.id} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                        <div>
+                          <p className="font-medium">{collab.prenom} {collab.nom}</p>
+                          <p className="text-sm text-gray-600">{collab.email}</p>
+                        </div>
+                        <Link href={`/collaborateurs/${collab.id}`} className="text-blue-600 hover:underline">
+                          Voir
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-gray-500">Aucun resultat</p>}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">🏠 Logements ({globalTotals.logements})</h3>
+                  {globalTotals.logements > globalResults.logements.length && (
+                    <button type="button" onClick={() => rerunGlobalSearchWithLimit(25)} className="text-sm text-blue-600 hover:underline">
+                      Voir plus
+                    </button>
+                  )}
+                </div>
+                {globalResults.logements.length ? (
+                  <ul className="space-y-2">
+                    {globalResults.logements.map((logement) => (
+                      <li key={logement.id} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                        <div>
+                          <p className="font-medium">{logement.nom_logement || logement.adresse}</p>
+                          <p className="text-sm text-gray-600">{logement.adresse} - {logement.ville}</p>
+                        </div>
+                        <Link href={`/logements/${logement.id}`} className="text-blue-600 hover:underline">
+                          Voir
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-gray-500">Aucun resultat</p>}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">📄 Baux ({globalTotals.baux})</h3>
+                  {globalTotals.baux > globalResults.baux.length && (
+                    <button type="button" onClick={() => rerunGlobalSearchWithLimit(25)} className="text-sm text-blue-600 hover:underline">
+                      Voir plus
+                    </button>
+                  )}
+                </div>
+                {globalResults.baux.length ? (
+                  <ul className="space-y-2">
+                    {globalResults.baux.map((bail) => (
+                      <li key={bail.id} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                        <div>
+                          <p className="font-medium">Bail #{bail.id} - {bail.prenom} {bail.nom}</p>
+                          <p className="text-sm text-gray-600">{bail.nom_logement || 'Logement'} ({bail.ville || 'N/A'})</p>
+                        </div>
+                        {bail.collaborateur_id ? (
+                          <Link href={`/collaborateurs/${bail.collaborateur_id}`} className="text-blue-600 hover:underline">
+                            Voir collaborateur
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-gray-400">N/A</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-gray-500">Aucun resultat</p>}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">🛏️ Lits ({globalTotals.lits})</h3>
+                  {globalTotals.lits > globalResults.lits.length && (
+                    <button type="button" onClick={() => rerunGlobalSearchWithLimit(25)} className="text-sm text-blue-600 hover:underline">
+                      Voir plus
+                    </button>
+                  )}
+                </div>
+                {globalResults.lits.length ? (
+                  <ul className="space-y-2">
+                    {globalResults.lits.map((lit) => (
+                      <li key={lit.id} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                        <div>
+                          <p className="font-medium">Lit {lit.numero} - {lit.chambre_nom}</p>
+                          <p className="text-sm text-gray-600">{lit.nom_logement || lit.adresse} - {lit.ville}</p>
+                        </div>
+                        {lit.logement_id ? (
+                          <Link href={`/logements/${lit.logement_id}`} className="text-blue-600 hover:underline">
+                            Voir logement
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-gray-400">N/A</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-gray-500">Aucun resultat</p>}
+              </div>
             </div>
           )}
         </>

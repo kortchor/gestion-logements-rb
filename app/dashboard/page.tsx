@@ -267,7 +267,6 @@ export default function DashboardPage() {
       if (/[";\n]/.test(normalized)) {
         return `"${normalized.replace(/"/g, '""')}"`;
       }
-      return normalized;
     };
 
     const lines: string[] = [];

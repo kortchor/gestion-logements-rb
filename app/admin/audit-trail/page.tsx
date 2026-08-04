@@ -30,18 +30,27 @@ export default function AuditTrailPage() {
     entity_type?: string;
     action?: string;
     user_email?: string;
+    start_date?: string;
+    end_date?: string;
   }>({});
+
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (filter.entity_type) params.append('entity_type', filter.entity_type);
+    if (filter.action) params.append('action', filter.action);
+    if (filter.user_email) params.append('user_email', filter.user_email);
+    if (filter.start_date) params.append('start_date', filter.start_date);
+    if (filter.end_date) params.append('end_date', filter.end_date);
+    return params;
+  };
 
   const fetchAuditTrail = async () => {
     try {
       setPageLoading(true);
       setError(null);
-      const params = new URLSearchParams();
+      const params = buildFilterParams();
       params.append('page', page.toString());
       params.append('pageSize', pageSize.toString());
-      if (filter.entity_type) params.append('entity_type', filter.entity_type);
-      if (filter.action) params.append('action', filter.action);
-      if (filter.user_email) params.append('user_email', filter.user_email);
 
       const response = await fetch(`/api/admin/audit-trail?${params.toString()}`, {
         credentials: 'include',
@@ -69,6 +78,34 @@ export default function AuditTrailPage() {
   useEffect(() => {
     fetchAuditTrail();
   }, [page, filter]);
+
+  const handleExportCsv = async () => {
+    try {
+      const params = buildFilterParams();
+      params.append('format', 'csv');
+
+      const response = await fetch(`/api/admin/audit-trail?${params.toString()}`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Export CSV impossible pour le moment.');
+      }
+
+      const csvText = await response.text();
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `audit-trail-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Erreur export CSV.');
+    }
+  };
 
   if (loading) {
     return <div className="p-8 text-center">Chargement...</div>;
@@ -103,7 +140,7 @@ export default function AuditTrailPage() {
         {/* Filtres */}
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-lg font-bold mb-4">Filtres</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Type d&apos;entité</label>
               <select
@@ -155,16 +192,50 @@ export default function AuditTrailPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
-              <button
-                onClick={() => {
-                  setFilter({});
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date début</label>
+              <input
+                type="date"
+                value={filter.start_date || ''}
+                onChange={(e) => {
+                  setFilter({ ...filter, start_date: e.target.value || undefined });
                   setPage(1);
                 }}
-                className="w-full px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
-              >
-                Réinitialiser
-              </button>
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date fin</label>
+              <input
+                type="date"
+                value={filter.end_date || ''}
+                onChange={(e) => {
+                  setFilter({ ...filter, end_date: e.target.value || undefined });
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setFilter({});
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Réinitialiser
+                </button>
+                <button
+                  onClick={handleExportCsv}
+                  className="w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Export CSV
+                </button>
+              </div>
             </div>
           </div>
         </div>

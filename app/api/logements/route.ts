@@ -1,8 +1,11 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 import { logAudit } from '@/lib/audit';
+import { withAuth } from '@/lib/api-helpers';
+import { TokenPayload } from '@/lib/auth';
 import {
   deleteEtatLieuxPhotosFromCloudinary,
   normalizeEtatLieuxPhotosForStorage,
@@ -37,7 +40,7 @@ async function ensureLogementsSchema() {
 }
 
 // ✅ GET - Récupérer tous les logements ou un seul avec ?id=
-export async function GET(request: Request) {
+const getHandler = async (request: NextRequest, _payload: TokenPayload) => {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -86,10 +89,10 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ POST - Créer un logement avec ses chambres
-export async function POST(request: Request) {
+const postHandler = async (request: NextRequest, _payload: TokenPayload) => {
   try {
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json(
@@ -225,10 +228,10 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
 // ✅ DELETE - Supprimer un logement
-export async function DELETE(request: Request) {
+const deleteHandler = async (request: NextRequest, _payload: TokenPayload) => {
   try {
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json(
@@ -298,4 +301,8 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withAuth(getHandler, ['admin', 'super_admin', 'admin_readonly']);
+export const POST = withAuth(postHandler, ['admin', 'super_admin']);
+export const DELETE = withAuth(deleteHandler, ['admin', 'super_admin']);

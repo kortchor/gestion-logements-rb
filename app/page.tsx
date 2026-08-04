@@ -43,7 +43,7 @@ export default function HomePage() {
       ];
 
   const heroTitle = isAdmin
-    ? `Bonjour ${user.prenom}, tout ce qu'il faut est deja au bon endroit.`
+    ? `Bonjour ${user.prenom}, ravis de vous retrouver.`
     : `Bonjour ${user.prenom}, votre espace est pret.`;
 
   const heroDescription = isAdmin

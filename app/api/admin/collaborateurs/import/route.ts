@@ -7,6 +7,87 @@ import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
 import * as XLSX from 'xlsx';
 
+function isValidDateObject(value: Date): boolean {
+  return Number.isFinite(value.getTime());
+}
+
+function toIsoDate(value: Date): string {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const d = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseExcelDate(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+
+  // Excel serial date (number of days since 1899-12-30)
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed || !parsed.y || !parsed.m || !parsed.d) {
+      throw new Error('Date invalide (numéro Excel non reconnu)');
+    }
+    return `${String(parsed.y).padStart(4, '0')}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+  }
+
+  if (value instanceof Date) {
+    if (!isValidDateObject(value)) {
+      throw new Error('Date invalide');
+    }
+    return toIsoDate(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // dd/mm/yyyy or d/m/yyyy
+    const frMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (frMatch) {
+      const day = Number(frMatch[1]);
+      const month = Number(frMatch[2]);
+      const year = Number(frMatch[3]);
+      const date = new Date(year, month - 1, day);
+      if (
+        !isValidDateObject(date) ||
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+      ) {
+        throw new Error('Date invalide (format jj/mm/aaaa incorrect)');
+      }
+      return toIsoDate(date);
+    }
+
+    // yyyy-mm-dd
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const year = Number(isoMatch[1]);
+      const month = Number(isoMatch[2]);
+      const day = Number(isoMatch[3]);
+      const date = new Date(year, month - 1, day);
+      if (
+        !isValidDateObject(date) ||
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+      ) {
+        throw new Error('Date invalide (format yyyy-mm-dd incorrect)');
+      }
+      return toIsoDate(date);
+    }
+
+    // fallback Date parser
+    const fallback = new Date(trimmed);
+    if (!isValidDateObject(fallback)) {
+      throw new Error('Date invalide (format non reconnu)');
+    }
+    return toIsoDate(fallback);
+  }
+
+  throw new Error('Date invalide (type non reconnu)');
+}
+
 const postHandler = async (
   request: NextRequest,
   payload: TokenPayload
@@ -88,8 +169,41 @@ const postHandler = async (
         const civilite = row['Civilité'] || null;
         const centre_principal = row['Centre principal']?.trim() || null;
         const centre_affectation = row['Centre affectation']?.trim() || null;
-        const date_arrivee = row['Début contrat'] ? new Date(row['Début contrat']).toISOString().split('T')[0] : null;
-        const date_fin_contrat = row['Fin contrat'] ? new Date(row['Fin contrat']).toISOString().split('T')[0] : null;
+        let date_arrivee: string | null = null;
+        let date_fin_contrat: string | null = null;
+
+        try {
+          date_arrivee = parseExcelDate(row['Début contrat']);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : 'Date de début invalide';
+          errors.push({
+            row: i + 2,
+            error: `Début contrat invalide: ${detail}`,
+          });
+          failed++;
+          continue;
+        }
+
+        try {
+          date_fin_contrat = parseExcelDate(row['Fin contrat']);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : 'Date de fin invalide';
+          errors.push({
+            row: i + 2,
+            error: `Fin contrat invalide: ${detail}`,
+          });
+          failed++;
+          continue;
+        }
+
+        if (date_arrivee && date_fin_contrat && date_arrivee > date_fin_contrat) {
+          errors.push({
+            row: i + 2,
+            error: 'Début contrat postérieur à fin contrat',
+          });
+          failed++;
+          continue;
+        }
         const logement_nom = row['Logement']?.trim() || null;
 
         // Valider les données requises

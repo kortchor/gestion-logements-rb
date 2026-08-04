@@ -16,6 +16,7 @@ export default function Header() {
   }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'admin_readonly';
+  const canUseNotifications = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'admin_readonly';
 
   const navItems = [
     { href: '/logements', label: '🏠 Logements' },
@@ -72,7 +73,7 @@ export default function Header() {
 
           {user ? (
             <div className="flex items-center gap-2">
-              <NotificationBell />
+              {canUseNotifications && <NotificationBell />}
               <UserMenu />
             </div>
           ) : (

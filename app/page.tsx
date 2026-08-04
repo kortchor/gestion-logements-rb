@@ -125,21 +125,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="card-soft p-6">
-          <h3 className="text-lg font-bold text-slate-900">Clarté</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Les accès principaux sont visibles dans l’en-tête, les pages prioritaires sont regroupées et l’état courant est indiqué sans ambiguïté.</p>
-        </div>
-        <div className="card-soft p-6">
-          <h3 className="text-lg font-bold text-slate-900">Autonomie</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Les écrans orientent vers l’action: corriger, vérifier, exporter, rafraîchir. L’utilisateur n’a pas besoin d’un mode d’emploi pour commencer.</p>
-        </div>
-        <div className="card-soft p-6">
-          <h3 className="text-lg font-bold text-slate-900">Lisibilité</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">La mise en page utilise davantage d’espace, de contraste et de hiérarchie visuelle pour que les données soient simples à lire et à trier.</p>
-        </div>
-      </section>
     </div>
   );
 }

@@ -17,10 +17,31 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const date_fin = searchParams.get('date_fin');
 
     let sql = `
+      WITH bed_state AS (
+        SELECT
+          l.id,
+          l.numero,
+          l.chambre_id,
+          COALESCE(
+            lo_counts.occupants_count,
+            CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END
+          ) AS occupants_count,
+          CASE
+            WHEN LOWER(TRIM(COALESCE(ch.type_lit, 'simple'))) = 'double' THEN 2
+            ELSE 1
+          END AS capacity
+        FROM lits l
+        JOIN chambres ch ON ch.id = l.chambre_id
+        LEFT JOIN (
+          SELECT lit_id, COUNT(*)::int AS occupants_count
+          FROM lit_occupants
+          GROUP BY lit_id
+        ) lo_counts ON lo_counts.lit_id = l.id
+      )
       SELECT 
-        l.id,
-        l.numero,
-        l.chambre_id,
+        bs.id,
+        bs.numero,
+        bs.chambre_id,
         ch.nom as chambre_nom,
         ch.type_lit,
         ch.logement_id,
@@ -31,10 +52,10 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
         log.type_occupation_effectif as type_occupation,
         log.date_debut_contrat,
         log.date_fin_contrat
-      FROM lits l
-      LEFT JOIN chambres ch ON l.chambre_id = ch.id
+      FROM bed_state bs
+      LEFT JOIN chambres ch ON bs.chambre_id = ch.id
       LEFT JOIN logements log ON ch.logement_id = log.id
-      WHERE l.est_occupe = false
+      WHERE bs.occupants_count < bs.capacity
         AND COALESCE(log.est_actif, true) = true
         AND (log.date_debut_contrat IS NULL OR log.date_debut_contrat <= CURRENT_DATE)
         AND (log.date_fin_contrat IS NULL OR log.date_fin_contrat >= CURRENT_DATE)
@@ -83,7 +104,7 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       paramIndex += 2;
     }
 
-    sql += ` ORDER BY log.ville, log.adresse, ch.nom, l.numero`;
+    sql += ` ORDER BY log.ville, log.adresse, ch.nom, bs.numero`;
 
     const result = await query(sql, params);
     return NextResponse.json({ success: true, data: result.rows });

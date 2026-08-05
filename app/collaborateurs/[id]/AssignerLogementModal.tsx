@@ -56,6 +56,7 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
   const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
   const [selectedLit, setSelectedLit] = useState<number | null>(null);
   const [selectedModele, setSelectedModele] = useState<string>('');
+  const [useYousign, setUseYousign] = useState(true);
   const [participationMensuelle, setParticipationMensuelle] = useState('');
   const [chambrePrivee, setChambrePrivee] = useState(false);
 
@@ -170,8 +171,13 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
   );
 
   const handleAssigner = async () => {
-    if (!selectedLit || !selectedModele || !collaborateur) {
-      setError('Veuillez sélectionner un lit et un modèle de convention.');
+    if (!selectedLit || !collaborateur) {
+      setError('Veuillez sélectionner un lit.');
+      return;
+    }
+
+    if (useYousign && !selectedModele) {
+      setError('Veuillez sélectionner un modèle de convention pour l\'envoi Yousign.');
       return;
     }
 
@@ -182,14 +188,20 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
     try {
       const payload: {
         lit_id: number;
-        modele_convention_id: number;
+        modele_convention_id?: number;
+        utiliser_yousign: boolean;
         chambre_privée: boolean;
         participation_mensuelle?: number;
       } = {
         lit_id: selectedLit,
-        modele_convention_id: parseInt(selectedModele),
+        utiliser_yousign: useYousign,
         chambre_privée: chambrePrivee,
       };
+
+      if (useYousign && selectedModele) {
+        payload.modele_convention_id = parseInt(selectedModele, 10);
+      }
+
       if (participationMensuelle) {
         payload.participation_mensuelle = parseFloat(participationMensuelle);
       }
@@ -200,12 +212,17 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de l\'assignation');
+        throw new Error(responseData.error || 'Erreur lors de l\'assignation');
       }
 
-      setSuccessMessage('Assignation réussie ! La page va se rafraîchir.');
+      const successText = responseData.warning
+        ? `${responseData.message || 'Assignation réussie.'} ⚠️ ${responseData.warning}`
+        : (responseData.message || 'Assignation réussie ! La page va se rafraîchir.');
+
+      setSuccessMessage(successText);
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -379,12 +396,28 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                 <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits libres de la chambre seront assignés au collaborateur.</p>
               </div>
 
+              <div className="bg-gray-50 p-3 rounded border">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useYousign}
+                    onChange={e => setUseYousign(e.target.checked)}
+                    className="w-5 h-5 text-blue-600 rounded"
+                  />
+                  <span className="ml-3 text-sm font-medium">✍️ Envoyer la convention via Yousign</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-8">
+                  Désactivez cette option pour assigner sans signature électronique.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">📄 Modèle de convention</label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   value={selectedModele}
                   onChange={e => setSelectedModele(e.target.value)}
+                  disabled={!useYousign}
                 >
                   {modelesConvention.length === 0 ? (
                     <option>Aucun modèle disponible</option>
@@ -402,7 +435,7 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         <div className="p-6 border-t mt-auto">
           <button
             onClick={handleAssigner}
-            disabled={initialLoading || isSubmitting || !selectedLit || !selectedModele}
+            disabled={initialLoading || isSubmitting || !selectedLit || (useYousign && !selectedModele)}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {isSubmitting ? 'Assignation en cours...' : 'Confirmer l\'assignation'}

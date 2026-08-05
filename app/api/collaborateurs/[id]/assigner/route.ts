@@ -21,6 +21,7 @@ interface AssignmentBody {
   lit_ids?: number[];
   chambre_privée?: boolean;
   modele_convention_id?: string;
+  utiliser_yousign?: boolean;
   participation_mensuelle: number;
   date_debut?: string;
   date_fin?: string;
@@ -31,7 +32,15 @@ interface AssignmentBody {
  * Valide les données d'entrée pour l'assignation et récupère les informations nécessaires.
  */
 async function validateAssignment(client: PoolClient, collaborateurId: number, body: AssignmentBody) {
-  const { lit_id: lit_id_str, lit_ids = [], chambre_privée = false, modele_convention_id: modele_convention_id_str, date_debut, date_fin } = body;
+  const {
+    lit_id: lit_id_str,
+    lit_ids = [],
+    chambre_privée = false,
+    modele_convention_id: modele_convention_id_str,
+    utiliser_yousign = true,
+    date_debut,
+    date_fin,
+  } = body;
 
   if (isNaN(collaborateurId)) {
     return { error: NextResponse.json({ error: 'ID de collaborateur invalide' }, { status: 400 }) };
@@ -43,7 +52,7 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   }
 
   const modele_convention_id = modele_convention_id_str ? parseInt(modele_convention_id_str) : null;
-  if (!modele_convention_id) {
+  if (utiliser_yousign && !modele_convention_id) {
     return { error: NextResponse.json({ error: 'Modèle de convention non sélectionné.' }, { status: 400 }) };
   }
 
@@ -62,7 +71,26 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   let litsAAssigner: number[] = [];
   if (chambre_privée && lit_id) {
     const litsChambreResult = await client.query<{ id: number }>(
-      `SELECT id FROM lits WHERE chambre_id = (SELECT chambre_id FROM lits WHERE id = $1) AND est_occupe = false`,
+      `SELECT lit_rows.id
+       FROM (
+         SELECT
+           l.id,
+           l.chambre_id,
+           CASE
+             WHEN LOWER(TRIM(COALESCE(ch.type_lit, 'simple'))) = 'double' THEN 2
+             ELSE 1
+           END AS capacity,
+           COALESCE(lo_counts.occupants_count, CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END) AS occupants_count
+         FROM lits l
+         JOIN chambres ch ON ch.id = l.chambre_id
+         LEFT JOIN (
+           SELECT lit_id, COUNT(*)::int AS occupants_count
+           FROM lit_occupants
+           GROUP BY lit_id
+         ) lo_counts ON lo_counts.lit_id = l.id
+       ) AS lit_rows
+       WHERE lit_rows.chambre_id = (SELECT chambre_id FROM lits WHERE id = $1)
+         AND lit_rows.occupants_count < lit_rows.capacity`,
       [lit_id]
     );
     litsAAssigner = litsChambreResult.rows.map(row => row.id);
@@ -177,11 +205,14 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
   }
   const lit = litResult.rows[0];
 
-  const modeleResult = await client.query('SELECT contenu FROM modeles_convention WHERE id = $1', [modele_convention_id]);
-  if (modeleResult.rows.length === 0) {
-    return { error: NextResponse.json({ error: 'Modèle de convention non trouvé.' }, { status: 400 }) };
+  let modeleContenu: string | null = null;
+  if (utiliser_yousign) {
+    const modeleResult = await client.query('SELECT contenu FROM modeles_convention WHERE id = $1', [modele_convention_id]);
+    if (modeleResult.rows.length === 0) {
+      return { error: NextResponse.json({ error: 'Modèle de convention non trouvé.' }, { status: 400 }) };
+    }
+    modeleContenu = modeleResult.rows[0].contenu;
   }
-  const modeleContenu = modeleResult.rows[0].contenu;
 
   // 4. Vérifier la règle de mixité (sauf si force_mixite est true)
   if (!lit.mixte_autorise && !body.force_mixite) {
@@ -229,7 +260,8 @@ async function validateAssignment(client: PoolClient, collaborateurId: number, b
       collaborateur,
       lit,
       modeleContenu,
-      modele_convention_id
+      modele_convention_id,
+      utiliser_yousign,
     }
   };
 }
@@ -253,6 +285,7 @@ const assignerHandler = async (
     const body: AssignmentBody = await request.json();
     const participation_mensuelle = body.participation_mensuelle;
     const chambre_privée = body.chambre_privée || false;
+    const utiliserYousign = body.utiliser_yousign !== false;
 
     // ✅ Démarrer la transaction
     await client.query('BEGIN');
@@ -360,111 +393,116 @@ const assignerHandler = async (
     );
     const nouveauBailId = bailResult.rows[0].id;
 
-    // 5. Générer le PDF de la convention
-    const pdfBuffer = await generateConventionPDF({
-      template: modeleContenu,
-      nom: collaborateur.nom,
-      prenom: collaborateur.prenom,
-      email: collaborateur.email,
-      civilite: collaborateur.civilite,
-      adresseLogement: lit.adresse,
-      villeLogement: lit.ville,
-      dateDebut: dateDebut,
-      dateFin: dateFin,
-      numeroContrat: `BAIL-${nouveauBailId}`,
-      descriptionDetaillee: `Logement: ${lit.nom_logement}\nChambre: ${lit.chambre_nom}`,
-      participationMensuelle: participation_mensuelle,
-    });
+    let yousignWarning: string | null = null;
+    let pdfBuffer: Buffer | null = null;
 
-    // 5. Créer une demande de signature via Yousign (avec le PDF généré)
-    logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-init' }, 'Integration Yousign pour la demande de signature');
-    
+    if (utiliserYousign && modeleContenu) {
+      // Générer le PDF uniquement si l'envoi Yousign est demandé.
+      pdfBuffer = await generateConventionPDF({
+        template: modeleContenu,
+        nom: collaborateur.nom,
+        prenom: collaborateur.prenom,
+        email: collaborateur.email,
+        civilite: collaborateur.civilite,
+        adresseLogement: lit.adresse,
+        villeLogement: lit.ville,
+        dateDebut: dateDebut,
+        dateFin: dateFin,
+        numeroContrat: `BAIL-${nouveauBailId}`,
+        descriptionDetaillee: `Logement: ${lit.nom_logement}\nChambre: ${lit.chambre_nom}`,
+        participationMensuelle: participation_mensuelle,
+      });
+    }
+
+    // Créer une demande de signature via Yousign seulement si demandé.
     let yousignRequestId: string | null = null;
     let signatureLink: string | null = null;
 
-    try {
-      const yousignResult = await youSignClient.createSignatureRequest({
-        signerEmail: collaborateur.email,
-        signerName: `${collaborateur.prenom} ${collaborateur.nom}`,
-        documentContent: pdfBuffer,
-        documentName: `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
-        message: `Veuillez signer votre convention de logement chez Les Roches Blanches`,
-      });
+    if (utiliserYousign && pdfBuffer) {
+      logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-init' }, 'Integration Yousign pour la demande de signature');
 
-      if (yousignResult.success && yousignResult.signatureLink) {
-        yousignRequestId = yousignResult.signatureRequestId || null;
-        signatureLink = yousignResult.signatureLink;
-        logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-created' }, 'Demande Yousign creee avec succes');
-        logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-link-generated' }, 'Lien de signature Yousign genere');
+      try {
+        const yousignResult = await youSignClient.createSignatureRequest({
+          signerEmail: collaborateur.email,
+          signerName: `${collaborateur.prenom} ${collaborateur.nom}`,
+          documentContent: pdfBuffer,
+          documentName: `Convention_${collaborateur.nom}_${collaborateur.prenom}.pdf`,
+          message: `Veuillez signer votre convention de logement chez Les Roches Blanches`,
+        });
 
-        // Stocker l'ID de la demande Yousign dans la base de données
+        if (yousignResult.success && yousignResult.signatureLink) {
+          yousignRequestId = yousignResult.signatureRequestId || null;
+          signatureLink = yousignResult.signatureLink;
+          logger.info({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-created' }, 'Demande Yousign creee avec succes');
+
+          try {
+            await client.query(
+              'UPDATE baux SET yousign_request_id = $1 WHERE id = $2',
+              [yousignRequestId, nouveauBailId]
+            );
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Erreur inconnue';
+            logger.warn(
+              { route: '/api/collaborateurs/[id]/assigner', action: 'persist-yousign-request-id', message },
+              'Colonne yousign_request_id non disponible, ignoree'
+            );
+          }
+        } else {
+          yousignWarning = `Yousign indisponible: ${yousignResult.error}`;
+          logger.warn(
+            { route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create', error: yousignResult.error },
+            'Assignation confirmee sans envoi Yousign'
+          );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue';
+        if (err instanceof Error) {
+          logError(err, { route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create' });
+        }
+        yousignWarning = `Yousign indisponible: ${message}`;
+      }
+    }
+
+    // Sauvegarder le PDF (pour archive) uniquement s'il a été généré.
+    if (pdfBuffer) {
+      try {
+        const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
+        if (!fs.existsSync(pdfDir)) {
+          fs.mkdirSync(pdfDir, { recursive: true });
+        }
+        const pdfFilename = `convention-${nouveauBailId}-${Date.now()}.pdf`;
+        pdfPath = path.join(pdfDir, pdfFilename);
+        fs.writeFileSync(pdfPath, pdfBuffer);
+
+        pdfUrl = `/uploads/conventions/${pdfFilename}`;
+
         try {
           await client.query(
-            'UPDATE baux SET yousign_request_id = $1 WHERE id = $2',
-            [yousignRequestId, nouveauBailId]
+            'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
+            [pdfUrl, nouveauBailId]
           );
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Erreur inconnue';
           logger.warn(
-            { route: '/api/collaborateurs/[id]/assigner', action: 'persist-yousign-request-id', message },
-            'Colonne yousign_request_id non disponible, ignoree'
+            { route: '/api/collaborateurs/[id]/assigner', action: 'persist-pdf-url', message },
+            'Colonne pdf_convention_url non disponible, ignoree'
           );
         }
-      } else {
-        logger.error({ route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create', error: yousignResult.error }, 'Erreur Yousign');
-        // ❌ Ne PAS créer de fallback - si Yousign échoue, le bail ne peut pas être signé
-        throw new Error(`Impossible de créer la demande de signature Yousign: ${yousignResult.error}`);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      if (err instanceof Error) {
-        logError(err, { route: '/api/collaborateurs/[id]/assigner', action: 'yousign-create' });
-      }
-      // ❌ Rejeter la transaction si Yousign échoue
-      await client.query('ROLLBACK');
-      return NextResponse.json(
-        { error: `Erreur lors de la création de la demande de signature: ${message}` },
-        { status: 500 }
-      );
-    }
-
-    // 6. Sauvegarder le PDF (pour archive)
-    try {
-      const pdfDir = path.join(process.cwd(), 'public', 'uploads', 'conventions');
-      if (!fs.existsSync(pdfDir)) {
-        fs.mkdirSync(pdfDir, { recursive: true });
-      }
-      const pdfFilename = `convention-${nouveauBailId}-${Date.now()}.pdf`;
-      pdfPath = path.join(pdfDir, pdfFilename);
-      fs.writeFileSync(pdfPath, pdfBuffer);
-
-      pdfUrl = `/uploads/conventions/${pdfFilename}`;
-
-      try {
-        await client.query(
-          'UPDATE baux SET pdf_convention_url = $1 WHERE id = $2',
-          [pdfUrl, nouveauBailId]
-        );
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
         logger.warn(
-          { route: '/api/collaborateurs/[id]/assigner', action: 'persist-pdf-url', message },
-          'Colonne pdf_convention_url non disponible, ignoree'
+          { route: '/api/collaborateurs/[id]/assigner', action: 'save-pdf', message },
+          'Impossible de sauvegarder le PDF'
         );
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      logger.warn(
-        { route: '/api/collaborateurs/[id]/assigner', action: 'save-pdf', message },
-        'Impossible de sauvegarder le PDF'
-      );
     }
 
-    // 7. Envoyer l'email avec le lien Yousign
-    await sendEmail({
-      to: collaborateur.email,
-      subject: `📄 Convention de logement à signer - ${collaborateur.prenom} ${collaborateur.nom}`,
-      html: `
+    // Envoyer l'email avec le lien Yousign uniquement si un lien a été généré.
+    if (signatureLink) {
+      await sendEmail({
+        to: collaborateur.email,
+        subject: `📄 Convention de logement à signer - ${collaborateur.prenom} ${collaborateur.nom}`,
+        html: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -519,7 +557,8 @@ const assignerHandler = async (
         </body>
         </html>
       `,
-    });
+      });
+    }
 
     // ✅ Valider la transaction
     await client.query('COMMIT');
@@ -527,7 +566,12 @@ const assignerHandler = async (
     return NextResponse.json(
       { 
         success: true, 
-        message: 'Lit assigné avec succès. La convention a été envoyée par email avec lien de signature sécurisé.',
+        message: utiliserYousign
+          ? (signatureLink
+            ? 'Lit assigné avec succès. La convention a été envoyée par email avec lien de signature sécurisé.'
+            : 'Lit assigné avec succès. Convention non envoyée via Yousign.')
+          : 'Lit assigné avec succès sans envoi Yousign.',
+        warning: yousignWarning,
         bail: {
           id: nouveauBailId,
           yousignRequestId,

@@ -88,6 +88,74 @@ function parseExcelDate(value: unknown): string | null {
   throw new Error('Date invalide (type non reconnu)');
 }
 
+function parseGenre(value: unknown): 'M' | 'F' | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (['m', 'h', 'homme', 'male', 'masculin'].includes(normalized)) {
+    return 'M';
+  }
+
+  if (['f', 'femme', 'female', 'feminin', 'féminin'].includes(normalized)) {
+    return 'F';
+  }
+
+  return null;
+}
+
+async function findAvailableBedId(client: any, logementId: number): Promise<number | null> {
+  const bedResult = await client.query(
+    `SELECT bed_state.id
+     FROM (
+       SELECT
+         l.id,
+         l.numero,
+         l.chambre_id,
+         CASE
+           WHEN LOWER(TRIM(COALESCE(ch.type_lit, 'simple'))) = 'double' THEN 2
+           ELSE 1
+         END AS capacity,
+         COALESCE(lo_counts.occupants_count, CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END) AS occupants_count
+       FROM lits l
+       JOIN chambres ch ON ch.id = l.chambre_id
+       LEFT JOIN (
+         SELECT lit_id, COUNT(*)::int AS occupants_count
+         FROM lit_occupants
+         GROUP BY lit_id
+       ) lo_counts ON lo_counts.lit_id = l.id
+       WHERE ch.logement_id = $1
+     ) AS bed_state
+     WHERE bed_state.occupants_count < bed_state.capacity
+     ORDER BY bed_state.occupants_count ASC, bed_state.numero ASC
+     LIMIT 1`,
+    [logementId]
+  );
+
+  if (bedResult.rows.length === 0) return null;
+  return Number(bedResult.rows[0].id);
+}
+
+async function syncLitOccupancyState(client: any, litId: number) {
+  await client.query(
+    `WITH current_occupants AS (
+       SELECT collaborateur_id
+       FROM lit_occupants
+       WHERE lit_id = $1
+       ORDER BY created_at
+     )
+     UPDATE lits
+     SET est_occupe = EXISTS(SELECT 1 FROM current_occupants),
+         collaborateur_id = (
+           SELECT collaborateur_id
+           FROM current_occupants
+           LIMIT 1
+         )
+     WHERE id = $1`,
+    [litId]
+  );
+}
+
 const postHandler = async (
   request: NextRequest,
   payload: TokenPayload
@@ -165,7 +233,7 @@ const postHandler = async (
         const prenom = row['Prénom']?.trim();
         const email = row['Email']?.trim().toLowerCase();
         const telephone = row['Téléphone']?.trim() || null;
-        const genre = row['Genre'] === 'M' ? 'M' : 'F';
+        const genre = parseGenre(row['Genre']);
         const civilite = row['Civilité'] || null;
         const centre_principal = row['Centre principal']?.trim() || null;
         const centre_affectation = row['Centre affectation']?.trim() || null;
@@ -227,7 +295,7 @@ const postHandler = async (
           const collaborateurId = checkResult.rows[0].id;
           await client.query(
             `UPDATE collaborateurs 
-             SET nom = $1, prenom = $2, telephone = $3, genre = $4, civilite = $5,
+             SET nom = $1, prenom = $2, telephone = $3, genre = COALESCE($4, genre), civilite = $5,
                  centre_principal = $6, centre_affectation = $7, date_debut_contrat = $8,
                  date_fin_contrat = $9, updated_at = NOW()
              WHERE id = $10`,
@@ -254,24 +322,15 @@ const postHandler = async (
 
             if (logementResult.rows.length > 0) {
               const logementId = logementResult.rows[0].id;
-              const litsResult = await client.query(
-                'SELECT l.id FROM lits l JOIN chambres c ON l.chambre_id = c.id WHERE c.logement_id = $1 LIMIT 1',
-                [logementId]
-              );
-
-              if (litsResult.rows.length > 0) {
-                const litId = litsResult.rows[0].id;
-                const occupancyResult = await client.query(
-                  'SELECT COUNT(*) as count FROM lit_occupants WHERE lit_id = $1',
-                  [litId]
+              const litId = await findAvailableBedId(client, logementId);
+              if (litId) {
+                await client.query(
+                  `INSERT INTO lit_occupants (lit_id, collaborateur_id)
+                   VALUES ($1, $2)
+                   ON CONFLICT (lit_id, collaborateur_id) DO NOTHING`,
+                  [litId, collaborateurId]
                 );
-
-                if (occupancyResult.rows[0].count === 0) {
-                  await client.query(
-                    'INSERT INTO lit_occupants (lit_id, collaborateur_id) VALUES ($1, $2)',
-                    [litId, collaborateurId]
-                  );
-                }
+                await syncLitOccupancyState(client, litId);
               }
             }
           }
@@ -310,17 +369,13 @@ const postHandler = async (
 
             if (logementResult.rows.length > 0) {
               const logementId = logementResult.rows[0].id;
-              const litsResult = await client.query(
-                'SELECT l.id FROM lits l JOIN chambres c ON l.chambre_id = c.id WHERE c.logement_id = $1 LIMIT 1',
-                [logementId]
-              );
-
-              if (litsResult.rows.length > 0) {
-                const litId = litsResult.rows[0].id;
+              const litId = await findAvailableBedId(client, logementId);
+              if (litId) {
                 await client.query(
                   'INSERT INTO lit_occupants (lit_id, collaborateur_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
                   [litId, newCollaborateurId]
                 );
+                await syncLitOccupancyState(client, litId);
               }
             }
           }

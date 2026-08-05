@@ -11,6 +11,7 @@
     "test:dashboard-monthly-cost": "node scripts/test-dashboard-monthly-cost-guard.mjs",
     "test:caution-upload": "node scripts/test-caution-upload-guard.mjs",
     "test:collaborateurs-double-bed": "node scripts/test-collaborateurs-double-bed-guard.mjs",
+    "lits:reconcile": "node scripts/reconcile-lits-occupancy.mjs",
     "verify:monthly-cost": "node scripts/verify-monthly-cost-breakdown.mjs",
     "migrate:etat-lieux:dry": "node scripts/migrate-etat-lieux-photos-to-cloudinary.mjs",
     "migrate:etat-lieux:apply": "node scripts/migrate-etat-lieux-photos-to-cloudinary.mjs --apply",

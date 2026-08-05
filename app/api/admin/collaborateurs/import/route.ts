@@ -5,6 +5,7 @@ import { TokenPayload } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 import * as XLSX from 'xlsx';
 
 function isValidDateObject(value: Date): boolean {
@@ -170,6 +171,7 @@ const postHandler = async (
 
   const client = await pool.connect();
   try {
+    await ensureLitOccupantsTable();
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
     }

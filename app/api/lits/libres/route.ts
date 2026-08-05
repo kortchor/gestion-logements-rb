@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 // Lits libres (non assignés)
 export const GET = withAuth(async (request: NextRequest, payload: TokenPayload) => {
   void request;
   void payload;
   try {
+    await ensureLitOccupantsTable();
     const result = await query(`
       WITH bed_state AS (
         SELECT

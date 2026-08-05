@@ -11,6 +11,7 @@ import path from 'path';
 import { isMatch, parseISO } from 'date-fns';
 import logger, { logError } from '@/lib/logger';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 /**
  * @interface AssignmentBody
@@ -277,6 +278,7 @@ const assignerHandler = async (
   let pdfPath = ''; // Déclaré ici pour la portée
   let pdfUrl = '';
   try {
+    await ensureLitOccupantsTable();
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json({ error: 'CSRF token invalide' }, { status: 403 });
     }

@@ -1,9 +1,11 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 export async function GET(request: NextRequest) {
   try {
+    await ensureLitOccupantsTable();
     const { searchParams } = new URL(request.url);
     const dateDebut = searchParams.get('date_debut');
     const dateFin = searchParams.get('date_fin');

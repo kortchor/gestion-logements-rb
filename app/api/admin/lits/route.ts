@@ -2,9 +2,38 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { withReadAuth } from '@/lib/api-helpers';
 import { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 const getHandler = async () => {
   try {
+    await ensureLitOccupantsTable();
+    await query(`
+      WITH current_occupants AS (
+        SELECT
+          l.id AS lit_id,
+          COALESCE(lo_counts.occupants_count, CASE WHEN l.collaborateur_id IS NOT NULL THEN 1 ELSE 0 END) AS occupants_count,
+          COALESCE(primary_lo.collaborateur_id, l.collaborateur_id) AS primary_collaborateur_id
+        FROM lits l
+        LEFT JOIN (
+          SELECT lit_id, COUNT(*)::int AS occupants_count
+          FROM lit_occupants
+          GROUP BY lit_id
+        ) lo_counts ON lo_counts.lit_id = l.id
+        LEFT JOIN LATERAL (
+          SELECT lo.collaborateur_id
+          FROM lit_occupants lo
+          WHERE lo.lit_id = l.id
+          ORDER BY lo.created_at
+          LIMIT 1
+        ) primary_lo ON true
+      )
+      UPDATE lits l
+      SET est_occupe = (co.occupants_count > 0),
+          collaborateur_id = co.primary_collaborateur_id
+      FROM current_occupants co
+      WHERE l.id = co.lit_id
+    `);
+
     const result = await query(`
       WITH bed_state AS (
         SELECT

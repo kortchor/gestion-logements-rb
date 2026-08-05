@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withReadAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 export const dynamic = 'force-dynamic';
 
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   void payload;
   try {
+    await ensureLitOccupantsTable();
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville');
     const type_lit = searchParams.get('type_lit');

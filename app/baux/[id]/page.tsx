@@ -8,12 +8,9 @@ interface BailDetail {
   date_debut: string;
   date_fin: string;
   participation_mensuelle: number | null;
-  signe: boolean | null;
-  yousign_request_id: string | null;
+  signe?: boolean | null;
+  yousign_request_id?: string | null;
   signature_link: string | null;
-  pdf_convention_url: string | null;
-  montant_caution: number | null;
-  statut_caution: string | null;
   created_at: string;
   nom: string | null;
   prenom: string | null;
@@ -51,34 +48,60 @@ export default async function BailDetailsPage({ params }: { params: Promise<{ id
     );
   }
 
-  const result = await query(
-    `SELECT
-      b.id,
-      b.logement_id,
-      b.collaborateur_id,
-      b.date_debut,
-      b.date_fin,
-      b.participation_mensuelle,
-      b.signe,
-      b.yousign_request_id,
-      b.signature_link,
-      b.pdf_convention_url,
-      b.montant_caution,
-      b.statut_caution,
-      b.created_at,
-      c.nom,
-      c.prenom,
-      c.email,
-      l.nom_logement,
-      l.adresse,
-      l.ville
-    FROM baux b
-    LEFT JOIN collaborateurs c ON c.id = b.collaborateur_id
-    LEFT JOIN logements l ON l.id = b.logement_id
-    WHERE b.id = $1
-    LIMIT 1`,
-    [bailId]
-  );
+  let result;
+  try {
+    result = await query(
+      `SELECT
+        b.id,
+        b.logement_id,
+        b.collaborateur_id,
+        b.date_debut,
+        b.date_fin,
+        b.participation_mensuelle,
+        b.signe,
+        b.yousign_request_id,
+        b.signature_link,
+        b.created_at,
+        c.nom,
+        c.prenom,
+        c.email,
+        l.nom_logement,
+        l.adresse,
+        l.ville
+      FROM baux b
+      LEFT JOIN collaborateurs c ON c.id = b.collaborateur_id
+      LEFT JOIN logements l ON l.id = b.logement_id
+      WHERE b.id = $1
+      LIMIT 1`,
+      [bailId]
+    );
+  } catch {
+    result = await query(
+      `SELECT
+        b.id,
+        b.logement_id,
+        b.collaborateur_id,
+        b.date_debut,
+        b.date_fin,
+        b.participation_mensuelle,
+        NULL::boolean AS signe,
+        NULL::varchar AS yousign_request_id,
+        NULL::varchar AS signature_link,
+        b.created_at,
+        c.nom,
+        c.prenom,
+        c.email,
+        COALESCE(l.nom_logement, l.adresse) AS nom_logement,
+        l.adresse,
+        l.ville
+      FROM baux b
+      LEFT JOIN collaborateurs c ON c.id = b.collaborateur_id
+      LEFT JOIN logements l ON l.id = b.logement_id
+      WHERE b.id = $1
+      LIMIT 1`,
+      [bailId]
+    );
+  }
 
   if (result.rows.length === 0) {
     return (
@@ -138,25 +161,15 @@ export default async function BailDetailsPage({ params }: { params: Promise<{ id
             <p><span className="text-gray-500">Date fin:</span> {formatDate(bail.date_fin)}</p>
             <p><span className="text-gray-500">Participation mensuelle:</span> {formatAmount(bail.participation_mensuelle)}</p>
             <p><span className="text-gray-500">Signe:</span> {bail.signe ? 'Oui' : 'Non'}</p>
-            <p><span className="text-gray-500">Statut caution:</span> {bail.statut_caution || '-'}</p>
-            <p><span className="text-gray-500">Montant caution:</span> {formatAmount(bail.montant_caution)}</p>
             <p><span className="text-gray-500">Cree le:</span> {formatDate(bail.created_at)}</p>
           </div>
 
-          {(bail.signature_link || bail.pdf_convention_url) && (
+          {bail.signature_link && (
             <div className="mt-4 border-t border-gray-100 pt-4 text-sm">
               {bail.signature_link ? (
                 <p>
                   <span className="text-gray-500">Lien signature:</span>{' '}
                   <a href={bail.signature_link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                    Ouvrir
-                  </a>
-                </p>
-              ) : null}
-              {bail.pdf_convention_url ? (
-                <p>
-                  <span className="text-gray-500">Convention PDF:</span>{' '}
-                  <a href={bail.pdf_convention_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
                     Ouvrir
                   </a>
                 </p>

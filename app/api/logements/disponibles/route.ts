@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger, { logError } from '@/lib/logger';
+import { ensureLitOccupantsTable } from '@/lib/lit-occupants-schema';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
   try {
+    await ensureLitOccupantsTable();
     logger.debug({ route: '/api/logements/disponibles' }, 'API /api/logements/disponibles appelee');
 
     // Ne retourner que les logements actifs au sens contrat + statut actif.

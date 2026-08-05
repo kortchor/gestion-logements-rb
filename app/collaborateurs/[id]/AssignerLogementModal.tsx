@@ -56,7 +56,6 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
   const [selectedChambre, setSelectedChambre] = useState<number | null>(null);
   const [selectedLit, setSelectedLit] = useState<number | null>(null);
   const [selectedModele, setSelectedModele] = useState<string>('');
-  const [useYousign, setUseYousign] = useState(true);
   const [participationMensuelle, setParticipationMensuelle] = useState('');
   const [chambrePrivee, setChambrePrivee] = useState(false);
 
@@ -170,13 +169,13 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
     [litsDisponibles, selectedLit]
   );
 
-  const handleAssigner = async () => {
+  const handleAssigner = async (sendWithYousign: boolean) => {
     if (!selectedLit || !collaborateur) {
       setError('Veuillez sélectionner un lit.');
       return;
     }
 
-    if (useYousign && !selectedModele) {
+    if (sendWithYousign && !selectedModele) {
       setError('Veuillez sélectionner un modèle de convention pour l\'envoi Yousign.');
       return;
     }
@@ -194,11 +193,11 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         participation_mensuelle?: number;
       } = {
         lit_id: selectedLit,
-        utiliser_yousign: useYousign,
+        utiliser_yousign: sendWithYousign,
         chambre_privée: chambrePrivee,
       };
 
-      if (useYousign && selectedModele) {
+      if (sendWithYousign && selectedModele) {
         payload.modele_convention_id = parseInt(selectedModele, 10);
       }
 
@@ -396,28 +395,12 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
                 <p className="text-xs text-gray-500 mt-1 ml-8">Si coché, tous les lits libres de la chambre seront assignés au collaborateur.</p>
               </div>
 
-              <div className="bg-gray-50 p-3 rounded border">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useYousign}
-                    onChange={e => setUseYousign(e.target.checked)}
-                    className="w-5 h-5 text-blue-600 rounded"
-                  />
-                  <span className="ml-3 text-sm font-medium">✍️ Envoyer la convention via Yousign</span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1 ml-8">
-                  Désactivez cette option pour assigner sans signature électronique.
-                </p>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">📄 Modèle de convention</label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   value={selectedModele}
                   onChange={e => setSelectedModele(e.target.value)}
-                  disabled={!useYousign}
                 >
                   {modelesConvention.length === 0 ? (
                     <option>Aucun modèle disponible</option>
@@ -433,13 +416,22 @@ export default function AssignerLogementModal({ isOpen, onClose, onSuccess, coll
         </div>
 
         <div className="p-6 border-t mt-auto">
-          <button
-            onClick={handleAssigner}
-            disabled={initialLoading || isSubmitting || !selectedLit || (useYousign && !selectedModele)}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Assignation en cours...' : 'Confirmer l\'assignation'}
-          </button>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              onClick={() => handleAssigner(false)}
+              disabled={initialLoading || isSubmitting || !selectedLit}
+              className="w-full px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-black disabled:opacity-50"
+            >
+              {isSubmitting ? 'Assignation en cours...' : 'Assigner sans convention'}
+            </button>
+            <button
+              onClick={() => handleAssigner(true)}
+              disabled={initialLoading || isSubmitting || !selectedLit || !selectedModele}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Assignation en cours...' : 'Assigner + envoyer via Yousign'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

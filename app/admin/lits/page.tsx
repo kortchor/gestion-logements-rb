@@ -84,7 +84,13 @@ export default function AdminLitsPage() {
     <div className="container mx-auto p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">🛏️ Gestion des lits</h1>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          <a
+            href="/admin/occupations-historique"
+            className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm hover:bg-indigo-200"
+          >
+            📚 Historique occupations
+          </a>
           <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
             ✅ {stats.disponibles} disponibles
           </span>

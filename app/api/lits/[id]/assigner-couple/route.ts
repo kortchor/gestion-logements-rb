@@ -69,7 +69,7 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
     }
 
     // Vérifier que les collaborateurs existent
-    const collab1 = await query('SELECT * FROM collaborateurs WHERE id = $1', [collaborateur1_id]);
+    const collab1 = await query('SELECT id FROM collaborateurs WHERE id = $1', [collaborateur1_id]);
     if (collab1.rows.length === 0) {
       return NextResponse.json(
         { error: 'Collaborateur 1 non trouvé' },
@@ -78,7 +78,7 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
     }
 
     if (collaborateur2_id) {
-      const collab2 = await query('SELECT * FROM collaborateurs WHERE id = $1', [collaborateur2_id]);
+      const collab2 = await query('SELECT id FROM collaborateurs WHERE id = $1', [collaborateur2_id]);
       if (collab2.rows.length === 0) {
         return NextResponse.json(
           { error: 'Collaborateur 2 non trouvé' },

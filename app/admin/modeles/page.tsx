@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 interface Modele {
   id: number;
@@ -12,7 +11,6 @@ interface Modele {
 }
 
 export default function ModelesPage() {
-  const router = useRouter();
   const [modeles, setModeles] = useState<Modele[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);

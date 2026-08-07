@@ -3,16 +3,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth } from '@/lib/api-helpers';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 
 // GET - Récupérer tous les modèles
-const getHandler = async () => {
+const getHandler = async (request: NextRequest) => {
+  const startedAt = Date.now();
   try {
+    const { searchParams } = new URL(request.url);
+    const includeContent = searchParams.get('include_content') === 'true';
+
     const result = await query(`
-      SELECT * FROM modeles_convention
+      SELECT
+        id,
+        nom,
+        description,
+        ${includeContent ? 'contenu,' : ''}
+        est_actif,
+        created_at,
+        updated_at
+      FROM modeles_convention
       WHERE est_actif = true
       ORDER BY nom
     `);
-    return NextResponse.json({ success: true, data: result.rows });
+    const payload = { success: true, data: result.rows };
+    logApiTransferMetrics('/api/admin/modeles', payload, { startedAt });
+    return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/admin/modeles', method: 'GET' });

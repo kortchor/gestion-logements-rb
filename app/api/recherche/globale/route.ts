@@ -40,7 +40,7 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const q = `%${rawQ}%`;
 
     const collaborateursParams: unknown[] = [q];
-    let collaborateursIndex = 2;
+    const collaborateursIndex = 2;
     let collaborateursSql = `
       SELECT
         c.id,

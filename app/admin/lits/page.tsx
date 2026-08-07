@@ -32,7 +32,7 @@ export default function AdminLitsPage() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ export default function AdminLitsPage() {
       } else {
         alert(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       alert('Erreur de connexion');
     }
   }

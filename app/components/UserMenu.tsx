@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useOnClickOutside } from '@/app/hooks/useOnClickOutside';
 import ReportIssueButton from './ReportIssueButton';
 
 export default function UserMenu() {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const { user, loading } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -41,7 +39,6 @@ export default function UserMenu() {
   }
 
   const isSuperAdmin = user.role === 'super_admin';
-  const isAdminOrSuperAdmin = user.role === 'admin' || user.role === 'super_admin';
   const getRoleLabel = () => {
     switch (user.role) {
       case 'super_admin': return '👑 Super Admin';

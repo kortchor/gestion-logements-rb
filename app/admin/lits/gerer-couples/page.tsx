@@ -51,7 +51,6 @@ export default function GererCouplesPage() {
   const [selectedLit, setSelectedLit] = useState<number | null>(null);
   const [collaborateur1, setCollaborateur1] = useState<number | null>(null);
   const [collaborateur2, setCollaborateur2] = useState<number | null>(null);
-  const [loading2, setLoading2] = useState(true);
   const [message, setMessage] = useState('');
 
   const fetchData = async () => {
@@ -79,7 +78,7 @@ export default function GererCouplesPage() {
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
-      setLoading2(false);
+      // no-op
     }
   };
 

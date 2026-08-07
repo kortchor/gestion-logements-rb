@@ -118,7 +118,6 @@ export function getFinBailEmailTemplate({
 export function getConventionEmailTemplate({
   collaborateurNom,
   collaborateurPrenom,
-  collaborateurEmail,
   logementAdresse,
   logementVille,
   dateDebut,
@@ -126,7 +125,6 @@ export function getConventionEmailTemplate({
 }: {
   collaborateurNom: string;
   collaborateurPrenom: string;
-  collaborateurEmail: string;
   logementAdresse: string;
   logementVille: string;
   dateDebut: string;

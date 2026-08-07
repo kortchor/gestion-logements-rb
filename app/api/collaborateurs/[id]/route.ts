@@ -54,7 +54,30 @@ const getCollaborateurHandler = async (
     }
 
     const result = await query(
-      'SELECT * FROM collaborateurs WHERE id = $1',
+      `SELECT
+         id,
+         nom,
+         prenom,
+         email,
+         telephone,
+         genre,
+         civilite,
+         role,
+         est_actif,
+         date_arrivee,
+         date_depart,
+         date_debut_contrat,
+         date_fin_contrat,
+         vehicule,
+         animal,
+         commentaire,
+         centre_principal,
+         centre_affectation,
+         clefs,
+         created_at,
+         updated_at
+       FROM collaborateurs
+       WHERE id = $1`,
       [collaborateurId]
     );
 
@@ -121,7 +144,7 @@ const putCollaborateurHandler = async (
 
     // Récupérer les données actuelles
     const currentResult = await query(
-      'SELECT * FROM collaborateurs WHERE id = $1',
+      'SELECT id, nom, prenom, email, civilite FROM collaborateurs WHERE id = $1',
       [collaborateurId]
     );
 

@@ -34,7 +34,7 @@ export const POST = withAuth(async (request: NextRequest, payload: TokenPayload)
 
     // Vérifier que l'occupant existe
     const occupant = await query(
-      'SELECT * FROM lit_occupants WHERE lit_id = $1 AND collaborateur_id = $2',
+      'SELECT id FROM lit_occupants WHERE lit_id = $1 AND collaborateur_id = $2',
       [id, collaborateur_id]
     );
 

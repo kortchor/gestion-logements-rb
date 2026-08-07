@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
 
@@ -42,7 +42,7 @@ export default function AnomaliesPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAnomalies = async () => {
+  const fetchAnomalies = useCallback(async () => {
     try {
       setPageLoading(true);
       setError(null);
@@ -52,19 +52,27 @@ export default function AnomaliesPage() {
         throw new Error(result.error || 'Erreur lors du chargement des anomalies');
       }
       setData(result.data);
-      setTotals(result.totals || totals);
+      setTotals(result.totals || {
+        logementsIncomplets: 0,
+        logementsSansChambre: 0,
+        chambresSansLit: 0,
+        litsOrphelins: 0,
+        bauxInvalides: 0,
+        litsSurcharges: 0,
+        litsConflits: 0,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de chargement');
     } finally {
       setPageLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (user) {
       fetchAnomalies();
     }
-  }, [user]);
+  }, [user, fetchAnomalies]);
 
   const totalAnomalies = useMemo(
     () => Object.values(totals).reduce((sum, value) => sum + value, 0),

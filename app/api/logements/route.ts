@@ -6,6 +6,7 @@ import { logError } from '@/lib/logger';
 import { logAudit } from '@/lib/audit';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 import {
   deleteEtatLieuxPhotosFromCloudinary,
   normalizeEtatLieuxPhotosForStorage,
@@ -41,14 +42,46 @@ async function ensureLogementsSchema() {
 
 // ✅ GET - Récupérer tous les logements ou un seul avec ?id=
 const getHandler = async (request: NextRequest, _payload: TokenPayload) => {
+  const startedAt = Date.now();
+  void _payload;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const view = (searchParams.get('view') || 'summary').toLowerCase();
+    const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '100', 10), 500));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
     if (id) {
       const result = await query(
         `SELECT 
-          l.*,
+          l.id,
+          l.nom_logement,
+          l.adresse,
+          l.ville,
+          l.type,
+          l.prix_loyer,
+          l.proprietaire,
+          l.contact_proprietaire,
+          l.fournisseur_edf,
+          l.fournisseur_eau,
+          l.fournisseur_gaz,
+          l.nom_assureur,
+          l.assurance,
+          l.assurance_pdf,
+          l.assurance_nom,
+          l.bail_pdf,
+          l.bail_nom,
+          l.etat_lieux_pdf,
+          l.etat_lieux_nom,
+          l.etat_lieux_photos,
+          l.date_debut_contrat,
+          l.date_fin_contrat,
+          l.est_visible,
+          l.mixte_autorise,
+          l.description_detaillee,
+          l.est_actif,
+          l.created_at,
+          l.updated_at,
           COUNT(c.id) as nombre_chambres,
           COALESCE(SUM(c.nombre_lits), 0) as total_lits
          FROM logements l
@@ -65,21 +98,94 @@ const getHandler = async (request: NextRequest, _payload: TokenPayload) => {
         );
       }
       
-      return NextResponse.json({ success: true, data: result.rows[0] });
+      const payload = { success: true, data: result.rows[0] };
+      logApiTransferMetrics('/api/logements', payload, { startedAt });
+      return NextResponse.json(payload);
     }
 
-    const result = await query(`
-      SELECT 
-        l.*,
-        COUNT(c.id) as nombre_chambres,
-        COALESCE(SUM(c.nombre_lits), 0) as total_lits
-      FROM logements l
-      LEFT JOIN chambres c ON l.id = c.logement_id
-      GROUP BY l.id
-      ORDER BY l.id
-    `);
-    
-    return NextResponse.json({ success: true, data: result.rows });
+    const listQuery = view === 'full'
+      ? `SELECT 
+          l.id,
+          l.nom_logement,
+          l.adresse,
+          l.ville,
+          l.type,
+          l.prix_loyer,
+          l.proprietaire,
+          l.contact_proprietaire,
+          l.fournisseur_edf,
+          l.fournisseur_eau,
+          l.fournisseur_gaz,
+          l.nom_assureur,
+          l.assurance,
+          l.assurance_pdf,
+          l.assurance_nom,
+          l.bail_pdf,
+          l.bail_nom,
+          l.etat_lieux_pdf,
+          l.etat_lieux_nom,
+          l.etat_lieux_photos,
+          l.date_debut_contrat,
+          l.date_fin_contrat,
+          l.est_visible,
+          l.mixte_autorise,
+          l.description_detaillee,
+          l.est_actif,
+          l.created_at,
+          l.updated_at,
+          COUNT(c.id) as nombre_chambres,
+          COALESCE(SUM(c.nombre_lits), 0) as total_lits
+        FROM logements l
+        LEFT JOIN chambres c ON l.id = c.logement_id
+        GROUP BY l.id
+        ORDER BY l.id`
+      : `SELECT 
+          l.id,
+          l.nom_logement,
+          l.adresse,
+          l.ville,
+          l.type,
+          l.prix_loyer,
+          l.est_visible,
+          l.mixte_autorise,
+          l.est_actif,
+          l.date_debut_contrat,
+          l.date_fin_contrat,
+          COUNT(c.id) as nombre_chambres,
+          COALESCE(SUM(c.nombre_lits), 0) as total_lits
+        FROM logements l
+        LEFT JOIN chambres c ON l.id = c.logement_id
+        GROUP BY l.id
+        ORDER BY l.id`;
+
+    const [result, countResult] = await Promise.all([
+      query(`${listQuery} LIMIT $1 OFFSET $2`, [limit, offset]),
+      query(
+        `SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE COALESCE(est_actif, true) = true)::int AS actifs
+         FROM logements`
+      ),
+    ]);
+
+    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+    const actifs = parseInt(countResult.rows[0]?.actifs || '0', 10);
+    const payload = {
+      success: true,
+      data: result.rows,
+      counts: {
+        total,
+        actifs,
+      },
+      pagination: {
+        limit,
+        offset,
+        total,
+        hasMore: offset + result.rows.length < total,
+      },
+    };
+    logApiTransferMetrics('/api/logements', payload, { startedAt });
+    return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/logements', method: 'GET' });
@@ -93,6 +199,7 @@ const getHandler = async (request: NextRequest, _payload: TokenPayload) => {
 
 // ✅ POST - Créer un logement avec ses chambres
 const postHandler = async (request: NextRequest, _payload: TokenPayload) => {
+  void _payload;
   try {
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json(
@@ -232,6 +339,7 @@ const postHandler = async (request: NextRequest, _payload: TokenPayload) => {
 
 // ✅ DELETE - Supprimer un logement
 const deleteHandler = async (request: NextRequest, _payload: TokenPayload) => {
+  void _payload;
   try {
     if (!verifyCsrfMiddleware(request)) {
       return NextResponse.json(

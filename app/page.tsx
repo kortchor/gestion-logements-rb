@@ -37,6 +37,15 @@ export default function HomePage() {
         { href: '/recherche', title: 'Recherche globale', description: 'Retrouver un logement, un lit ou un collaborateur.' },
         { href: '/admin/anomalies', title: 'Anomalies à corriger', description: 'Identifier les données à revoir en priorité.' },
         { href: '/admin/modeles', title: 'Modèles', description: 'Ouvrir les conventions et documents prêts à l’emploi.' },
+        ...(isSuperAdmin
+          ? [
+              {
+                href: '/admin/perf/db-health',
+                title: 'Monitoring DB',
+                description: 'Verifier les index, scans et la sante PostgreSQL en direct.',
+              },
+            ]
+          : []),
       ]
     : [
         { href: '/mon-espace', title: 'Mon espace', description: 'Consulter votre logement et l’état des lieux.' },

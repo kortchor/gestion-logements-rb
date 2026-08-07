@@ -3,7 +3,7 @@
 import { useAuth } from '@/app/context/AuthContext';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -66,21 +66,13 @@ interface ParticipationsGroup {
   totalCoutHotel: number;
 }
 
-interface BasicActiveEntity {
-  est_actif?: boolean;
-}
-
-interface Bail {
-  date_debut: string;
-  date_fin: string;
-}
-
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [costData, setCostData] = useState<CostData | null>(null);
   const [costByCenter, setCostByCenter] = useState<CostByCenter[]>([]);
   const [participations, setParticipations] = useState<Participation[]>([]);
+  const [participationsLoading, setParticipationsLoading] = useState(true);
   const [coutTotalParticipations, setCoutTotalParticipations] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
   const [costsLoading, setCostsLoading] = useState(true);
@@ -93,18 +85,10 @@ export default function DashboardPage() {
         setStatsLoading(true);
         setError('');
 
-        const [logementsRes, collaborateursRes, bauxRes, costsRes, costsByCenterRes, participationsRes] = await Promise.all([
-          fetch('/api/logements').catch(err => {
-            console.error('Erreur logements:', err);
-            return new Response(JSON.stringify([]), { status: 500 });
-          }),
-          fetch('/api/collaborateurs').catch(err => {
-            console.error('Erreur collaborateurs:', err);
-            return new Response(JSON.stringify([]), { status: 500 });
-          }),
-          fetch('/api/baux').catch(err => {
-            console.error('Erreur baux:', err);
-            return new Response(JSON.stringify({ baux: [] }), { status: 500 });
+        const [statsRes, costsRes, costsByCenterRes] = await Promise.all([
+          fetch('/api/dashboard/stats').catch(err => {
+            console.error('Erreur statistiques dashboard:', err);
+            return new Response(JSON.stringify({ success: false }), { status: 500 });
           }),
           fetch('/api/dashboard/costs').catch(err => {
             console.error('Erreur coûts mensuels:', err);
@@ -114,41 +98,15 @@ export default function DashboardPage() {
             console.error('Erreur coûts par centre:', err);
             return new Response(JSON.stringify({ success: false }), { status: 500 });
           }),
-          fetch('/api/dashboard/costs?type=participations').catch(err => {
-            console.error('Erreur participations:', err);
-            return new Response(JSON.stringify({ success: false }), { status: 500 });
-          }),
         ]);
 
-        // Gérer les réponses avec try-catch
-        let logements: BasicActiveEntity[] = [];
-        let collaborateurs: BasicActiveEntity[] = [];
-        let baux: Bail[] = [];
-        const costs = null;
-        const costsByCenter: CostByCenter[] = [];
-
         try {
-          const logementsData = await logementsRes.json();
-          logements = logementsData.data || logementsData || [];
+          const statsResponse = await statsRes.json();
+          if (statsResponse.success && statsResponse.data) {
+            setStats(statsResponse.data);
+          }
         } catch (e) {
-          console.error('Erreur parsing logements:', e);
-          logements = [];
-        }
-
-        try {
-          const collaborateursData = await collaborateursRes.json();
-          collaborateurs = collaborateursData.data || collaborateursData || [];
-        } catch (e) {
-          console.error('Erreur parsing collaborateurs:', e);
-          collaborateurs = [];
-        }
-
-        try {
-          const bauxData = await bauxRes.json();
-          baux = bauxData.baux || bauxData.data || [];
-        } catch (e) {
-          console.error('Erreur parsing baux:', e);
-          baux = [];
+          console.error('Erreur parsing statistiques dashboard:', e);
         }
 
         try {
@@ -169,36 +127,6 @@ export default function DashboardPage() {
           console.error('Erreur parsing coûts par centre:', e);
         }
 
-        try {
-          const participationsResponse = await participationsRes.json();
-          if (participationsResponse.success && Array.isArray(participationsResponse.data)) {
-            setParticipations(participationsResponse.data);
-            setCoutTotalParticipations(participationsResponse.coutTotal || 0);
-          }
-        } catch (e) {
-          console.error('Erreur parsing participations:', e);
-        }
-
-        // Calculer les baux en cours
-        const bauxEncours = baux.filter((b) => {
-          try {
-            const now = new Date();
-            const debut = new Date(b.date_debut);
-            const fin = new Date(b.date_fin);
-            return debut <= now && now <= fin;
-          } catch {
-            return false;
-          }
-        }).length;
-
-        setStats({
-          totalLogements: Array.isArray(logements) ? logements.length : 0,
-          logementActifs: Array.isArray(logements) ? logements.filter((l) => l.est_actif !== false).length : 0,
-          totalCollaborateurs: Array.isArray(collaborateurs) ? collaborateurs.length : 0,
-          collaborateursActifs: Array.isArray(collaborateurs) ? collaborateurs.filter((c) => c.est_actif !== false).length : 0,
-          baux: Array.isArray(baux) ? baux.length : 0,
-          bauxEncours,
-        });
       } catch (err) {
         console.error('Erreur dashboard:', err);
         setError('Erreur lors du chargement des statistiques. Veuillez rafraîchir la page.');
@@ -209,8 +137,29 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchParticipations = async () => {
+      try {
+        setParticipationsLoading(true);
+        const response = await fetch('/api/dashboard/costs?type=participations').catch(err => {
+          console.error('Erreur participations:', err);
+          return new Response(JSON.stringify({ success: false }), { status: 500 });
+        });
+
+        const payload = await response.json();
+        if (payload.success && Array.isArray(payload.data)) {
+          setParticipations(payload.data);
+          setCoutTotalParticipations(payload.coutTotal || 0);
+        }
+      } catch (e) {
+        console.error('Erreur parsing participations:', e);
+      } finally {
+        setParticipationsLoading(false);
+      }
+    };
+
     if (user) {
       fetchData();
+      fetchParticipations();
     }
   }, [user]);
 
@@ -561,7 +510,11 @@ export default function DashboardPage() {
               )}
 
               {/* Tableau des participations */}
-              {participations.length > 0 && (
+              {participationsLoading ? (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <div className="animate-pulse h-24 rounded bg-gray-100" />
+                </div>
+              ) : participations.length > 0 ? (
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="p-6 border-b border-gray-200 flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -666,7 +619,7 @@ export default function DashboardPage() {
                     </table>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>

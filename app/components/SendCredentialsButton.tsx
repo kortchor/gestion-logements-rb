@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface SendCredentialsButtonProps {
   collaborateurId: number;
@@ -19,7 +18,6 @@ export default function SendCredentialsButton({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
 
   const handleSend = async () => {
     const nomComplet = `${collaborateurPrenom || ''} ${collaborateurNom || ''}`.trim() || 'ce collaborateur';
@@ -43,7 +41,7 @@ export default function SendCredentialsButton({
       } else {
         setError(data.error || 'Erreur lors de l\'envoi');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);

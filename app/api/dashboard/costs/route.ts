@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 
 let dashboardCostsSchemaChecked = false;
 
@@ -16,11 +17,22 @@ async function ensureDashboardCostsSchema() {
     ADD COLUMN IF NOT EXISTS centre_analytique VARCHAR(255)
   `);
 
+  await query('CREATE INDEX IF NOT EXISTS idx_logements_active_contract_dates ON logements(est_actif, date_debut_contrat, date_fin_contrat)');
+  await query('CREATE INDEX IF NOT EXISTS idx_logements_active_loyer ON logements(est_actif, prix_loyer)');
+  await query('CREATE INDEX IF NOT EXISTS idx_baux_active_period ON baux(date_debut, date_fin)');
+  await query('CREATE INDEX IF NOT EXISTS idx_baux_collab_logement ON baux(collaborateur_id, logement_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_chambres_logement_id ON chambres(logement_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lits_chambre_id ON lits(chambre_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lits_collaborateur_id ON lits(collaborateur_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lit_occupants_lit_id ON lit_occupants(lit_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lit_occupants_collaborateur_id ON lit_occupants(collaborateur_id)');
+
   dashboardCostsSchemaChecked = true;
 }
 
 // Loyer total = ce que l'hôtel paye aux propriétaires chaque mois
 const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
+  const startedAt = Date.now();
   void request;
   void payload;
   try {
@@ -75,13 +87,15 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const totalLoyer = parseFloat(result.rows[0]?.total_loyer || 0);
 
-    return NextResponse.json({ 
+    const responsePayload = { 
       success: true, 
       data: {
         totalCoutMois: totalLoyer,
         mois: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
       }
-    });
+    };
+    logApiTransferMetrics('/api/dashboard/costs?type=monthly', responsePayload, { startedAt });
+    return NextResponse.json(responsePayload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/dashboard/costs', section: 'monthly' });
@@ -92,6 +106,7 @@ const monthlyHandler = async (request: NextRequest, payload: TokenPayload) => {
 
 // Coût par centre analytique = (loyer / nb_lits_du_logement) puis partage par nb_occupants_du_lit
 const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPayload) => {
+  const startedAt = Date.now();
   void request;
   void payload;
   try {
@@ -179,7 +194,9 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
       nombre_collaborateurs: parseInt(row.nb_collaborateurs || 0),
     }));
 
-    return NextResponse.json({ success: true, data });
+    const responsePayload = { success: true, data };
+    logApiTransferMetrics('/api/dashboard/costs?type=by-center', responsePayload, { startedAt });
+    return NextResponse.json(responsePayload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/dashboard/costs', section: 'by-center' });
@@ -190,12 +207,21 @@ const byAnalyticalCenterHandler = async (request: NextRequest, payload: TokenPay
 
 // Tableau des participations : coût hôtel basé sur coût par lit puis partage par occupants du lit
 const participationsHandler = async (request: NextRequest, payload: TokenPayload) => {
+  const startedAt = Date.now();
   void request;
   void payload;
   try {
     await ensureDashboardCostsSchema();
 
-    const result = await query(`
+    const { searchParams } = new URL(request.url);
+    const rawLimit = searchParams.get('limit');
+    const rawOffset = searchParams.get('offset');
+    const usePagination = rawLimit !== null || rawOffset !== null;
+    const limit = Math.max(1, Math.min(parseInt(rawLimit || '200', 10), 500));
+    const offset = Math.max(0, parseInt(rawOffset || '0', 10));
+    const paginationClause = usePagination ? ' LIMIT $1 OFFSET $2' : '';
+
+    const participationsQuery = `
       WITH active_baux AS (
         SELECT DISTINCT b.collaborateur_id, b.logement_id, b.participation_mensuelle, b.date_debut, b.date_fin
         FROM baux b
@@ -273,8 +299,26 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
       LEFT JOIN occupants_per_lit opl ON opl.lit_id = aa.lit_id
       WHERE COALESCE(log.est_actif, true) = true
         AND COALESCE(log.prix_loyer, 0) > 0
-      ORDER BY centre_analytique, c.nom, c.prenom
-    `);
+      ORDER BY centre_analytique, c.nom, c.prenom${paginationClause}
+    `;
+
+    const [result, totalCountResult] = await Promise.all([
+      query(participationsQuery, usePagination ? [limit, offset] : []),
+      usePagination
+        ? query(
+            `SELECT COUNT(*)::int AS total
+             FROM (
+               SELECT DISTINCT b.collaborateur_id, b.logement_id
+               FROM baux b
+               JOIN logements log ON log.id = b.logement_id
+               WHERE b.date_debut <= CURRENT_DATE
+                 AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
+                 AND COALESCE(log.est_actif, true) = true
+                 AND COALESCE(log.prix_loyer, 0) > 0
+             ) AS active_pairs`
+          )
+        : Promise.resolve({ rows: [{ total: 0 }] }),
+    ]);
 
     const data = result.rows.map(row => ({
       collaborateur: row.collaborateur,
@@ -290,7 +334,22 @@ const participationsHandler = async (request: NextRequest, payload: TokenPayload
     // Coût total = somme des coûts hôtel par collaborateur
     const coutTotal = data.reduce((sum, row) => sum + row.cout_hotel, 0);
 
-    return NextResponse.json({ success: true, data, coutTotal });
+    const total = parseInt(totalCountResult.rows[0]?.total || '0', 10);
+    const responsePayload = {
+      success: true,
+      data,
+      coutTotal,
+      pagination: usePagination
+        ? {
+            limit,
+            offset,
+            total,
+            hasMore: offset + data.length < total,
+          }
+        : undefined,
+    };
+    logApiTransferMetrics('/api/dashboard/costs?type=participations', responsePayload, { startedAt });
+    return NextResponse.json(responsePayload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/dashboard/costs', section: 'participations' });

@@ -142,7 +142,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
         } else {
           setError('Logement non trouvé');
         }
-      } catch (err) {
+      } catch {
         setError('Erreur de chargement');
       }
     }
@@ -296,7 +296,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
       } else {
         setError(result.error || 'Erreur lors de la modification');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);
@@ -507,6 +507,7 @@ export default function ModifierLogement({ params }: { params: Promise<{ id: str
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {etatLieuxPhotos.map((photo, index) => (
                     <div key={`${photo.name}-${index}`} className="relative overflow-hidden rounded border border-gray-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={photo.url}
                         alt={`Etat des lieux ${index + 1}`}

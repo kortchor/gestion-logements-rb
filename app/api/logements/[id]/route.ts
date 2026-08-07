@@ -31,7 +31,37 @@ const getHandler = async (
     }
 
     const result = await query(
-      `SELECT * FROM logements WHERE id = $1`,
+      `SELECT
+         id,
+         nom_logement,
+         adresse,
+         ville,
+         type,
+         prix_loyer,
+         proprietaire,
+         contact_proprietaire,
+         fournisseur_edf,
+         fournisseur_eau,
+         fournisseur_gaz,
+         nom_assureur,
+         assurance,
+         assurance_pdf,
+         assurance_nom,
+         bail_pdf,
+         bail_nom,
+         etat_lieux_pdf,
+         etat_lieux_nom,
+         etat_lieux_photos,
+         date_debut_contrat,
+         date_fin_contrat,
+         est_visible,
+         mixte_autorise,
+         description_detaillee,
+         est_actif,
+         created_at,
+         updated_at
+       FROM logements
+       WHERE id = $1`,
       [logementId]
     );
 

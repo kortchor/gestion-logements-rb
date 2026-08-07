@@ -22,6 +22,9 @@ export default function LogementsTableauPage() {
   const { user, loading } = useAuth();
   const [data, setData] = useState<LogementGrouped[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [pagination, setPagination] = useState({ limit: 25, offset: 0, total: 0, hasMore: false });
+  const [counts, setCounts] = useState({ total: 0, actifs: 0, villes: 0 });
   const [filter, setFilter] = useState<{ ville?: string; actif?: boolean }>({
     actif: true,
   });
@@ -32,6 +35,8 @@ export default function LogementsTableauPage() {
       const params = new URLSearchParams();
       if (filter.ville) params.append('ville', filter.ville);
       if (filter.actif !== undefined) params.append('actif', filter.actif.toString());
+      params.append('limit', String(pagination.limit));
+      params.append('offset', String(pagination.offset));
 
       const response = await fetch(
         `/api/admin/logements/tableau?${params.toString()}`,
@@ -41,21 +46,87 @@ export default function LogementsTableauPage() {
 
       if (result.success) {
         setData(result.data);
+        setCounts({
+          total: Number(result?.counts?.total || 0),
+          actifs: Number(result?.counts?.actifs || 0),
+          villes: Number(result?.counts?.villes || 0),
+        });
+        if (result?.pagination) {
+          setPagination((prev) => ({
+            ...prev,
+            total: Number(result.pagination.total || 0),
+            hasMore: Boolean(result.pagination.hasMore),
+          }));
+        }
       }
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
       setPageLoading(false);
     }
-  }, [filter]);
+  }, [filter, pagination.limit, pagination.offset]);
 
   useEffect(() => {
     fetchLogements();
   }, [fetchLogements]);
 
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, offset: 0 }));
+  }, [filter.actif, filter.ville, pagination.limit]);
+
+  const mergeGroupedData = (existing: LogementGrouped[], next: LogementGrouped[]) => {
+    const map = new Map<string, LogementGrouped['logements']>();
+
+    for (const group of existing) {
+      map.set(group.ville, [...group.logements]);
+    }
+
+    for (const group of next) {
+      const current = map.get(group.ville) || [];
+      map.set(group.ville, [...current, ...group.logements]);
+    }
+
+    return Array.from(map.entries())
+      .map(([ville, logements]) => ({ ville, logements }))
+      .sort((a, b) => a.ville.localeCompare(b.ville, 'fr', { sensitivity: 'base' }));
+  };
+
   const handleExport = async () => {
     try {
-      const csvContent = data
+      setExporting(true);
+
+      const params = new URLSearchParams();
+      if (filter.ville) params.append('ville', filter.ville);
+      if (filter.actif !== undefined) params.append('actif', filter.actif.toString());
+
+      const exportLimit = 200;
+      let exportOffset = 0;
+      let hasMore = true;
+      let fullData: LogementGrouped[] = [];
+
+      while (hasMore) {
+        params.set('limit', String(exportLimit));
+        params.set('offset', String(exportOffset));
+
+        const response = await fetch(`/api/admin/logements/tableau?${params.toString()}`, {
+          credentials: 'include',
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result?.error || 'Erreur lors de la récupération des données d\'export');
+        }
+
+        fullData = mergeGroupedData(fullData, result.data || []);
+        hasMore = Boolean(result?.pagination?.hasMore);
+        exportOffset += exportLimit;
+
+        if (!result?.pagination) {
+          hasMore = false;
+        }
+      }
+
+      const csvContent = fullData
         .map((group) => {
           let csv = `\n${group.ville.toUpperCase()}\n`;
           csv += 'Logement,Adresse,Occupants,Contributions,Dates baux,Lits,Libres,Statut\n';
@@ -98,6 +169,8 @@ export default function LogementsTableauPage() {
     } catch (error) {
       console.error('Erreur export:', error);
       alert('Erreur lors de l\'export');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -113,19 +186,21 @@ export default function LogementsTableauPage() {
     );
   }
 
-  const totalLogements = data.reduce((sum, group) => sum + group.logements.length, 0);
-  const totalOccupants = data.reduce(
+  const pageLogements = data.reduce((sum, group) => sum + group.logements.length, 0);
+  const pageOccupants = data.reduce(
     (sum, group) =>
       sum +
       group.logements.reduce((subSum, log) => subSum + log.nombre_occupants, 0),
     0
   );
-  const totalLibres = data.reduce(
+  const pageLibres = data.reduce(
     (sum, group) =>
       sum +
       group.logements.reduce((subSum, log) => subSum + log.lits_libres, 0),
     0
   );
+  const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
+  const totalPages = pagination.total > 0 ? Math.ceil(pagination.total / pagination.limit) : 1;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,26 +215,27 @@ export default function LogementsTableauPage() {
         {/* Statistiques */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-500 text-sm">Total Logements</p>
-            <p className="text-3xl font-bold text-blue-600">{totalLogements}</p>
+            <p className="text-gray-500 text-sm">Logements (filtre)</p>
+            <p className="text-3xl font-bold text-blue-600">{counts.total}</p>
+            <p className="text-xs text-gray-500 mt-1">Affichés: {pageLogements}</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-500 text-sm">Occupants</p>
-            <p className="text-3xl font-bold text-green-600">{totalOccupants}</p>
+            <p className="text-gray-500 text-sm">Occupants (page)</p>
+            <p className="text-3xl font-bold text-green-600">{pageOccupants}</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-500 text-sm">Lits Libres</p>
-            <p className="text-3xl font-bold text-orange-600">{totalLibres}</p>
+            <p className="text-gray-500 text-sm">Lits libres (page)</p>
+            <p className="text-3xl font-bold text-orange-600">{pageLibres}</p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-500 text-sm">Villes</p>
-            <p className="text-3xl font-bold text-purple-600">{data.length}</p>
+            <p className="text-gray-500 text-sm">Villes (filtre)</p>
+            <p className="text-3xl font-bold text-purple-600">{counts.villes || data.length}</p>
           </div>
         </div>
 
         {/* Filtres et Export */}
         <div className="bg-white p-6 rounded-lg shadow-md mb-6 flex justify-between items-center">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Filtrer par statut
@@ -179,13 +255,32 @@ export default function LogementsTableauPage() {
                 <option value="tous">Tous</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Taille de page
+              </label>
+              <select
+                value={pagination.limit}
+                onChange={(e) => {
+                  const nextLimit = parseInt(e.target.value, 10);
+                  setPagination((prev) => ({ ...prev, limit: nextLimit, offset: 0 }));
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
 
           <button
             onClick={handleExport}
+            disabled={exporting || pageLoading}
             className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
-            📥 Exporter en CSV
+            {exporting ? 'Export en cours...' : '📥 Exporter en CSV'}
           </button>
         </div>
 
@@ -315,6 +410,28 @@ export default function LogementsTableauPage() {
             Aucun logement trouvé
           </div>
         )}
+
+        <div className="mt-6 bg-white p-4 rounded-lg shadow flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Page {currentPage} / {totalPages} - {counts.total} logements au total
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPagination((prev) => ({ ...prev, offset: Math.max(0, prev.offset - prev.limit) }))}
+              disabled={pageLoading || pagination.offset === 0}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50"
+            >
+              Precedent
+            </button>
+            <button
+              onClick={() => setPagination((prev) => ({ ...prev, offset: prev.offset + prev.limit }))}
+              disabled={pageLoading || !pagination.hasMore}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50"
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
 
         <div className="mt-8">
           <Link

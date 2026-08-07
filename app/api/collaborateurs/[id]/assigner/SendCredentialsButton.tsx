@@ -19,7 +19,7 @@ export default function SendCredentialsButton({
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const handleClick = async () => {
-    if (!confirm(`Voulez-vous vraiment envoyer les identifiants à ${collaborateurPrenom} ${collaborateurNom} ?`)) {
+    if (!confirm(`Voulez-vous vraiment envoyer les identifiants à ${collaborateurPrenom} ${collaborateurNom} (${collaborateurEmail}) ?`)) {
       return;
     }
 
@@ -32,7 +32,7 @@ export default function SendCredentialsButton({
       });
       const data = await response.json();
       setResult(data);
-    } catch (error) {
+    } catch {
       setResult({ success: false, message: 'Erreur de connexion.' });
     } finally {
       setLoading(false);

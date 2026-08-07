@@ -54,7 +54,7 @@ export default function ChangePasswordPage() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);

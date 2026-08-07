@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuth } from '@/app/context/AuthContext';
-import DeleteCollaborateurButton from '@/app/components/DeleteCollaborateurButton';
 import CautionManager from '@/app/components/CautionManager'; // ✅ CORRECTION: Import manquant
 import SendCredentialsButton from '@/app/components/SendCredentialsButton';
 import AssignerLogementModal from './AssignerLogementModal';
@@ -50,26 +49,21 @@ interface Bail {
   justificatif_caution_url: string | null;
 }
 
-// ✅ Définir des types précis pour les logements disponibles
-interface LitDisponible {
-  id: number;
-  numero: string | number;
-  est_occupe: boolean;
-}
-
-interface ChambreDisponible {
-  id: number;
-  nom: string;
-  lits: LitDisponible[];
-}
-
-interface LogementDisponible {
-  id: number;
-  nom_logement: string;
-  adresse: string;
-  ville: string;
-  type_occupation_effectif: string | null;
-  chambres: ChambreDisponible[];
+interface BauxResponse {
+  success: boolean;
+  data: Bail[];
+  totalsByStatus?: {
+    total: number;
+    actifs: number;
+    historique: number;
+  };
+  pagination?: {
+    limit: number;
+    offset: number;
+    total: number;
+    hasMore: boolean;
+  };
+  error?: string;
 }
 
 export default function CollaborateurPage() {
@@ -78,6 +72,9 @@ export default function CollaborateurPage() {
   const [collaborateur, setCollaborateur] = useState<Collaborateur | null>(null);
   const [bauxActifs, setBauxActifs] = useState<Bail[]>([]);
   const [bauxHistorique, setBauxHistorique] = useState<Bail[]>([]);
+  const [bauxTotals, setBauxTotals] = useState({ total: 0, actifs: 0, historique: 0 });
+  const [historiquePagination, setHistoriquePagination] = useState({ limit: 20, offset: 0, total: 0, hasMore: false });
+  const [loadingMoreHistorique, setLoadingMoreHistorique] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -102,9 +99,10 @@ export default function CollaborateurPage() {
       setError(null); // Réinitialiser les erreurs précédentes
 
       // ✅ CORRECTION : Réactivation de la récupération des baux en parallèle
-      const [collaborateurResponse, bauxResponse] = await Promise.all([
+      const [collaborateurResponse, bauxActifsResponse, bauxHistoriqueResponse] = await Promise.all([
         fetch(`/api/collaborateurs/${collaborateurId}`), // ✅ CORRECTION: Utiliser la route API spécifique et sécurisée
-        fetch(`/api/collaborateurs/${collaborateurId}/baux`)
+        fetch(`/api/collaborateurs/${collaborateurId}/baux?status=actif`),
+        fetch(`/api/collaborateurs/${collaborateurId}/baux?status=historique&limit=20&offset=0`),
       ]);
 
       // Traiter la réponse du collaborateur
@@ -114,24 +112,29 @@ export default function CollaborateurPage() {
       }
       setCollaborateur(collaborateurResult.data);
 
-      // Traiter la réponse des baux
-      const bauxResult = await bauxResponse.json();
-      if (!bauxResponse.ok || !bauxResult.success) {
-        throw new Error(bauxResult.error || 'Impossible de charger les informations des baux.');
+      const bauxActifsResult: BauxResponse = await bauxActifsResponse.json();
+      if (!bauxActifsResponse.ok || !bauxActifsResult.success) {
+        throw new Error(bauxActifsResult.error || 'Impossible de charger les baux actifs.');
       }
 
-      // Comparaison de dates insensible au fuseau horaire
-      const today = new Date();
-      const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const bauxHistoriqueResult: BauxResponse = await bauxHistoriqueResponse.json();
+      if (!bauxHistoriqueResponse.ok || !bauxHistoriqueResult.success) {
+        throw new Error(bauxHistoriqueResult.error || 'Impossible de charger les baux historiques.');
+      }
 
-      // Un bail clôturé aujourd'hui (date_fin = today) doit aussi passer en historique
-      const actifs = bauxResult.data.filter((bail: Bail) => {
-        return bail.date_fin && bail.date_fin.split('T')[0] > todayDateString;
+      setBauxActifs(Array.isArray(bauxActifsResult.data) ? bauxActifsResult.data : []);
+      setBauxHistorique(Array.isArray(bauxHistoriqueResult.data) ? bauxHistoriqueResult.data : []);
+      setBauxTotals({
+        total: Number(bauxHistoriqueResult?.totalsByStatus?.total || 0),
+        actifs: Number(bauxHistoriqueResult?.totalsByStatus?.actifs || 0),
+        historique: Number(bauxHistoriqueResult?.totalsByStatus?.historique || 0),
       });
-      const historique = bauxResult.data.filter((bail: Bail) => 
-        !bail.date_fin || bail.date_fin.split('T')[0] <= todayDateString);
-      setBauxActifs(actifs);
-      setBauxHistorique(historique);
+      setHistoriquePagination({
+        limit: Number(bauxHistoriqueResult?.pagination?.limit || 20),
+        offset: Number(bauxHistoriqueResult?.pagination?.offset || 0),
+        total: Number(bauxHistoriqueResult?.pagination?.total || bauxHistoriqueResult?.totalsByStatus?.historique || 0),
+        hasMore: Boolean(bauxHistoriqueResult?.pagination?.hasMore),
+      });
 
     } catch (err) {
       console.error('Erreur:', err);
@@ -186,6 +189,38 @@ export default function CollaborateurPage() {
     // Optionnel: afficher un message de succès global
   };
 
+  const handleLoadMoreHistorique = async () => {
+    if (!collaborateurId || loadingMoreHistorique || !historiquePagination.hasMore) {
+      return;
+    }
+
+    try {
+      setLoadingMoreHistorique(true);
+      const nextOffset = bauxHistorique.length;
+      const response = await fetch(
+        `/api/collaborateurs/${collaborateurId}/baux?status=historique&limit=${historiquePagination.limit}&offset=${nextOffset}`
+      );
+      const result: BauxResponse = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Impossible de charger plus de baux historiques.');
+      }
+
+      const nextData = Array.isArray(result.data) ? result.data : [];
+      setBauxHistorique((prev) => [...prev, ...nextData]);
+      setHistoriquePagination((prev) => ({
+        ...prev,
+        offset: Number(result?.pagination?.offset ?? nextOffset),
+        total: Number(result?.pagination?.total ?? prev.total),
+        hasMore: Boolean(result?.pagination?.hasMore),
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors du chargement de l\'historique');
+    } finally {
+      setLoadingMoreHistorique(false);
+    }
+  };
+
   const getRoleLabel = (role: string) => {
     const roles: Record<string, string> = {
       super_admin: 'Super Admin',
@@ -203,21 +238,6 @@ export default function CollaborateurPage() {
     ) : (
       <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
         Inactif
-      </span>
-    );
-  };
-
-  const getCautionStatusBadge = (statut: string) => {
-    const statusMap: Record<string, { label: string; color: string }> = {
-      en_attente: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
-      versee: { label: 'Versée', color: 'bg-green-100 text-green-800' },
-      restituee: { label: 'Restituée', color: 'bg-blue-100 text-blue-800' },
-      retenue: { label: 'Retenue', color: 'bg-red-100 text-red-800' },
-    };
-    const status = statusMap[statut] || { label: statut, color: 'bg-gray-100 text-gray-800' };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-        {status.label}
       </span>
     );
   };
@@ -469,7 +489,7 @@ export default function CollaborateurPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Baux actifs ({bauxActifs.length})
+                    Baux actifs ({bauxTotals.actifs || bauxActifs.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('historique')}
@@ -479,7 +499,7 @@ export default function CollaborateurPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Historique ({bauxHistorique.length})
+                    Historique ({bauxTotals.historique || bauxHistorique.length})
                   </button>
                 </div>
               </div>
@@ -512,6 +532,18 @@ export default function CollaborateurPage() {
                     {/* D'autres détails du bail peuvent être ajoutés ici */}
                   </div>
                 ))}
+
+                {activeTab === 'historique' && historiquePagination.hasMore && (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      onClick={handleLoadMoreHistorique}
+                      disabled={loadingMoreHistorique}
+                      className="px-4 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {loadingMoreHistorique ? 'Chargement...' : 'Charger plus'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

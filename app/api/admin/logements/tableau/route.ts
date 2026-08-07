@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { logError } from '@/lib/logger';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 
 let logementsTableauSchemaChecked = false;
 
@@ -26,6 +27,15 @@ async function ensureLogementsTableauSchema() {
       UNIQUE(lit_id, collaborateur_id)
     )
   `);
+
+  await query('CREATE INDEX IF NOT EXISTS idx_logements_ville ON logements(ville)');
+  await query('CREATE INDEX IF NOT EXISTS idx_logements_est_actif ON logements(est_actif)');
+  await query('CREATE INDEX IF NOT EXISTS idx_chambres_logement_id ON chambres(logement_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lits_chambre_id ON lits(chambre_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lits_collaborateur_id ON lits(collaborateur_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lit_occupants_lit_id ON lit_occupants(lit_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_lit_occupants_collaborateur_id ON lit_occupants(collaborateur_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_baux_collab_logement_active ON baux(collaborateur_id, logement_id, date_debut, date_fin)');
 
   logementsTableauSchemaChecked = true;
 }
@@ -65,6 +75,7 @@ interface GroupedVille {
 }
 
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
+  const startedAt = Date.now();
   if (!['admin', 'super_admin'].includes(payload.role)) {
     return NextResponse.json({ error: 'Accès refusé. Administrateur requis.' }, { status: 403 });
   }
@@ -75,6 +86,11 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville');
     const actif = searchParams.get('actif');
+    const rawLimit = searchParams.get('limit');
+    const rawOffset = searchParams.get('offset');
+    const usePagination = rawLimit !== null || rawOffset !== null;
+    const limit = Math.max(1, Math.min(parseInt(rawLimit || '100', 10), 500));
+    const offset = Math.max(0, parseInt(rawOffset || '0', 10));
 
     let whereClause = '';
     const params: unknown[] = [];
@@ -97,7 +113,11 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       paramIndex++;
     }
 
-    const logementsResult = await query(
+    const paginationClause = usePagination ? ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}` : '';
+    const logementsParams = usePagination ? [...params, limit, offset] : params;
+
+    const [logementsResult, countResult] = await Promise.all([
+      query(
       `SELECT
         log.id,
         COALESCE(NULLIF(TRIM(log.nom_logement), ''), log.adresse) as nom_logement,
@@ -112,38 +132,61 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
       LEFT JOIN lit_occupants lo ON l.id = lo.lit_id
       ${whereClause}
       GROUP BY log.id, log.nom_logement, log.adresse, log.ville, log.est_actif
-      ORDER BY log.ville, log.nom_logement`,
-      params
-    );
+      ORDER BY log.ville, log.nom_logement${paginationClause}`,
+      logementsParams
+      ),
+      query(
+        `SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE COALESCE(log.est_actif, true) = true)::int AS actifs,
+          COUNT(DISTINCT COALESCE(log.ville, 'Non renseignée'))::int AS villes
+         FROM logements log
+         ${whereClause}`,
+        params
+      ),
+    ]);
 
     const logementRows = logementsResult.rows as LogementRow[];
     const logementIds = logementRows.map((l) => l.id);
     let occupants: OccupantRow[] = [];
 
     if (logementIds.length > 0) {
-      const placeholders = logementIds.map((_, i) => `$${i + 1}`).join(',');
       const occupantsResult = await query(
-        `SELECT DISTINCT
-          c.logement_id,
+        `WITH occupant_links AS (
+          SELECT
+            ch.logement_id,
+            l.collaborateur_id
+          FROM chambres ch
+          JOIN lits l ON l.chambre_id = ch.id
+          WHERE ch.logement_id = ANY($1::int[])
+            AND l.collaborateur_id IS NOT NULL
+
+          UNION
+
+          SELECT
+            ch.logement_id,
+            lo.collaborateur_id
+          FROM chambres ch
+          JOIN lits l ON l.chambre_id = ch.id
+          JOIN lit_occupants lo ON lo.lit_id = l.id
+          WHERE ch.logement_id = ANY($1::int[])
+        )
+        SELECT DISTINCT
+          ol.logement_id,
           col.id,
           col.prenom,
           col.nom,
           COALESCE(b.participation_mensuelle, 0) as participation,
           b.date_debut,
           b.date_fin
-        FROM chambres c
-        LEFT JOIN lits l ON c.id = l.chambre_id
-        LEFT JOIN collaborateurs col ON (l.collaborateur_id = col.id OR col.id IN (
-          SELECT collaborateur_id FROM lit_occupants WHERE lit_id = l.id
-        ))
+        FROM occupant_links ol
+        JOIN collaborateurs col ON col.id = ol.collaborateur_id
         LEFT JOIN baux b ON col.id = b.collaborateur_id
-          AND c.logement_id = b.logement_id
+          AND ol.logement_id = b.logement_id
           AND b.date_debut <= CURRENT_DATE
           AND COALESCE(b.date_fin, CURRENT_DATE + INTERVAL '10 years') >= CURRENT_DATE
-        WHERE c.logement_id IN (${placeholders})
-        AND col.id IS NOT NULL
-        ORDER BY c.logement_id, col.nom, col.prenom`,
-        logementIds
+        ORDER BY ol.logement_id, col.nom, col.prenom`,
+        [logementIds]
       );
       occupants = occupantsResult.rows as OccupantRow[];
     }
@@ -181,7 +224,28 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     grouped.sort((a, b) => a.ville.localeCompare(b.ville));
 
-    return NextResponse.json({ success: true, data: grouped });
+    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+    const actifs = parseInt(countResult.rows[0]?.actifs || '0', 10);
+    const villes = parseInt(countResult.rows[0]?.villes || '0', 10);
+    const responsePayload = {
+      success: true,
+      data: grouped,
+      counts: {
+        total,
+        actifs,
+        villes,
+      },
+      pagination: usePagination
+        ? {
+            limit,
+            offset,
+            total,
+            hasMore: offset + logementRows.length < total,
+          }
+        : undefined,
+    };
+    logApiTransferMetrics('/api/admin/logements/tableau', responsePayload, { startedAt });
+    return NextResponse.json(responsePayload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/admin/logements/tableau', method: 'GET' });

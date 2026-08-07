@@ -34,6 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Evite un appel reseau a chaque navigation interne une fois l'utilisateur charge.
+      if (user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const response = await fetch('/api/auth/me');
         if (response.ok) {
@@ -50,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
     loadUserFromCookies();
-  }, [pathname]); // ✅ Ré-exécuter si le chemin change
+  }, [pathname, user]); // recharge si aucun user en memoire
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' }); // Appelle l'API pour supprimer le cookie

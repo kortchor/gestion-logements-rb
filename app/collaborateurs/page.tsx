@@ -180,7 +180,7 @@ export default async function CollaborateursPage() {
 
       <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-900">
         <p className="text-sm">
-          <span className="font-semibold">Import Excel disponible:</span> utilisez le bouton "📥 Importer" pour charger une liste complète,
+          <span className="font-semibold">Import Excel disponible:</span> utilisez le bouton &quot;📥 Importer&quot; pour charger une liste complète,
           puis ouvrez chaque fiche collaborateur pour compléter les spécificités (logement, dates, commentaires, etc.).
         </p>
       </div>

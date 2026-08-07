@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type TouchEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react';
 
 interface EtatLieuxGalleryProps {
   photos: string[];
@@ -25,15 +25,15 @@ export default function EtatLieuxGallery({
     setIsFullscreen(false);
   };
 
-  const goPrev = () => {
+  const goPrev = useCallback(() => {
     if (activeIndex === null) return;
     setActiveIndex((activeIndex - 1 + photos.length) % photos.length);
-  };
+  }, [activeIndex, photos.length]);
 
-  const goNext = () => {
+  const goNext = useCallback(() => {
     if (activeIndex === null) return;
     setActiveIndex((activeIndex + 1) % photos.length);
-  };
+  }, [activeIndex, photos.length]);
 
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.changedTouches[0]?.clientX ?? null);
@@ -86,7 +86,7 @@ export default function EtatLieuxGallery({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeIndex, photos.length]);
+  }, [activeIndex, goPrev, goNext]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -120,6 +120,7 @@ export default function EtatLieuxGallery({
               className="group relative overflow-hidden rounded-lg border border-slate-200 shadow-sm transition hover:shadow-md"
               title={`Voir la photo ${index + 1}`}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={url}
                 alt={`Photo etat des lieux ${index + 1}`}
@@ -180,6 +181,7 @@ export default function EtatLieuxGallery({
           )}
 
           <div ref={imageContainerRef} className="max-h-[88vh] max-w-6xl overflow-hidden rounded-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photos[activeIndex]}
               alt={`Photo etat des lieux ${activeIndex + 1}`}
@@ -213,6 +215,7 @@ export default function EtatLieuxGallery({
                       }`}
                       title={`Aller a la photo ${index + 1}`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={url}
                         alt={`Miniature etat des lieux ${index + 1}`}

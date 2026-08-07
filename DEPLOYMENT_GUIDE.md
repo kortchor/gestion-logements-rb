@@ -49,7 +49,7 @@ curl https://gestion-logements-rb.vercel.app/api/logements/monthly-cost?year=202
 ✅ Ajout des champs `date_debut_contrat` et `date_fin_contrat` au formulaire
 ✅ Auto-création des chambres et lits lors de la création d'un logement
 ✅ Endpoint monthly-cost corrigé pour afficher tous les logements actifs
-✅ Documentation complète dans CORRECTIONS_APPLIQUEES.md
+✅ Documentation consolidée dans CAHIER_DES_CHARGES_SERVICES_EXTERNES.md
 
 ## Variables d'environnement requises
 

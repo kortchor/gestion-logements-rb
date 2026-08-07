@@ -27,8 +27,6 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
     centre_affectation: '',
   });
 
-  const genres = ['F', 'M'];
-
   useEffect(() => {
     async function fetchCollaborateur() {
       try {
@@ -60,8 +58,8 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
         } else {
           setError('Collaborateur non trouvé');
         }
-      } catch (err) {
-        console.error('Erreur:', err);
+      } catch (error) {
+        console.error('Erreur:', error);
         setError('Erreur de chargement');
       }
     }
@@ -102,7 +100,7 @@ export default function ModifierCollaborateur({ params }: { params: Promise<{ id
           : '';
         setError(details ? `${result.error || 'Données invalides'}: ${details}` : (result.error || 'Erreur lors de la modification'));
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);

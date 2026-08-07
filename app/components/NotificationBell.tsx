@@ -23,6 +23,7 @@ export default function NotificationBell() {
 
   const fetchNotifications = async () => {
     try {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const response = await fetch('/api/notifications?non_lues=true&limit=20');
       
       const data = await response.json();
@@ -39,7 +40,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 120000);
     return () => clearInterval(interval);
   }, []);
 
@@ -72,8 +73,19 @@ export default function NotificationBell() {
 
   const toutMarquerCommeLu = async () => {
     const nonLuesIds = notifications.filter((n) => !n.est_lue).map((n) => n.id);
-    for (const id of nonLuesIds) {
-      await marquerCommeLue(id);
+    if (nonLuesIds.length === 0) return;
+
+    try {
+      await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: nonLuesIds }),
+      });
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, est_lue: true })));
+      setNonLues(0);
+    } catch (error) {
+      console.error('Erreur:', error);
     }
   };
 

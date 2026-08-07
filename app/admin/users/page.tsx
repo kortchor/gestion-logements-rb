@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface User {
   id: number;
@@ -14,7 +13,6 @@ interface User {
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,7 +51,7 @@ export default function AdminUsersPage() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoading(false);
@@ -86,7 +84,7 @@ export default function AdminUsersPage() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     } finally {
       setLoading(false);
@@ -107,7 +105,7 @@ export default function AdminUsersPage() {
       } else {
         setError(data.error || 'Erreur');
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion');
     }
   };
@@ -136,7 +134,7 @@ export default function AdminUsersPage() {
       } else {
         alert(data.error || '❌ Erreur lors de l\'envoi');
       }
-    } catch (err) {
+    } catch {
       alert('❌ Erreur de connexion');
     }
   };

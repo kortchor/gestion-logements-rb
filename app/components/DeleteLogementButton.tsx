@@ -35,7 +35,7 @@ export default function DeleteLogementButton({ logementId, logementAdresse }: De
         const data = await response.json();
         alert(data.error || 'Erreur lors de la suppression');
       }
-    } catch (error) {
+    } catch {
       alert('Erreur de connexion');
     } finally {
       setLoading(false);

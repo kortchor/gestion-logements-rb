@@ -2,12 +2,13 @@
 
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import NotificationBell from './NotificationBell';
 import UserMenu from './UserMenu';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const pathname = usePathname();
 
   // Ne pas afficher le header sur la page de login
@@ -25,6 +26,7 @@ export default function Header() {
     { href: '/dashboard', label: '📊 Dashboard' },
     ...(user?.role !== 'admin_readonly' ? [{ href: '/admin/anomalies', label: '⚠️ Anomalies' }] : []),
     ...(user?.role === 'super_admin' ? [{ href: '/admin/audit-trail', label: '📋 Suivi des actions' }] : []),
+    ...(user?.role === 'super_admin' ? [{ href: '/admin/perf/db-health', label: '🧠 DB Health' }] : []),
     { href: '/admin/modeles', label: '📄 Modèles' },
   ];
 
@@ -35,7 +37,14 @@ export default function Header() {
       <nav className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-4">
           <Link href="/" className="flex items-center gap-3 rounded-2xl px-2 py-1 transition-colors hover:bg-slate-100" title="Accueil">
-            <img src="/images/les-roches-blanches-logo-gold-5et.png" alt="Les Roches Blanches" className="h-11 w-auto" />
+            <Image
+              src="/images/les-roches-blanches-logo-gold-5et.png"
+              alt="Les Roches Blanches"
+              width={176}
+              height={44}
+              priority
+              className="h-11 w-auto"
+            />
             <div className="hidden sm:block">
               <div className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Gestion</div>
               <div className="text-sm font-bold text-slate-900">Logements</div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
 
@@ -34,7 +34,7 @@ export default function AuditTrailPage() {
     end_date?: string;
   }>({});
 
-  const buildFilterParams = () => {
+  const buildFilterParams = useCallback(() => {
     const params = new URLSearchParams();
     if (filter.entity_type) params.append('entity_type', filter.entity_type);
     if (filter.action) params.append('action', filter.action);
@@ -42,9 +42,9 @@ export default function AuditTrailPage() {
     if (filter.start_date) params.append('start_date', filter.start_date);
     if (filter.end_date) params.append('end_date', filter.end_date);
     return params;
-  };
+  }, [filter]);
 
-  const fetchAuditTrail = async () => {
+  const fetchAuditTrail = useCallback(async () => {
     try {
       setPageLoading(true);
       setError(null);
@@ -73,11 +73,11 @@ export default function AuditTrailPage() {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [buildFilterParams, page, pageSize]);
 
   useEffect(() => {
     fetchAuditTrail();
-  }, [page, filter]);
+  }, [fetchAuditTrail]);
 
   const handleExportCsv = async () => {
     try {

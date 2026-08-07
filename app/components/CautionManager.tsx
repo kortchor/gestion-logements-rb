@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -48,7 +48,7 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
     motif_retenue: '',
   });
 
-  const fetchCaution = async () => {
+  const fetchCaution = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/baux/${bailId}/caution`);
@@ -68,12 +68,12 @@ export default function CautionManager({ bailId, onUpdate }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [bailId]);
 
   // Charger les données de la caution
   useEffect(() => {
     fetchCaution();
-  }, [bailId]);
+  }, [fetchCaution]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -548,6 +548,7 @@ export default function NouveauLogement() {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {etatLieuxPhotos.map((photo, index) => (
                     <div key={`${photo.name}-${index}`} className="relative overflow-hidden rounded border border-gray-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={photo.url}
                         alt={`Etat des lieux ${index + 1}`}

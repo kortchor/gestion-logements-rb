@@ -4,12 +4,14 @@ import { withAuth } from '@/lib/api-helpers';
 import { TokenPayload } from '@/lib/auth';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import { logError } from '@/lib/logger';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Récupérer les notifications
 const getHandler = async (request: NextRequest, payload: TokenPayload) => {
   void payload;
+  const startedAt = Date.now();
   try {
     const { searchParams } = new URL(request.url);
     const uniquementNonLues = searchParams.get('non_lues') === 'true';
@@ -40,7 +42,9 @@ const getHandler = async (request: NextRequest, payload: TokenPayload) => {
 
     const result = await query(sql, [limit]);
     
-    return NextResponse.json({ success: true, data: result.rows });
+    const responsePayload = { success: true, data: result.rows };
+    logApiTransferMetrics('/api/notifications', responsePayload, { startedAt });
+    return NextResponse.json(responsePayload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/notifications', method: 'GET' });
@@ -61,7 +65,19 @@ const putHandler = async (request: NextRequest, payload: TokenPayload) => {
     }
 
     const body = await request.json();
-    const { id } = body;
+    const id = body?.id;
+    const ids = Array.isArray(body?.ids)
+      ? body.ids.map((value: unknown) => parseInt(String(value), 10)).filter((value: number) => Number.isInteger(value))
+      : [];
+
+    if (ids.length > 0) {
+      await query(
+        'UPDATE notifications SET est_lue = true WHERE id = ANY($1::int[])',
+        [ids]
+      );
+
+      return NextResponse.json({ success: true, updated: ids.length });
+    }
 
     if (!id) {
       return NextResponse.json(

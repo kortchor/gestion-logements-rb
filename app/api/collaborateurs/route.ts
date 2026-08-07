@@ -4,6 +4,7 @@ import { createCollaborateurSchema } from '@/lib/validation';
 import { verifyCsrfMiddleware } from '@/lib/csrf';
 import logger, { logError } from '@/lib/logger';
 import { logAudit } from '@/lib/audit';
+import { logApiTransferMetrics } from '@/lib/api-transfer-metrics';
 
 let collaborateursSchemaChecked = false;
 
@@ -47,9 +48,12 @@ function toNullableDate(value: unknown): string | null {
 
 // ✅ GET - Récupérer tous les collaborateurs ou un seul avec ?id=
 export async function GET(request: Request) {
+  const startedAt = Date.now();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '100', 10), 500));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
     let queryText = `
       SELECT 
@@ -71,12 +75,44 @@ export async function GET(request: Request) {
       queryText += ' WHERE c.id = $1';
       queryParams.push(id);
     } else {
-      queryText += ' ORDER BY c.id';
+      queryText += ' ORDER BY c.id LIMIT $1 OFFSET $2';
+      queryParams.push(limit);
+      queryParams.push(offset);
     }
 
-    const result = await query(queryText, queryParams);
-    
-    return NextResponse.json({ success: true, data: result.rows });
+    const [result, countResult] = await Promise.all([
+      query(queryText, queryParams),
+      id
+        ? Promise.resolve({ rows: [{ total: 1, actifs: 0 }] })
+        : query(
+            `SELECT
+              COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE COALESCE(est_actif, true) = true)::int AS actifs
+             FROM collaborateurs`
+          ),
+    ]);
+
+    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+    const actifs = parseInt(countResult.rows[0]?.actifs || '0', 10);
+    const payload = {
+      success: true,
+      data: result.rows,
+      counts: {
+        total,
+        actifs,
+      },
+      pagination: id
+        ? undefined
+        : {
+            limit,
+            offset,
+            total,
+            hasMore: offset + result.rows.length < total,
+          },
+    };
+    logApiTransferMetrics('/api/collaborateurs', payload, { startedAt });
+
+    return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof Error) {
       logError(error, { route: '/api/collaborateurs', method: 'GET' });
